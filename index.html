@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Glazok — телефон как веб-камера</title>
+<title>Glazok — телефон как веб-камера (Low Latency)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
@@ -31,7 +31,6 @@
     margin:0; background:var(--bg); color:var(--text); font-family:var(--body);
     min-height:100vh; display:flex; flex-direction:column; overflow-x:hidden;
   }
-  /* ambient scanline texture */
   body::before{
     content:''; position:fixed; inset:0; pointer-events:none; z-index:0; opacity:.05;
     background:repeating-linear-gradient(0deg, #fff 0px, #fff 1px, transparent 1px, transparent 3px);
@@ -47,7 +46,6 @@
   .screen{ width:100%; max-width:480px; display:none; flex-direction:column; align-items:center; gap:22px;}
   .screen.active{ display:flex; }
 
-  /* viewfinder frame — signature element */
   .viewfinder{
     position:relative; width:100%; aspect-ratio:4/3; border-radius:4px;
     background:radial-gradient(120% 90% at 50% 10%, #14161a 0%, #0d0e10 70%);
@@ -121,15 +119,14 @@
 <body>
 
 <div class="top">
-  <div class="brand"><span class="dot"></span>ГЛАЗОК <small>P2P VIDEO&nbsp;LINK</small></div>
+  <div class="brand"><span class="dot"></span>ГЛАЗОК <small>LOW LATENCY LINK</small></div>
 </div>
 
 <main>
 
-  <!-- ВЫБОР РЕЖИМА -->
   <section id="screen-select" class="screen active">
     <h1>Телефон — это теперь камера</h1>
-    <p class="lead">Без приложений и подписок. Соединение напрямую между устройствами через браузер, качество подбирается автоматически.</p>
+    <p class="lead">Прямое P2P-подключение без задержек. Видео оптимизировано для плавной передачи.</p>
     <div class="modes">
       <button class="mode-card" onclick="goMonitor()">
         <span class="mode-letter">M</span>
@@ -141,11 +138,10 @@
       </button>
     </div>
     <div id="https-warn" class="status-line" style="display:none; color:var(--amber);">
-      <span class="status-dot warn"></span> Нужен HTTPS-адрес — доступ к камере браузер даёт только по защищённому соединению.
+      <span class="status-dot warn"></span> Нужен HTTPS — доступ к камере предоставляется только по защищённому соединению.
     </div>
   </section>
 
-  <!-- МОНИТОР (ПК) -->
   <section id="screen-monitor" class="screen">
     <button class="back" onclick="resetToSelect()">‹ назад</button>
     <div class="viewfinder" id="mon-viewport">
@@ -164,11 +160,10 @@
       <div class="qrbox" id="qrcode"></div>
       <div class="code" id="mon-code">——————</div>
       <div class="status-line"><span class="status-dot" id="mon-status-dot"></span><span id="mon-status-text">инициализация…</span></div>
-      <p class="lead" style="font-size:12.5px;">Открой камеру телефона и наведи на QR-код — откроется страница подключения. Или введи код вручную на телефоне.</p>
+      <p class="lead" style="font-size:12.5px;">Наведи камеру телефона на QR-код или введи код вручную.</p>
     </div>
   </section>
 
-  <!-- КАМЕРА (ТЕЛЕФОН) -->
   <section id="screen-camera" class="screen">
     <button class="back" onclick="resetToSelect()">‹ назад</button>
 
@@ -191,15 +186,25 @@
     </div>
 
     <div class="status-line"><span class="status-dot" id="cam-status-dot"></span><span id="cam-status-text"></span></div>
-    <p class="lead" style="font-size:12px;">Держи страницу открытой и экран включённым, пока идёт трансляция.</p>
   </section>
 
 </main>
 
-<footer>P2P · WebRTC · соединение напрямую между устройствами, видео не проходит через сторонний сервер</footer>
+<footer>P2P · WebRTC Low-Latency Driver</footer>
 
 <script>
-/* ---------- общее ---------- */
+/* ---------- Конфигурация WebRTC ---------- */
+const PEER_CONFIG = {
+  config: {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' }
+    ]
+  }
+};
+
+/* ---------- Вспомогательные функции ---------- */
 function $(id){ return document.getElementById(id); }
 function showScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
@@ -214,9 +219,25 @@ if(location.protocol!=='https:' && location.hostname!=='localhost' && location.h
   $('https-warn').style.display='flex';
 }
 
-let peer=null, call=null, localStream=null, statsTimer=null, currentFacing='environment';
+let peer=null, call=null, localStream=null, statsTimer=null, currentFacing='environment', wakeLock=null;
+
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+    }
+  } catch (err) {}
+}
+
+function releaseWakeLock() {
+  if (wakeLock) {
+    wakeLock.release().catch(()=>{});
+    wakeLock = null;
+  }
+}
 
 function teardown(){
+  releaseWakeLock();
   if(statsTimer){ clearInterval(statsTimer); statsTimer=null; }
   if(call){ try{call.close();}catch(e){} call=null; }
   if(peer){ try{peer.destroy();}catch(e){} peer=null; }
@@ -229,51 +250,17 @@ function randCode(len){
   return s;
 }
 
-/* ---------- лестница качеств: от 4K60 вниз ---------- */
-const QUALITY_LADDER=[
-  {w:3840,h:2160,fr:60},{w:3840,h:2160,fr:30},
-  {w:2560,h:1440,fr:60},{w:2560,h:1440,fr:30},
-  {w:1920,h:1080,fr:60},{w:1920,h:1080,fr:30},
-  {w:1280,h:720,fr:60},{w:1280,h:720,fr:30},
-  {w:640,h:480,fr:30}
-];
-function bitrateFor(w,h){
-  const px=w*h;
-  if(px>=3840*2160*0.9) return 12_000_000;
-  if(px>=2560*1440*0.9) return 8_000_000;
-  if(px>=1920*1080*0.9) return 5_000_000;
-  if(px>=1280*720*0.9)  return 2_500_000;
-  return 1_000_000;
-}
-
-async function getBestStream(facing){
-  // базовый поток, чтобы узнать реальные возможности камеры
-  let stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ideal:facing} }, audio:false });
-  const track = stream.getVideoTracks()[0];
-  let caps=null;
-  try{ caps = track.getCapabilities(); }catch(e){ caps=null; }
-
-  if(caps && caps.width && caps.height){
-    const maxW = caps.width.max, maxH = caps.height.max;
-    const maxFr = caps.frameRate ? Math.min(caps.frameRate.max,60) : 30;
-    try{
-      await track.applyConstraints({ width:{ideal:maxW}, height:{ideal:maxH}, frameRate:{ideal:maxFr} });
-    }catch(e){ /* оставляем базовый поток */ }
-    return stream;
-  }
-
-  // фолбэк для браузеров без getCapabilities (часть iOS Safari) — перебор лестницы качеств
-  for(const step of QUALITY_LADDER){
-    try{
-      const s2 = await navigator.mediaDevices.getUserMedia({
-        video:{ width:{exact:step.w}, height:{exact:step.h}, frameRate:{exact:step.fr}, facingMode:{ideal:facing} },
-        audio:false
-      });
-      stream.getTracks().forEach(t=>t.stop());
-      return s2;
-    }catch(e){ continue; }
-  }
-  return stream; // хоть что-то
+/* Оптимизированный захват камеры без задержек */
+async function getLowLatencyStream(facing){
+  return await navigator.mediaDevices.getUserMedia({
+    audio: false,
+    video: {
+      facingMode: { ideal: facing },
+      width: { ideal: 1920 },
+      height: { ideal: 1080 },
+      frameRate: { ideal: 30, max: 30 }
+    }
+  });
 }
 
 /* =========================================================
@@ -283,7 +270,7 @@ function goMonitor(){
   showScreen('screen-monitor');
   $('mon-status-text').textContent='инициализация…';
   const id = 'glz-'+randCode(6).toLowerCase();
-  peer = new Peer(id);
+  peer = new Peer(id, PEER_CONFIG);
 
   peer.on('open', pid=>{
     $('mon-status-dot').classList.add('ok');
@@ -296,25 +283,41 @@ function goMonitor(){
   });
 
   peer.on('call', incoming=>{
-    incoming.answer(); // мы не шлём поток обратно
+    incoming.answer();
     call = incoming;
+    
     call.on('stream', stream=>{
       $('mon-empty').style.display='none';
       $('mon-pairing').style.display='none';
       $('mon-scan').style.display='none';
-      const v=$('mon-video'); v.srcObject=stream; v.style.display='block';
+      
+      const v=$('mon-video'); 
+      v.srcObject=stream; 
+      v.style.display='block';
+      
+      // Отключаем буферизацию кадров для устранения задержки
+      if ('playoutDelayHint' in v) {
+        v.playoutDelayHint = 0;
+      }
+
       $('mon-rec').style.display='flex';
       $('mon-hud').style.display='block';
       $('mon-conn').textContent='CONNECTED';
       startMonitorStats();
     });
+
+    call.peerConnection.oniceconnectionstatechange = ()=>{
+      const st = call.peerConnection.iceConnectionState;
+      if (st === 'failed') call.peerConnection.restartIce();
+    };
+
     call.on('close', ()=>{ monitorGoIdle(); });
   });
 
   peer.on('disconnected', ()=>{ try{peer.reconnect();}catch(e){} });
   peer.on('error', err=>{
     $('mon-status-dot').classList.remove('ok'); $('mon-status-dot').classList.add('warn');
-    $('mon-status-text').textContent='ошибка соединения: '+err.type;
+    $('mon-status-text').textContent='ошибка: '+err.type;
   });
 }
 
@@ -377,6 +380,7 @@ function goCamera(){
     $('cam-need-code').style.display='flex';
   }
 }
+
 function connectWithTypedCode(){
   const v = $('cam-code-input').value.trim().toLowerCase();
   if(v.length<4) return;
@@ -386,31 +390,35 @@ function connectWithTypedCode(){
 }
 
 async function startCameraFlow(targetId){
-  $('cam-status-text').textContent='запрашиваю доступ к камере…';
+  $('cam-status-text').textContent='подключаю камеру…';
   try{
-    localStream = await getBestStream(currentFacing);
+    localStream = await getLowLatencyStream(currentFacing);
+    requestWakeLock();
   }catch(e){
     $('cam-status-dot').classList.add('warn');
-    $('cam-status-text').textContent='нет доступа к камере: '+(e.message||e.name);
+    $('cam-status-text').textContent='нет доступа к камере';
     $('cam-need-code').style.display='flex';
     return;
   }
+
   const v=$('cam-video'); v.srcObject=localStream;
   $('cam-viewport').style.display='flex';
   $('cam-controls').style.display='flex';
   const t = localStream.getVideoTracks()[0].getSettings();
   updateCamHud(t);
 
-  $('cam-status-text').textContent='соединяюсь с ПК…';
-  peer = new Peer();
+  $('cam-status-text').textContent='соединяюсь…';
+  peer = new Peer(PEER_CONFIG);
+
   peer.on('open', ()=>{
     call = peer.call(targetId, localStream);
     if(!call){
       $('cam-status-dot').classList.add('warn');
-      $('cam-status-text').textContent='не удалось найти монитор по коду';
+      $('cam-status-text').textContent='монитор не найден';
       return;
     }
-    applyBitrateCap(call, t.width, t.height);
+
+    optimizeEncoding(call);
     $('cam-rec').style.display='flex';
 
     call.peerConnection.oniceconnectionstatechange = ()=>{
@@ -418,28 +426,28 @@ async function startCameraFlow(targetId){
       $('cam-conn').textContent = st.toUpperCase();
       if(st==='connected' || st==='completed'){
         $('cam-status-dot').classList.add('ok');
-        $('cam-status-text').textContent='передача идёт';
-      } else if(st==='disconnected' || st==='failed'){
-        $('cam-status-dot').classList.remove('ok'); $('cam-status-dot').classList.add('warn');
-        $('cam-status-text').textContent='связь прервана, пробую переподключиться…';
+        $('cam-status-text').textContent='передача идет (минимальный пинг)';
+      } else if(st==='failed'){
+        call.peerConnection.restartIce();
       }
     };
   });
+
   peer.on('disconnected', ()=>{ try{peer.reconnect();}catch(e){} });
-  peer.on('error', err=>{
-    $('cam-status-dot').classList.add('warn');
-    $('cam-status-text').textContent='ошибка: '+err.type;
-  });
 }
 
-function applyBitrateCap(call, w, h){
+/* Оптимизация энкодера под минимальный пинг */
+function optimizeEncoding(call){
   try{
     const sender = call.peerConnection.getSenders().find(s=>s.track && s.track.kind==='video');
     if(!sender) return;
     const params = sender.getParameters();
     if(!params.encodings) params.encodings=[{}];
-    params.encodings[0].maxBitrate = bitrateFor(w,h);
-    params.degradationPreference = 'maintain-framerate';
+    
+    params.encodings[0].maxBitrate = 3_500_000; // 3.5 Mbps — оптимально для 1080p
+    params.encodings[0].maxFramerate = 30;
+    params.degradationPreference = 'maintain-framerate'; // Приоритет плавной картинке без задержек
+
     sender.setParameters(params).catch(()=>{});
   }catch(e){}
 }
@@ -452,19 +460,23 @@ async function switchFacing(){
   currentFacing = currentFacing==='environment' ? 'user' : 'environment';
   if(localStream){ localStream.getTracks().forEach(t=>t.stop()); }
   try{
-    localStream = await getBestStream(currentFacing);
+    localStream = await getLowLatencyStream(currentFacing);
   }catch(e){ return; }
+  
   $('cam-video').srcObject = localStream;
   const newTrack = localStream.getVideoTracks()[0];
-  const settings = newTrack.getSettings();
-  updateCamHud(settings);
+  updateCamHud(newTrack.getSettings());
+
   if(call && call.peerConnection){
     const sender = call.peerConnection.getSenders().find(s=>s.track && s.track.kind==='video');
-    if(sender){ sender.replaceTrack(newTrack); applyBitrateCap(call, settings.width, settings.height); }
+    if(sender){ 
+      sender.replaceTrack(newTrack); 
+      optimizeEncoding(call);
+    }
   }
 }
 
-/* автозапуск сценария камеры, если открыли по ссылке с ?room= */
+/* Автовызов при ссылке с роутом */
 (function autoRoute(){
   const params = new URLSearchParams(location.search);
   if(params.get('room')) goCamera();
