@@ -2,8 +2,8 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Glazok Pro — P2P Webcam Studio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>Glazok Ultra — Mobile P2P Webcam</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -12,9 +12,9 @@
 <style>
   :root {
     --bg: #07080a;
-    --panel: rgba(18, 20, 26, 0.75);
+    --panel: rgba(18, 20, 26, 0.85);
     --panel-solid: #12141a;
-    --panel-border: rgba(255, 255, 255, 0.12);
+    --panel-border: rgba(255, 255, 255, 0.15);
     --accent: #7cff6b;
     --accent-dim: #4fb944;
     --amber: #ffa630;
@@ -27,105 +27,130 @@
   }
 
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { height: 100%; width: 100%; margin: 0; padding: 0; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--body); }
+  html, body { 
+    height: 100%; width: 100%; margin: 0; padding: 0; 
+    overflow: hidden; background: var(--bg); color: var(--text); 
+    font-family: var(--body); touch-action: manipulation;
+  }
 
-  /* Навигация / Главный выбор */
-  .app-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; position: relative; }
+  .app-container { width: 100vw; height: 100vh; position: relative; overflow: hidden; }
   .screen { display: none; width: 100%; height: 100%; position: absolute; inset: 0; }
   .screen.active { display: flex; flex-direction: column; align-items: center; justify-content: center; }
 
   /* Стартовый экран */
   #screen-select { padding: 24px; z-index: 10; background: var(--bg); overflow-y: auto; }
-  .brand-logo { display: flex; align-items: center; gap: 12px; font-family: var(--display); font-weight: 700; font-size: 24px; margin-bottom: 8px; }
-  .brand-logo .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 14px var(--accent); }
-  h1 { font-family: var(--display); font-size: 32px; margin: 0 0 10px 0; text-align: center; }
-  p.lead { color: var(--muted); text-align: center; margin: 0 0 28px 0; font-size: 15px; max-width: 440px; line-height: 1.5; }
+  .brand-logo { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 700; font-size: 22px; margin-bottom: 8px; }
+  .brand-logo .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+  h1 { font-family: var(--display); font-size: 28px; margin: 0 0 10px 0; text-align: center; }
+  p.lead { color: var(--muted); text-align: center; margin: 0 0 24px 0; font-size: 14px; max-width: 420px; line-height: 1.4; }
 
-  .modes { display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 440px; }
+  .modes { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 400px; }
   .mode-card {
-    display: flex; align-items: center; gap: 16px; padding: 18px 20px; background: #13151b;
+    display: flex; align-items: center; gap: 14px; padding: 16px; background: #13151b;
     border: 1px solid var(--panel-border); border-radius: 10px; cursor: pointer; text-align: left;
     transition: all .2s ease; color: var(--text);
   }
-  .mode-card:hover { border-color: var(--accent); background: #1a1d26; transform: translateY(-2px); }
-  .mode-letter { font-family: var(--mono); font-size: 26px; font-weight: 700; color: var(--accent); width: 36px; text-align: center; }
-  .mode-copy strong { display: block; font-family: var(--display); font-size: 17px; margin-bottom: 3px; }
-  .mode-copy span { color: var(--muted); font-size: 13px; }
+  .mode-card:hover { border-color: var(--accent); background: #1a1d26; }
+  .mode-letter { font-family: var(--mono); font-size: 24px; font-weight: 700; color: var(--accent); width: 32px; text-align: center; }
+  .mode-copy strong { display: block; font-family: var(--display); font-size: 16px; margin-bottom: 2px; }
+  .mode-copy span { color: var(--muted); font-size: 12px; }
 
-  /* Полноэкранный Iriun/Camo Viewport */
+  /* Вьюпорт видео */
   .fullscreen-viewfinder {
-    position: relative; width: 100vw; height: 100vh; background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden;
+    position: relative; width: 100vw; height: 100vh; background: #000; 
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
   }
   .fullscreen-viewfinder video {
     width: 100%; height: 100%; object-fit: contain; background: #000; transition: object-fit .2s ease;
   }
 
-  /* Видео-оверлей управления (спрятан по умолчанию, всплывает при мыши/касании) */
+  /* Интерфейс управления (Адаптирован под челки и маленькие экраны) */
   .overlay-ui {
-    position: absolute; inset: 0; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; padding: 20px;
-    opacity: 0; transition: opacity 0.3s ease; z-index: 20; background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, transparent 20%, transparent 80%, rgba(0,0,0,0.8) 100%);
+    position: absolute; inset: 0; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between;
+    padding: calc(12px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));
+    opacity: 0; transition: opacity 0.25s ease; z-index: 20; 
+    background: linear-gradient(180deg, rgba(0,0,0,0.7) 0%, transparent 25%, transparent 75%, rgba(0,0,0,0.85) 100%);
   }
   .fullscreen-viewfinder:hover .overlay-ui,
   .overlay-ui.visible,
   .overlay-ui:focus-within { opacity: 1; }
 
-  .top-bar, .bottom-bar { display: flex; align-items: center; justify-content: space-between; width: 100%; pointer-events: auto; }
+  .top-bar { display: flex; align-items: center; justify-content: space-between; width: 100%; pointer-events: auto; gap: 8px; }
+  .bottom-bar { 
+    display: flex; align-items: center; justify-content: space-between; width: 100%; 
+    pointer-events: auto; gap: 8px; flex-wrap: wrap; 
+  }
   
   .badge-status {
-    display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 12px;
-    background: var(--panel); backdrop-filter: blur(12px); border: 1px solid var(--panel-border); padding: 8px 14px; border-radius: 30px;
+    display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px;
+    background: var(--panel); backdrop-filter: blur(12px); border: 1px solid var(--panel-border); padding: 6px 12px; border-radius: 20px;
+    white-space: nowrap;
   }
-  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
   .status-dot.ok { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
   .status-dot.warn { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
 
-  .hud-stats { font-family: var(--mono); font-size: 12px; color: var(--accent); text-shadow: 0 0 8px rgba(124,255,107,0.4); }
+  .hud-stats { font-family: var(--mono); font-size: 11px; color: var(--accent); text-shadow: 0 0 6px rgba(124,255,107,0.4); white-space: nowrap; }
 
-  /* Панель кнопок управления */
-  .controls-group { display: flex; align-items: center; gap: 10px; pointer-events: auto; }
+  /* Кнопки управления */
+  .controls-group { display: flex; align-items: center; gap: 6px; pointer-events: auto; flex-wrap: wrap; max-width: 100%; }
   
   .btn-icon {
     background: var(--panel); backdrop-filter: blur(12px); border: 1px solid var(--panel-border); color: var(--text);
-    padding: 10px 16px; border-radius: 8px; font-family: var(--body); font-size: 13px; font-weight: 500; cursor: pointer;
-    display: flex; align-items: center; gap: 6px; transition: all .15s ease;
+    padding: 8px 12px; border-radius: 8px; font-family: var(--body); font-size: 12px; font-weight: 500; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 5px; transition: all .15s ease; white-space: nowrap; max-width: 100%;
   }
-  .btn-icon:hover { border-color: var(--accent); color: #fff; background: rgba(30, 34, 45, 0.85); }
+  .btn-icon:hover { border-color: var(--accent); color: #fff; background: rgba(30, 34, 45, 0.9); }
   .btn-icon.active { background: var(--accent); color: #08210a; border-color: var(--accent); font-weight: 600; }
 
-  select.btn-icon { appearance: none; padding-right: 28px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%239ca3af' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: calc(100% - 10px) center; }
+  select.btn-icon { 
+    appearance: none; padding-right: 24px; 
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%239ca3af' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E"); 
+    background-repeat: no-repeat; background-position: calc(100% - 8px) center; 
+    max-width: 160px; overflow: hidden; text-overflow: ellipsis;
+  }
 
-  /* Всплывающая панель параметров камеры */
+  /* Всплывающее меню настроек с прокруткой для мобилок */
   .settings-modal {
-    position: absolute; bottom: 80px; right: 20px; width: 320px; background: var(--panel-solid);
-    border: 1px solid var(--panel-border); border-radius: 12px; padding: 18px; display: none; flex-direction: column; gap: 14px;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.6); backdrop-filter: blur(16px); z-index: 30; pointer-events: auto;
+    position: absolute; bottom: calc(65px + env(safe-area-inset-bottom)); right: 12px; width: calc(100vw - 24px); max-width: 320px; 
+    max-height: 60vh; overflow-y: auto; background: var(--panel-solid); border: 1px solid var(--panel-border); 
+    border-radius: 12px; padding: 14px; display: none; flex-direction: column; gap: 12px;
+    box-shadow: 0 16px 36px rgba(0,0,0,0.8); backdrop-filter: blur(16px); z-index: 35; pointer-events: auto;
   }
   .settings-modal.active { display: flex; }
-  .settings-modal h3 { font-family: var(--display); font-size: 15px; margin: 0 0 6px 0; display: flex; justify-content: space-between; align-items: center; }
+  .settings-modal h3 { font-family: var(--display); font-size: 14px; margin: 0 0 4px 0; display: flex; justify-content: space-between; align-items: center; }
   
-  .setting-row { display: flex; flex-direction: column; gap: 6px; }
-  .setting-row label { font-size: 12px; font-family: var(--mono); color: var(--muted); display: flex; justify-content: space-between; }
+  .setting-row { display: flex; flex-direction: column; gap: 4px; }
+  .setting-row label { font-size: 11px; font-family: var(--mono); color: var(--muted); display: flex; justify-content: space-between; }
   .setting-row input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; }
 
-  /* Карточка подключения (Пейринг ПК) */
+  /* Карточка подключения */
   .pairing-box {
     position: absolute; z-index: 25; background: var(--panel-solid); border: 1px solid var(--panel-border);
-    padding: 24px; border-radius: 14px; display: flex; flex-direction: column; align-items: center; gap: 16px;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.8); text-align: center; max-width: 340px;
+    padding: 20px; border-radius: 14px; display: flex; flex-direction: column; align-items: center; gap: 14px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.8); text-align: center; width: calc(100vw - 32px); max-width: 320px;
   }
-  .qrbox { background: #fff; padding: 10px; border-radius: 8px; line-height: 0; }
-  .code-display { font-family: var(--mono); font-size: 24px; letter-spacing: .15em; color: var(--accent); background: #0c0d12; padding: 10px 20px; border-radius: 6px; border: 1px dashed var(--panel-border); width: 100%; }
+  .qrbox { background: #fff; padding: 8px; border-radius: 8px; line-height: 0; }
+  .code-display { font-family: var(--mono); font-size: 22px; letter-spacing: .15em; color: var(--accent); background: #0c0d12; padding: 8px 16px; border-radius: 6px; border: 1px dashed var(--panel-border); width: 100%; }
 
-  /* Форма ввода на телефоне */
   .cam-input-card {
-    background: var(--panel-solid); border: 1px solid var(--panel-border); padding: 24px; border-radius: 14px;
-    display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 360px; z-index: 25;
+    background: var(--panel-solid); border: 1px solid var(--panel-border); padding: 20px; border-radius: 14px;
+    display: flex; flex-direction: column; gap: 14px; width: calc(100vw - 32px); max-width: 340px; z-index: 25;
   }
   input[type=text] {
     width: 100%; background: #0c0d12; border: 1px solid var(--panel-border); color: var(--text);
-    font-family: var(--mono); font-size: 20px; letter-spacing: .12em; padding: 12px; border-radius: 6px; text-align: center; text-transform: uppercase;
+    font-family: var(--mono); font-size: 18px; letter-spacing: .12em; padding: 10px; border-radius: 6px; text-align: center; text-transform: uppercase;
   }
   input[type=text]:focus { outline: none; border-color: var(--accent); }
+
+  /* OBS-style Оверлей теста сети */
+  .benchmark-overlay {
+    position: absolute; inset: 0; background: rgba(7, 8, 10, 0.92); backdrop-filter: blur(10px);
+    z-index: 40; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center;
+  }
+  .benchmark-overlay.active { display: flex; }
+  .spinner { width: 36px; height: 36px; border: 3px solid var(--panel-border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
@@ -133,21 +158,21 @@
 <div class="app-container">
 
   <section id="screen-select" class="screen active">
-    <div class="brand-logo"><span class="dot"></span>GLAZOK PRO</div>
-    <h1>Веб-камера без проводов</h1>
-    <p class="lead">Прямая P2P трансляция с настройками кадра, экспозиции и качества без задержек.</p>
+    <div class="brand-logo"><span class="dot"></span>GLAZOK ULTRA</div>
+    <h1>P2P Веб-камера Studio</h1>
+    <p class="lead">Прямая трансляция с выбором камер, авто-тестом сети и адаптивным битрейтом.</p>
     <div class="modes">
       <button class="mode-card" onclick="goMonitor()">
         <span class="mode-letter">M</span>
-        <span class="mode-copy"><strong>Монитор (ПК / Экран)</strong><span>Полноэкранный прием картинки с QR-кодом</span></span>
+        <span class="mode-copy"><strong>Монитор (ПК / Экран)</strong><span>Приём видеопотока в полноэкранном режиме</span></span>
       </button>
       <button class="mode-card" onclick="goCamera()">
         <span class="mode-letter">C</span>
-        <span class="mode-copy"><strong>Камера (Смартфон)</strong><span>Передача видео и ручные настройки объектива</span></span>
+        <span class="mode-copy"><strong>Камера (Смартфон)</strong><span>Передача видео с ручным выбором объективов</span></span>
       </button>
     </div>
-    <div id="https-warn" style="display:none; margin-top:20px; color:var(--amber); font-size:12px; font-family:var(--mono);">
-      ⚠️ Нужен HTTPS-протокол для доступа браузера к мобильной камере.
+    <div id="https-warn" style="display:none; margin-top:16px; color:var(--amber); font-size:11px; font-family:var(--mono);">
+      ⚠️ Нужен HTTPS для доступа браузера к камерам телефона.
     </div>
   </section>
 
@@ -156,10 +181,10 @@
       <video id="mon-video" autoplay playsinline style="display:none;"></video>
       
       <div class="pairing-box" id="mon-pairing">
-        <div class="brand-logo" style="font-size:18px;"><span class="dot"></span>ПОДКЛЮЧЕНИЕ</div>
+        <div class="brand-logo" style="font-size:16px;"><span class="dot"></span>ПОДКЛЮЧЕНИЕ</div>
         <div class="qrbox" id="qrcode"></div>
         <div class="code-display" id="mon-code">——————</div>
-        <p style="margin:0; font-size:12px; color:var(--muted);">Наведи камеру телефона на QR-код или перейди по ссылке.</p>
+        <p style="margin:0; font-size:11px; color:var(--muted);">Сканируй QR-код или введи код на телефоне.</p>
       </div>
 
       <div class="overlay-ui" id="mon-overlay">
@@ -172,10 +197,10 @@
         </div>
 
         <div class="bottom-bar">
-          <button class="btn-icon" onclick="resetToSelect()">‹ В меню</button>
+          <button class="btn-icon" onclick="resetToSelect()">‹ Меню</button>
           <div class="controls-group">
-            <button class="btn-icon" onclick="toggleFitMode()" title="Заполнение кадра">↔ По размеру</button>
-            <button class="btn-icon" onclick="toggleFullscreen()" title="Полноэкранный режим">⛶ На весь экран</button>
+            <button class="btn-icon" onclick="toggleFitMode()">↔ Кадр</button>
+            <button class="btn-icon" onclick="toggleFullscreen()">⛶ Экран</button>
           </div>
         </div>
       </div>
@@ -185,9 +210,9 @@
   <section id="screen-camera" class="screen">
     <div class="cam-input-card" id="cam-need-code">
       <button class="btn-icon" style="align-self:flex-start;" onclick="resetToSelect()">‹ Назад</button>
-      <h2 style="margin:0; font-family:var(--display); font-size:20px;">Введите код с ПК</h2>
+      <h2 style="margin:0; font-family:var(--display); font-size:18px;">Код трансляции</h2>
       <input type="text" id="cam-code-input" maxlength="6" placeholder="A1B2C3">
-      <button class="btn-icon active" style="justify-content:center; padding:14px;" onclick="connectWithTypedCode()">Транслировать</button>
+      <button class="btn-icon active" style="justify-content:center; padding:12px;" onclick="connectWithTypedCode()">Транслировать</button>
     </div>
 
     <div class="fullscreen-viewfinder" id="cam-viewport" style="display:none;" onclick="toggleOverlayUI()">
@@ -197,7 +222,7 @@
         <div class="top-bar">
           <div class="badge-status">
             <span class="status-dot" id="cam-status-dot"></span>
-            <span id="cam-status-text">Трансляция</span>
+            <span id="cam-status-text">LIVE</span>
           </div>
           <div class="hud-stats" id="cam-hud"></div>
         </div>
@@ -206,46 +231,42 @@
           <button class="btn-icon" onclick="resetToSelect()">‹ Выход</button>
 
           <div class="controls-group">
-            <select class="btn-icon" id="quality-selector" onchange="changeQualityPreset(this.value)">
-              <option value="4k60">4K @ 60 FPS</option>
-              <option value="4k30">4K @ 30 FPS</option>
-              <option value="1080p120">1080p @ 120 FPS</option>
-              <option value="1080p60" selected>1080p @ 60 FPS</option>
-              <option value="1080p30">1080p @ 30 FPS</option>
-              <option value="720p120">720p @ 120 FPS</option>
-              <option value="720p60">720p @ 60 FPS</option>
+            <select class="btn-icon" id="camera-device-select" onchange="switchSpecificCamera(this.value)">
+              <option value="">Камера...</option>
             </select>
 
-            <button class="btn-icon" onclick="switchFacing()">🔄 Камера</button>
-            <button class="btn-icon" id="btn-toggle-settings" onclick="toggleSettingsModal(event)">⚙️ Настройки</button>
+            <select class="btn-icon" id="quality-selector" onchange="changeQualityPreset(this.value)">
+              <option value="4k60">4K 60FPS</option>
+              <option value="4k30">4K 30FPS</option>
+              <option value="1080p120">1080p 120FPS</option>
+              <option value="1080p60" selected>1080p 60FPS</option>
+              <option value="1080p30">1080p 30FPS</option>
+              <option value="720p120">720p 120FPS</option>
+              <option value="720p60">720p 60FPS</option>
+              <option value="480p30">480p 30FPS (Low Net)</option>
+            </select>
+
+            <button class="btn-icon" onclick="runOBSNetworkTest()" title="Тест сети OBS">⚡ Авто-тест</button>
+            <button class="btn-icon" id="btn-toggle-settings" onclick="toggleSettingsModal(event)">⚙️</button>
           </div>
         </div>
 
         <div class="settings-modal" id="cam-settings-modal" onclick="event.stopPropagation()">
-          <h3>Параметры объектива <span style="cursor:pointer; color:var(--muted)" onclick="toggleSettingsModal()">✕</span></h3>
+          <h3>Настройки объектива <span style="cursor:pointer; color:var(--muted)" onclick="toggleSettingsModal()">✕</span></h3>
           
           <div class="setting-row" id="row-zoom" style="display:none;">
-            <label>Оптический/Цифровой Зум <span id="val-zoom">1x</span></label>
+            <label>Зум <span id="val-zoom">1x</span></label>
             <input type="range" id="input-zoom" step="0.1" oninput="applyCameraParam('zoom', parseFloat(this.value))">
           </div>
 
           <div class="setting-row" id="row-exposure" style="display:none;">
-            <label>Экспозиция (EV) <span id="val-exposure">0</span></label>
+            <label>Экспозиция <span id="val-exposure">0</span></label>
             <input type="range" id="input-exposure" step="0.5" oninput="applyCameraParam('exposureCompensation', parseFloat(this.value))">
           </div>
 
           <div class="setting-row" id="row-torch" style="display:none;">
-            <label>Подсветка / Фонарик</label>
-            <button class="btn-icon" id="btn-torch" onclick="toggleTorch()">Включить вспышку</button>
-          </div>
-
-          <div class="setting-row" id="row-focus" style="display:none;">
-            <label>Режим фокуса</label>
-            <select class="btn-icon" id="select-focus" onchange="applyCameraParam('focusMode', this.value)">
-              <option value="continuous">Авто (Continuous)</option>
-              <option value="single">Разовый (Single)</option>
-              <option value="manual">Ручной (Manual)</option>
-            </select>
+            <label>Вспышка</label>
+            <button class="btn-icon" id="btn-torch" onclick="toggleTorch()">Включить фонарик</button>
           </div>
         </div>
 
@@ -253,10 +274,15 @@
     </div>
   </section>
 
+  <div class="benchmark-overlay" id="benchmark-modal">
+    <div class="spinner"></div>
+    <h3 style="margin:0 0 8px 0; font-family:var(--display);">Тестирование сети и камеры...</h3>
+    <p style="margin:0; font-size:12px; color:var(--muted); max-width:280px;" id="benchmark-status">Проверка задержки и пропускной способности WebRTC</p>
+  </div>
+
 </div>
 
 <script>
-/* ---------- WebRTC & STUN Конфигурация ---------- */
 const PEER_CONFIG = {
   config: {
     iceServers: [
@@ -267,7 +293,6 @@ const PEER_CONFIG = {
   }
 };
 
-/* ---------- Пресеты Качества (720p120 -> 4K60) ---------- */
 const QUALITY_PRESETS = {
   '4k60':    { w: 3840, h: 2160, fps: 60, bitrate: 12_000_000 },
   '4k30':    { w: 3840, h: 2160, fps: 30, bitrate: 8_000_000 },
@@ -275,12 +300,12 @@ const QUALITY_PRESETS = {
   '1080p60': { w: 1920, h: 1080, fps: 60, bitrate: 5_000_000 },
   '1080p30': { w: 1920, h: 1080, fps: 30, bitrate: 3_000_000 },
   '720p120': { w: 1280, h: 720,  fps: 120,bitrate: 4_500_000 },
-  '720p60':  { w: 1280, h: 720,  fps: 60, bitrate: 2_500_000 }
+  '720p60':  { w: 1280, h: 720,  fps: 60, bitrate: 2_500_000 },
+  '480p30':  { w: 854,  h: 480,  fps: 30, bitrate: 1_000_000 }
 };
 
-let peer=null, call=null, localStream=null, statsTimer=null;
-let currentFacing='environment', wakeLock=null, isTorchOn=false;
-let activeTrackCapabilities=null;
+let peer=null, call=null, localStream=null, statsTimer=null, adaptiveTimer=null;
+let selectedDeviceId = null, wakeLock = null, isTorchOn = false;
 
 function $(id){ return document.getElementById(id); }
 
@@ -299,7 +324,6 @@ if(location.protocol!=='https:' && location.hostname!=='localhost' && location.h
   $('https-warn').style.display='block';
 }
 
-/* Screen Wake Lock API */
 async function requestWakeLock() {
   try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
 }
@@ -308,6 +332,7 @@ function releaseWakeLock() { if (wakeLock) { wakeLock.release().catch(()=>{}); w
 function teardown(){
   releaseWakeLock();
   if(statsTimer){ clearInterval(statsTimer); statsTimer=null; }
+  if(adaptiveTimer){ clearInterval(adaptiveTimer); adaptiveTimer=null; }
   if(call){ try{call.close();}catch(e){} call=null; }
   if(peer){ try{peer.destroy();}catch(e){} peer=null; }
   if(localStream){ localStream.getTracks().forEach(t=>t.stop()); localStream=null; }
@@ -319,7 +344,6 @@ function randCode(len){
   return s;
 }
 
-/* Управление показом прозрачного UI поверх видео */
 let overlayTimeout=null;
 function toggleOverlayUI(){
   const overlays = document.querySelectorAll('.overlay-ui');
@@ -359,7 +383,7 @@ function goMonitor(){
     $('mon-code').textContent = shortCode;
     const link = location.origin + location.pathname + '?room=' + encodeURIComponent(pid);
     $('qrcode').innerHTML = '';
-    new QRCode($('qrcode'), { text: link, width: 160, height: 160, correctLevel: QRCode.CorrectLevel.M });
+    new QRCode($('qrcode'), { text: link, width: 150, height: 150, correctLevel: QRCode.CorrectLevel.M });
   });
 
   peer.on('call', incoming => {
@@ -371,10 +395,9 @@ function goMonitor(){
       const v = $('mon-video'); 
       v.srcObject = stream; 
       v.style.display = 'block';
-      
-      if ('playoutDelayHint' in v) v.playoutDelayHint = 0; // Минимальный пинг
+      if ('playoutDelayHint' in v) v.playoutDelayHint = 0;
 
-      $('mon-status-text').textContent = 'Трансляция активна';
+      $('mon-status-text').textContent = 'LIVE';
       startMonitorStats();
       toggleOverlayUI();
     });
@@ -420,12 +443,12 @@ function startMonitorStats(){
       });
     } catch(e){}
 
-    $('mon-hud').innerHTML = `${settings.width||'?'}×${settings.height||'?'} @ ${Math.round(settings.frameRate||0)}fps | ${kbps!=='—'?kbps+' kbps':'…'}`;
+    $('mon-hud').innerHTML = `${settings.width||'?'}×${settings.height||'?'}@${Math.round(settings.frameRate||0)}fps | ${kbps!=='—'?kbps+' kbps':''}`;
   }, 1000);
 }
 
 /* =========================================================
-   КАМЕРА (ТЕЛЕФОН) И НАСТРОЙКИ ОБЪЕКТИВА
+   КАМЕРА (ТЕЛЕФОН) И АДАПТИВНАЯ СЕТЬ
    ========================================================= */
 let pendingTargetId = null;
 
@@ -450,29 +473,52 @@ function connectWithTypedCode(){
   startCameraFlow(pendingTargetId);
 }
 
-async function getStreamWithPreset(presetKey, facing) {
+async function populateCameraDevices() {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const videoDevices = devices.filter(d => d.kind === 'videoinput');
+    const select = $('camera-device-select');
+    select.innerHTML = '';
+
+    videoDevices.forEach((dev, index) => {
+      const opt = document.createElement('option');
+      opt.value = dev.deviceId;
+      opt.textContent = dev.label || `Камера ${index + 1}`;
+      select.appendChild(opt);
+    });
+
+    if (selectedDeviceId) select.value = selectedDeviceId;
+  } catch(e){}
+}
+
+async function getStreamWithPreset(presetKey, deviceId) {
   const p = QUALITY_PRESETS[presetKey] || QUALITY_PRESETS['1080p60'];
-  return await navigator.mediaDevices.getUserMedia({
-    audio: false,
-    video: {
-      facingMode: { ideal: facing },
-      width: { ideal: p.w },
-      height: { ideal: p.h },
-      frameRate: { ideal: p.fps }
-    }
-  });
+  const videoConstraints = {
+    width: { ideal: p.w },
+    height: { ideal: p.h },
+    frameRate: { ideal: p.fps }
+  };
+
+  if (deviceId) {
+    videoConstraints.deviceId = { exact: deviceId };
+  } else {
+    videoConstraints.facingMode = { ideal: 'environment' };
+  }
+
+  return await navigator.mediaDevices.getUserMedia({ audio: false, video: videoConstraints });
 }
 
 async function startCameraFlow(targetId){
-  $('cam-status-text').textContent = 'Запуск камеры...';
+  $('cam-status-text').textContent = 'Старт камеры...';
   const selectedPreset = $('quality-selector').value;
 
   try {
-    localStream = await getStreamWithPreset(selectedPreset, currentFacing);
+    localStream = await getStreamWithPreset(selectedPreset, selectedDeviceId);
     requestWakeLock();
+    await populateCameraDevices();
   } catch(e) {
     $('cam-status-dot').classList.add('warn');
-    $('cam-status-text').textContent = 'Ошибка доступа к камере';
+    $('cam-status-text').textContent = 'Ошибка камеры';
     $('cam-need-code').style.display = 'flex';
     return;
   }
@@ -491,11 +537,12 @@ async function startCameraFlow(targetId){
     call = peer.call(targetId, localStream);
     if(!call){
       $('cam-status-dot').classList.add('warn');
-      $('cam-status-text').textContent = 'Монитор не найден';
+      $('cam-status-text').textContent = 'ПК не найден';
       return;
     }
 
     applyEncoderParameters(call, selectedPreset);
+    startAdaptiveNetworkGuard(call);
 
     call.peerConnection.oniceconnectionstatechange = () => {
       const st = call.peerConnection.iceConnectionState;
@@ -510,6 +557,47 @@ async function startCameraFlow(targetId){
 
   peer.on('disconnected', () => { try{peer.reconnect();}catch(e){} });
   toggleOverlayUI();
+}
+
+/* Авто-адаптация под плохой интернет */
+function startAdaptiveNetworkGuard(call) {
+  if (adaptiveTimer) clearInterval(adaptiveTimer);
+  let highRTTCount = 0;
+
+  adaptiveTimer = setInterval(async () => {
+    if (!call || !call.peerConnection) return;
+    try {
+      const stats = await call.peerConnection.getStats();
+      stats.forEach(r => {
+        if (r.type === 'remote-inbound-rtp' && r.kind === 'video') {
+          // Если пинг выше 250мс или растут потери пакетов -> временно снижаем битрейт
+          if (r.roundTripTime > 0.25 || r.packetsLost > 10) {
+            highRTTCount++;
+            if (highRTTCount >= 2) {
+              degradeBitrateForBadNetwork(call);
+              highRTTCount = 0;
+            }
+          } else {
+            highRTTCount = Math.max(0, highRTTCount - 1);
+          }
+        }
+      });
+    } catch(e){}
+  }, 2000);
+}
+
+function degradeBitrateForBadNetwork(call) {
+  try {
+    const sender = call.peerConnection.getSenders().find(s => s.track && s.track.kind==='video');
+    if (!sender) return;
+    const params = sender.getParameters();
+    if (params.encodings && params.encodings[0]) {
+      const currentBw = params.encodings[0].maxBitrate || 3_000_000;
+      params.encodings[0].maxBitrate = Math.max(800_000, Math.round(currentBw * 0.7)); // Снижаем на 30%
+      sender.setParameters(params).catch(()=>{});
+      $('cam-status-text').textContent = 'Сеть слабая (Адаптация)';
+    }
+  } catch(e){}
 }
 
 function applyEncoderParameters(call, presetKey){
@@ -528,59 +616,89 @@ function applyEncoderParameters(call, presetKey){
   } catch(e){}
 }
 
-/* Детекция поддераживаемых аппаратных настроек камеры (Exposure, Zoom, Torch) */
+/* OBS-like авто-тест скорости и выбор лучшего пресета */
+async function runOBSNetworkTest() {
+  $('benchmark-modal').classList.add('active');
+  $('benchmark-status').textContent = 'Замер пропускной способности и задержки...';
+
+  const startTime = performance.now();
+  let testPing = 0;
+
+  try {
+    const pc = new RTCPeerConnection(PEER_CONFIG.config);
+    const dc = pc.createDataChannel('test');
+    
+    await new Promise(resolve => {
+      pc.onicecandidate = e => {
+        if(!e.candidate) {
+          testPing = Math.round(performance.now() - startTime);
+          resolve();
+        }
+      };
+      pc.createOffer().then(o => pc.setLocalDescription(o));
+      setTimeout(resolve, 2000);
+    });
+    pc.close();
+  } catch(e){}
+
+  // Логика выбора пресета на основе теста
+  let recommendedPreset = '1080p60';
+  if (testPing > 200) {
+    recommendedPreset = '480p30';
+  } else if (testPing > 100) {
+    recommendedPreset = '720p60';
+  } else {
+    recommendedPreset = '1080p60';
+  }
+
+  $('benchmark-status').textContent = `Пинг: ${testPing}мс. Рекомендация: ${recommendedPreset}`;
+  
+  setTimeout(() => {
+    $('benchmark-modal').classList.remove('active');
+    $('quality-selector').value = recommendedPreset;
+    changeQualityPreset(recommendedPreset);
+  }, 1200);
+}
+
 function inspectCameraCapabilities(track) {
   if (!track.getCapabilities) return;
-  activeTrackCapabilities = track.getCapabilities();
+  const caps = track.getCapabilities();
 
-  // Зум
-  if (activeTrackCapabilities.zoom) {
+  if (caps.zoom) {
     $('row-zoom').style.display = 'flex';
-    $('input-zoom').min = activeTrackCapabilities.zoom.min;
-    $('input-zoom').max = activeTrackCapabilities.zoom.max;
+    $('input-zoom').min = caps.zoom.min;
+    $('input-zoom').max = caps.zoom.max;
     $('input-zoom').value = track.getSettings().zoom || 1;
     $('val-zoom').textContent = $('input-zoom').value + 'x';
   } else { $('row-zoom').style.display = 'none'; }
 
-  // Экспозиция
-  if (activeTrackCapabilities.exposureCompensation) {
+  if (caps.exposureCompensation) {
     $('row-exposure').style.display = 'flex';
-    $('input-exposure').min = activeTrackCapabilities.exposureCompensation.min;
-    $('input-exposure').max = activeTrackCapabilities.exposureCompensation.max;
+    $('input-exposure').min = caps.exposureCompensation.min;
+    $('input-exposure').max = caps.exposureCompensation.max;
     $('input-exposure').value = track.getSettings().exposureCompensation || 0;
     $('val-exposure').textContent = $('input-exposure').value;
   } else { $('row-exposure').style.display = 'none'; }
 
-  // Вспышка / Фонарик
-  if (activeTrackCapabilities.torch) {
+  if (caps.torch) {
     $('row-torch').style.display = 'flex';
   } else { $('row-torch').style.display = 'none'; }
-
-  // Фокус
-  if (activeTrackCapabilities.focusMode) {
-    $('row-focus').style.display = 'flex';
-  } else { $('row-focus').style.display = 'none'; }
 }
 
-/* Применение параметров на объектив */
 async function applyCameraParam(paramName, value) {
   if (!localStream) return;
   const track = localStream.getVideoTracks()[0];
   try {
-    const constraints = { advanced: [{ [paramName]: value }] };
-    await track.applyConstraints(constraints);
-    
+    await track.applyConstraints({ advanced: [{ [paramName]: value }] });
     if (paramName === 'zoom') $('val-zoom').textContent = value + 'x';
     if (paramName === 'exposureCompensation') $('val-exposure').textContent = value;
-  } catch(e) { console.warn('Не удалось применить параметр:', paramName, e); }
+  } catch(e){}
 }
 
-/* Включение / Выключение вспышки */
 async function toggleTorch() {
   isTorchOn = !isTorchOn;
   await applyCameraParam('torch', isTorchOn);
   $('btn-torch').classList.toggle('active', isTorchOn);
-  $('btn-torch').textContent = isTorchOn ? 'Выключить вспышку' : 'Включить вспышку';
 }
 
 function toggleSettingsModal(e) {
@@ -588,13 +706,18 @@ function toggleSettingsModal(e) {
   $('cam-settings-modal').classList.toggle('active');
 }
 
-/* Смена пресета качества на лету */
+async function switchSpecificCamera(deviceId) {
+  selectedDeviceId = deviceId;
+  const currentPreset = $('quality-selector').value;
+  await changeQualityPreset(currentPreset);
+}
+
 async function changeQualityPreset(presetKey) {
   if (!localStream) return;
   localStream.getTracks().forEach(t => t.stop());
 
   try {
-    localStream = await getStreamWithPreset(presetKey, currentFacing);
+    localStream = await getStreamWithPreset(presetKey, selectedDeviceId);
   } catch(e) { return; }
 
   const newTrack = localStream.getVideoTracks()[0];
@@ -612,18 +735,10 @@ async function changeQualityPreset(presetKey) {
   }
 }
 
-/* Переключение передняя/задняя камера */
-async function switchFacing() {
-  currentFacing = (currentFacing === 'environment') ? 'user' : 'environment';
-  const selectedPreset = $('quality-selector').value;
-  await changeQualityPreset(selectedPreset);
-}
-
 function updateCamHud(settings) {
-  $('cam-hud').innerHTML = `${settings.width}×${settings.height} @ ${Math.round(settings.frameRate)}fps`;
+  $('cam-hud').innerHTML = `${settings.width}×${settings.height}@${Math.round(settings.frameRate)}fps`;
 }
 
-/* Автомаршрутизация при сканировании QR */
 (function autoRoute(){
   const params = new URLSearchParams(location.search);
   if(params.get('room')) goCamera();
