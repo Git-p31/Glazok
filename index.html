@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
-<title>Glazok Ultra — Mobile P2P Webcam</title>
+<title>Glazok Dual-Cam — Mobile P2P Webcam</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -12,11 +12,10 @@
 <style>
   :root {
     --bg: #07080a;
-    --panel: rgba(18, 20, 26, 0.85);
+    --panel: rgba(18, 20, 26, 0.9);
     --panel-solid: #12141a;
     --panel-border: rgba(255, 255, 255, 0.15);
     --accent: #7cff6b;
-    --accent-dim: #4fb944;
     --amber: #ffa630;
     --danger: #ff4b4b;
     --text: #f3f4f6;
@@ -33,124 +32,105 @@
     font-family: var(--body); touch-action: manipulation;
   }
 
-  .app-container { width: 100vw; height: 100vh; position: relative; overflow: hidden; }
+  .app-container { width: 100vw; height: 100dvh; position: relative; overflow: hidden; }
   .screen { display: none; width: 100%; height: 100%; position: absolute; inset: 0; }
   .screen.active { display: flex; flex-direction: column; align-items: center; justify-content: center; }
 
   /* Стартовый экран */
-  #screen-select { padding: 24px; z-index: 10; background: var(--bg); overflow-y: auto; }
-  .brand-logo { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 700; font-size: 22px; margin-bottom: 8px; }
+  #screen-select { padding: 20px; z-index: 10; background: var(--bg); overflow-y: auto; }
+  .brand-logo { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 700; font-size: 20px; margin-bottom: 8px; }
   .brand-logo .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
-  h1 { font-family: var(--display); font-size: 28px; margin: 0 0 10px 0; text-align: center; }
-  p.lead { color: var(--muted); text-align: center; margin: 0 0 24px 0; font-size: 14px; max-width: 420px; line-height: 1.4; }
+  h1 { font-family: var(--display); font-size: 26px; margin: 0 0 10px 0; text-align: center; }
+  p.lead { color: var(--muted); text-align: center; margin: 0 0 20px 0; font-size: 13px; max-width: 400px; line-height: 1.4; }
 
-  .modes { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 400px; }
+  .modes { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 380px; }
   .mode-card {
-    display: flex; align-items: center; gap: 14px; padding: 16px; background: #13151b;
+    display: flex; align-items: center; gap: 12px; padding: 14px; background: #13151b;
     border: 1px solid var(--panel-border); border-radius: 10px; cursor: pointer; text-align: left;
-    transition: all .2s ease; color: var(--text);
+    color: var(--text); transition: all .2s ease;
   }
   .mode-card:hover { border-color: var(--accent); background: #1a1d26; }
-  .mode-letter { font-family: var(--mono); font-size: 24px; font-weight: 700; color: var(--accent); width: 32px; text-align: center; }
-  .mode-copy strong { display: block; font-family: var(--display); font-size: 16px; margin-bottom: 2px; }
+  .mode-letter { font-family: var(--mono); font-size: 22px; font-weight: 700; color: var(--accent); width: 30px; text-align: center; }
+  .mode-copy strong { display: block; font-family: var(--display); font-size: 15px; margin-bottom: 2px; }
   .mode-copy span { color: var(--muted); font-size: 12px; }
 
-  /* Вьюпорт видео */
+  /* Видеоконтейнер */
   .fullscreen-viewfinder {
-    position: relative; width: 100vw; height: 100vh; background: #000; 
+    position: relative; width: 100vw; height: 100dvh; background: #000; 
     display: flex; align-items: center; justify-content: center; overflow: hidden;
   }
-  .fullscreen-viewfinder video {
-    width: 100%; height: 100%; object-fit: contain; background: #000; transition: object-fit .2s ease;
+  .fullscreen-viewfinder video, .fullscreen-viewfinder canvas {
+    width: 100%; height: 100%; object-fit: contain; background: #000;
   }
 
-  /* Интерфейс управления (Адаптирован под челки и маленькие экраны) */
+  /* Адаптивный мобильный UI */
   .overlay-ui {
     position: absolute; inset: 0; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between;
-    padding: calc(12px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));
+    padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
     opacity: 0; transition: opacity 0.25s ease; z-index: 20; 
-    background: linear-gradient(180deg, rgba(0,0,0,0.7) 0%, transparent 25%, transparent 75%, rgba(0,0,0,0.85) 100%);
+    background: linear-gradient(180deg, rgba(0,0,0,0.8) 0%, transparent 20%, transparent 70%, rgba(0,0,0,0.9) 100%);
   }
   .fullscreen-viewfinder:hover .overlay-ui,
   .overlay-ui.visible,
   .overlay-ui:focus-within { opacity: 1; }
 
-  .top-bar { display: flex; align-items: center; justify-content: space-between; width: 100%; pointer-events: auto; gap: 8px; }
+  .top-bar { display: flex; align-items: center; justify-content: space-between; width: 100%; pointer-events: auto; gap: 6px; }
+  
+  /* Контейнер кнопок снизу с прокруткой для узких экранов */
   .bottom-bar { 
     display: flex; align-items: center; justify-content: space-between; width: 100%; 
-    pointer-events: auto; gap: 8px; flex-wrap: wrap; 
+    pointer-events: auto; gap: 6px; flex-wrap: wrap; max-height: 40dvh; overflow-y: auto;
   }
   
   .badge-status {
-    display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px;
-    background: var(--panel); backdrop-filter: blur(12px); border: 1px solid var(--panel-border); padding: 6px 12px; border-radius: 20px;
-    white-space: nowrap;
+    display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10px;
+    background: var(--panel); backdrop-filter: blur(12px); border: 1px solid var(--panel-border); padding: 5px 10px; border-radius: 20px;
   }
-  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
   .status-dot.ok { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
-  .status-dot.warn { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
 
-  .hud-stats { font-family: var(--mono); font-size: 11px; color: var(--accent); text-shadow: 0 0 6px rgba(124,255,107,0.4); white-space: nowrap; }
+  .hud-stats { font-family: var(--mono); font-size: 10px; color: var(--accent); white-space: nowrap; }
 
-  /* Кнопки управления */
-  .controls-group { display: flex; align-items: center; gap: 6px; pointer-events: auto; flex-wrap: wrap; max-width: 100%; }
+  .controls-group { display: flex; align-items: center; gap: 5px; pointer-events: auto; flex-wrap: wrap; max-width: 100%; }
   
   .btn-icon {
     background: var(--panel); backdrop-filter: blur(12px); border: 1px solid var(--panel-border); color: var(--text);
-    padding: 8px 12px; border-radius: 8px; font-family: var(--body); font-size: 12px; font-weight: 500; cursor: pointer;
-    display: inline-flex; align-items: center; gap: 5px; transition: all .15s ease; white-space: nowrap; max-width: 100%;
+    padding: 6px 10px; border-radius: 8px; font-family: var(--body); font-size: 11px; font-weight: 500; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; max-width: 100%;
   }
-  .btn-icon:hover { border-color: var(--accent); color: #fff; background: rgba(30, 34, 45, 0.9); }
+  .btn-icon:hover { border-color: var(--accent); background: rgba(30, 34, 45, 0.9); }
   .btn-icon.active { background: var(--accent); color: #08210a; border-color: var(--accent); font-weight: 600; }
 
   select.btn-icon { 
-    appearance: none; padding-right: 24px; 
+    appearance: none; padding-right: 20px; 
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%239ca3af' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E"); 
-    background-repeat: no-repeat; background-position: calc(100% - 8px) center; 
-    max-width: 160px; overflow: hidden; text-overflow: ellipsis;
+    background-repeat: no-repeat; background-position: calc(100% - 6px) center; 
+    max-width: 130px; overflow: hidden; text-overflow: ellipsis;
   }
 
-  /* Всплывающее меню настроек с прокруткой для мобилок */
   .settings-modal {
-    position: absolute; bottom: calc(65px + env(safe-area-inset-bottom)); right: 12px; width: calc(100vw - 24px); max-width: 320px; 
-    max-height: 60vh; overflow-y: auto; background: var(--panel-solid); border: 1px solid var(--panel-border); 
-    border-radius: 12px; padding: 14px; display: none; flex-direction: column; gap: 12px;
-    box-shadow: 0 16px 36px rgba(0,0,0,0.8); backdrop-filter: blur(16px); z-index: 35; pointer-events: auto;
+    position: absolute; bottom: calc(60px + env(safe-area-inset-bottom)); right: 10px; width: calc(100vw - 20px); max-width: 300px; 
+    max-height: 50dvh; overflow-y: auto; background: var(--panel-solid); border: 1px solid var(--panel-border); 
+    border-radius: 12px; padding: 12px; display: none; flex-direction: column; gap: 10px; z-index: 35; pointer-events: auto;
   }
   .settings-modal.active { display: flex; }
-  .settings-modal h3 { font-family: var(--display); font-size: 14px; margin: 0 0 4px 0; display: flex; justify-content: space-between; align-items: center; }
+  .settings-modal h3 { font-family: var(--display); font-size: 13px; margin: 0 0 4px 0; display: flex; justify-content: space-between; }
   
-  .setting-row { display: flex; flex-direction: column; gap: 4px; }
-  .setting-row label { font-size: 11px; font-family: var(--mono); color: var(--muted); display: flex; justify-content: space-between; }
-  .setting-row input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+  .setting-row { display: flex; flex-direction: column; gap: 3px; }
+  .setting-row label { font-size: 10px; font-family: var(--mono); color: var(--muted); display: flex; justify-content: space-between; }
+  .setting-row input[type=range] { width: 100%; accent-color: var(--accent); }
 
-  /* Карточка подключения */
-  .pairing-box {
+  .pairing-box, .cam-input-card {
     position: absolute; z-index: 25; background: var(--panel-solid); border: 1px solid var(--panel-border);
-    padding: 20px; border-radius: 14px; display: flex; flex-direction: column; align-items: center; gap: 14px;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.8); text-align: center; width: calc(100vw - 32px); max-width: 320px;
+    padding: 18px; border-radius: 14px; display: flex; flex-direction: column; align-items: center; gap: 12px;
+    width: calc(100vw - 32px); max-width: 320px; text-align: center;
   }
-  .qrbox { background: #fff; padding: 8px; border-radius: 8px; line-height: 0; }
-  .code-display { font-family: var(--mono); font-size: 22px; letter-spacing: .15em; color: var(--accent); background: #0c0d12; padding: 8px 16px; border-radius: 6px; border: 1px dashed var(--panel-border); width: 100%; }
-
-  .cam-input-card {
-    background: var(--panel-solid); border: 1px solid var(--panel-border); padding: 20px; border-radius: 14px;
-    display: flex; flex-direction: column; gap: 14px; width: calc(100vw - 32px); max-width: 340px; z-index: 25;
-  }
+  .qrbox { background: #fff; padding: 8px; border-radius: 8px; }
+  .code-display { font-family: var(--mono); font-size: 20px; letter-spacing: .15em; color: var(--accent); background: #0c0d12; padding: 6px 12px; border-radius: 6px; border: 1px dashed var(--panel-border); width: 100%; }
   input[type=text] {
     width: 100%; background: #0c0d12; border: 1px solid var(--panel-border); color: var(--text);
-    font-family: var(--mono); font-size: 18px; letter-spacing: .12em; padding: 10px; border-radius: 6px; text-align: center; text-transform: uppercase;
+    font-family: var(--mono); font-size: 16px; letter-spacing: .12em; padding: 8px; border-radius: 6px; text-align: center; text-transform: uppercase;
   }
-  input[type=text]:focus { outline: none; border-color: var(--accent); }
-
-  /* OBS-style Оверлей теста сети */
-  .benchmark-overlay {
-    position: absolute; inset: 0; background: rgba(7, 8, 10, 0.92); backdrop-filter: blur(10px);
-    z-index: 40; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center;
-  }
-  .benchmark-overlay.active { display: flex; }
-  .spinner { width: 36px; height: 36px; border: 3px solid var(--panel-border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 16px; }
-  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
@@ -158,36 +138,33 @@
 <div class="app-container">
 
   <section id="screen-select" class="screen active">
-    <div class="brand-logo"><span class="dot"></span>GLAZOK ULTRA</div>
+    <div class="brand-logo"><span class="dot"></span>GLAZOK DUAL</div>
     <h1>P2P Веб-камера Studio</h1>
-    <p class="lead">Прямая трансляция с выбором камер, авто-тестом сети и адаптивным битрейтом.</p>
+    <p class="lead">Трансляция 1 или 2 камер одновременно с авто-подбором качества.</p>
     <div class="modes">
       <button class="mode-card" onclick="goMonitor()">
         <span class="mode-letter">M</span>
-        <span class="mode-copy"><strong>Монитор (ПК / Экран)</strong><span>Приём видеопотока в полноэкранном режиме</span></span>
+        <span class="mode-copy"><strong>Монитор (ПК / Экран)</strong><span>Приём видеопотока</span></span>
       </button>
       <button class="mode-card" onclick="goCamera()">
         <span class="mode-letter">C</span>
-        <span class="mode-copy"><strong>Камера (Смартфон)</strong><span>Передача видео с ручным выбором объективов</span></span>
+        <span class="mode-copy"><strong>Камера (Смартфон)</strong><span>Передача 1 или 2 камер</span></span>
       </button>
-    </div>
-    <div id="https-warn" style="display:none; margin-top:16px; color:var(--amber); font-size:11px; font-family:var(--mono);">
-      ⚠️ Нужен HTTPS для доступа браузера к камерам телефона.
     </div>
   </section>
 
   <section id="screen-monitor" class="screen">
-    <div class="fullscreen-viewfinder" id="mon-viewport" onclick="toggleOverlayUI()">
+    <div class="fullscreen-viewfinder" onclick="toggleOverlayUI()">
       <video id="mon-video" autoplay playsinline style="display:none;"></video>
       
       <div class="pairing-box" id="mon-pairing">
-        <div class="brand-logo" style="font-size:16px;"><span class="dot"></span>ПОДКЛЮЧЕНИЕ</div>
+        <div class="brand-logo" style="font-size:15px;"><span class="dot"></span>ПОДКЛЮЧЕНИЕ</div>
         <div class="qrbox" id="qrcode"></div>
         <div class="code-display" id="mon-code">——————</div>
-        <p style="margin:0; font-size:11px; color:var(--muted);">Сканируй QR-код или введи код на телефоне.</p>
+        <p style="margin:0; font-size:11px; color:var(--muted);">Сканируй QR или введи код на телефоне.</p>
       </div>
 
-      <div class="overlay-ui" id="mon-overlay">
+      <div class="overlay-ui">
         <div class="top-bar">
           <div class="badge-status">
             <span class="status-dot" id="mon-status-dot"></span>
@@ -195,7 +172,6 @@
           </div>
           <div class="hud-stats" id="mon-hud"></div>
         </div>
-
         <div class="bottom-bar">
           <button class="btn-icon" onclick="resetToSelect()">‹ Меню</button>
           <div class="controls-group">
@@ -210,15 +186,17 @@
   <section id="screen-camera" class="screen">
     <div class="cam-input-card" id="cam-need-code">
       <button class="btn-icon" style="align-self:flex-start;" onclick="resetToSelect()">‹ Назад</button>
-      <h2 style="margin:0; font-family:var(--display); font-size:18px;">Код трансляции</h2>
+      <h2 style="margin:0; font-family:var(--display); font-size:16px;">Код трансляции</h2>
       <input type="text" id="cam-code-input" maxlength="6" placeholder="A1B2C3">
-      <button class="btn-icon active" style="justify-content:center; padding:12px;" onclick="connectWithTypedCode()">Транслировать</button>
+      <button class="btn-icon active" style="justify-content:center; padding:10px;" onclick="connectWithTypedCode()">Транслировать</button>
     </div>
 
     <div class="fullscreen-viewfinder" id="cam-viewport" style="display:none;" onclick="toggleOverlayUI()">
+      <canvas id="dual-canvas" style="display:none;"></canvas>
       <video id="cam-video" autoplay playsinline muted></video>
+      <video id="cam-video-2" autoplay playsinline muted style="display:none;"></video>
 
-      <div class="overlay-ui" id="cam-overlay">
+      <div class="overlay-ui">
         <div class="top-bar">
           <div class="badge-status">
             <span class="status-dot" id="cam-status-dot"></span>
@@ -231,42 +209,34 @@
           <button class="btn-icon" onclick="resetToSelect()">‹ Выход</button>
 
           <div class="controls-group">
-            <select class="btn-icon" id="camera-device-select" onchange="switchSpecificCamera(this.value)">
-              <option value="">Камера...</option>
+            <select class="btn-icon" id="cam-select-1" onchange="switchMainCam(this.value)">
+              <option value="">Камера 1...</option>
+            </select>
+
+            <select class="btn-icon" id="cam-select-2" onchange="enableDualCam(this.value)">
+              <option value="">+2-я Камера (Off)</option>
             </select>
 
             <select class="btn-icon" id="quality-selector" onchange="changeQualityPreset(this.value)">
-              <option value="4k60">4K 60FPS</option>
-              <option value="4k30">4K 30FPS</option>
-              <option value="1080p120">1080p 120FPS</option>
               <option value="1080p60" selected>1080p 60FPS</option>
               <option value="1080p30">1080p 30FPS</option>
-              <option value="720p120">720p 120FPS</option>
               <option value="720p60">720p 60FPS</option>
-              <option value="480p30">480p 30FPS (Low Net)</option>
+              <option value="480p30">480p (Low Net)</option>
             </select>
 
-            <button class="btn-icon" onclick="runOBSNetworkTest()" title="Тест сети OBS">⚡ Авто-тест</button>
             <button class="btn-icon" id="btn-toggle-settings" onclick="toggleSettingsModal(event)">⚙️</button>
           </div>
         </div>
 
         <div class="settings-modal" id="cam-settings-modal" onclick="event.stopPropagation()">
-          <h3>Настройки объектива <span style="cursor:pointer; color:var(--muted)" onclick="toggleSettingsModal()">✕</span></h3>
-          
+          <h3>Настройки <span style="cursor:pointer; color:var(--muted)" onclick="toggleSettingsModal()">✕</span></h3>
           <div class="setting-row" id="row-zoom" style="display:none;">
             <label>Зум <span id="val-zoom">1x</span></label>
             <input type="range" id="input-zoom" step="0.1" oninput="applyCameraParam('zoom', parseFloat(this.value))">
           </div>
-
           <div class="setting-row" id="row-exposure" style="display:none;">
             <label>Экспозиция <span id="val-exposure">0</span></label>
             <input type="range" id="input-exposure" step="0.5" oninput="applyCameraParam('exposureCompensation', parseFloat(this.value))">
-          </div>
-
-          <div class="setting-row" id="row-torch" style="display:none;">
-            <label>Вспышка</label>
-            <button class="btn-icon" id="btn-torch" onclick="toggleTorch()">Включить фонарик</button>
           </div>
         </div>
 
@@ -274,38 +244,22 @@
     </div>
   </section>
 
-  <div class="benchmark-overlay" id="benchmark-modal">
-    <div class="spinner"></div>
-    <h3 style="margin:0 0 8px 0; font-family:var(--display);">Тестирование сети и камеры...</h3>
-    <p style="margin:0; font-size:12px; color:var(--muted); max-width:280px;" id="benchmark-status">Проверка задержки и пропускной способности WebRTC</p>
-  </div>
-
 </div>
 
 <script>
 const PEER_CONFIG = {
-  config: {
-    iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' }
-    ]
-  }
+  config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] }
 };
 
 const QUALITY_PRESETS = {
-  '4k60':    { w: 3840, h: 2160, fps: 60, bitrate: 12_000_000 },
-  '4k30':    { w: 3840, h: 2160, fps: 30, bitrate: 8_000_000 },
-  '1080p120':{ w: 1920, h: 1080, fps: 120,bitrate: 7_000_000 },
   '1080p60': { w: 1920, h: 1080, fps: 60, bitrate: 5_000_000 },
   '1080p30': { w: 1920, h: 1080, fps: 30, bitrate: 3_000_000 },
-  '720p120': { w: 1280, h: 720,  fps: 120,bitrate: 4_500_000 },
   '720p60':  { w: 1280, h: 720,  fps: 60, bitrate: 2_500_000 },
   '480p30':  { w: 854,  h: 480,  fps: 30, bitrate: 1_000_000 }
 };
 
-let peer=null, call=null, localStream=null, statsTimer=null, adaptiveTimer=null;
-let selectedDeviceId = null, wakeLock = null, isTorchOn = false;
+let peer=null, call=null, stream1=null, stream2=null, activeOutStream=null;
+let canvasAnimId=null, selectedCam1Id=null, selectedCam2Id=null;
 
 function $(id){ return document.getElementById(id); }
 
@@ -317,25 +271,14 @@ function showScreen(id){
 function resetToSelect(){
   teardown();
   showScreen('screen-select');
-  history.replaceState(null,'',location.pathname);
 }
-
-if(location.protocol!=='https:' && location.hostname!=='localhost' && location.hostname!=='127.0.0.1'){
-  $('https-warn').style.display='block';
-}
-
-async function requestWakeLock() {
-  try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
-}
-function releaseWakeLock() { if (wakeLock) { wakeLock.release().catch(()=>{}); wakeLock = null; } }
 
 function teardown(){
-  releaseWakeLock();
-  if(statsTimer){ clearInterval(statsTimer); statsTimer=null; }
-  if(adaptiveTimer){ clearInterval(adaptiveTimer); adaptiveTimer=null; }
+  if(canvasAnimId) cancelAnimationFrame(canvasAnimId);
   if(call){ try{call.close();}catch(e){} call=null; }
   if(peer){ try{peer.destroy();}catch(e){} peer=null; }
-  if(localStream){ localStream.getTracks().forEach(t=>t.stop()); localStream=null; }
+  if(stream1){ stream1.getTracks().forEach(t=>t.stop()); stream1=null; }
+  if(stream2){ stream2.getTracks().forEach(t=>t.stop()); stream2=null; }
 }
 
 function randCode(len){
@@ -360,389 +303,151 @@ function toggleFitMode(){
 }
 
 function toggleFullscreen(){
-  if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen().catch(()=>{});
-  } else {
-    document.exitFullscreen().catch(()=>{});
-  }
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
+  else document.exitFullscreen().catch(()=>{});
 }
 
-/* =========================================================
-   МОНИТОР (ПК)
-   ========================================================= */
+/* МОНИТОР */
 function goMonitor(){
   showScreen('screen-monitor');
-  $('mon-status-text').textContent = 'Инициализация...';
   const id = 'glz-' + randCode(6).toLowerCase();
   peer = new Peer(id, PEER_CONFIG);
 
   peer.on('open', pid => {
     $('mon-status-dot').classList.add('ok');
-    $('mon-status-text').textContent = 'Ожидание подключения';
-    const shortCode = pid.replace('glz-','').toUpperCase();
-    $('mon-code').textContent = shortCode;
-    const link = location.origin + location.pathname + '?room=' + encodeURIComponent(pid);
+    $('mon-status-text').textContent = 'Готов';
+    $('mon-code').textContent = pid.replace('glz-','').toUpperCase();
     $('qrcode').innerHTML = '';
-    new QRCode($('qrcode'), { text: link, width: 150, height: 150, correctLevel: QRCode.CorrectLevel.M });
+    new QRCode($('qrcode'), { text: location.origin + location.pathname + '?room=' + encodeURIComponent(pid), width: 140, height: 140 });
   });
 
   peer.on('call', incoming => {
     incoming.answer();
     call = incoming;
-    
     call.on('stream', stream => {
       $('mon-pairing').style.display = 'none';
-      const v = $('mon-video'); 
-      v.srcObject = stream; 
-      v.style.display = 'block';
-      if ('playoutDelayHint' in v) v.playoutDelayHint = 0;
-
+      const v = $('mon-video'); v.srcObject = stream; v.style.display = 'block';
       $('mon-status-text').textContent = 'LIVE';
-      startMonitorStats();
       toggleOverlayUI();
     });
-
-    call.peerConnection.oniceconnectionstatechange = () => {
-      const st = call.peerConnection.iceConnectionState;
-      if (st === 'failed') call.peerConnection.restartIce();
-    };
-
-    call.on('close', () => { monitorGoIdle(); });
   });
-
-  peer.on('disconnected', () => { try{peer.reconnect();}catch(e){} });
 }
 
-function monitorGoIdle(){
-  $('mon-video').style.display = 'none';
-  $('mon-pairing').style.display = 'flex';
-  $('mon-status-text').textContent = 'Отключено';
-  if(statsTimer){ clearInterval(statsTimer); statsTimer=null; }
-}
-
-function startMonitorStats(){
-  let lastBytes=0, lastT=performance.now();
-  statsTimer = setInterval(async () => {
-    if(!call || !call.peerConnection) return;
-    const receivers = call.peerConnection.getReceivers().filter(r => r.track && r.track.kind==='video');
-    if(!receivers.length) return;
-    const settings = receivers[0].track.getSettings ? receivers[0].track.getSettings() : {};
-
-    let kbps='—';
-    try {
-      const stats = await call.peerConnection.getStats();
-      stats.forEach(r => {
-        if(r.type==='inbound-rtp' && r.kind==='video'){
-          const now = performance.now();
-          const dt = (now - lastT) / 1000;
-          if(dt > 0.4 && lastBytes > 0){
-            kbps = Math.round(((r.bytesReceived - lastBytes) * 8 / 1000) / dt);
-          }
-          lastBytes = r.bytesReceived; lastT = now;
-        }
-      });
-    } catch(e){}
-
-    $('mon-hud').innerHTML = `${settings.width||'?'}×${settings.height||'?'}@${Math.round(settings.frameRate||0)}fps | ${kbps!=='—'?kbps+' kbps':''}`;
-  }, 1000);
-}
-
-/* =========================================================
-   КАМЕРА (ТЕЛЕФОН) И АДАПТИВНАЯ СЕТЬ
-   ========================================================= */
-let pendingTargetId = null;
-
+/* КАМЕРА */
 function goCamera(){
   showScreen('screen-camera');
-  const params = new URLSearchParams(location.search);
-  const room = params.get('room');
-  if(room){
-    pendingTargetId = room;
-    $('cam-need-code').style.display = 'none';
-    startCameraFlow(pendingTargetId);
-  } else {
-    $('cam-need-code').style.display = 'flex';
-  }
+  const room = new URLSearchParams(location.search).get('room');
+  if(room){ $('cam-need-code').style.display = 'none'; startCameraFlow(room); }
+  else { $('cam-need-code').style.display = 'flex'; }
 }
 
 function connectWithTypedCode(){
   const v = $('cam-code-input').value.trim().toLowerCase();
   if(v.length < 4) return;
-  pendingTargetId = 'glz-' + v;
   $('cam-need-code').style.display = 'none';
-  startCameraFlow(pendingTargetId);
+  startCameraFlow('glz-' + v);
 }
 
 async function populateCameraDevices() {
   try {
     const devices = await navigator.mediaDevices.enumerateDevices();
-    const videoDevices = devices.filter(d => d.kind === 'videoinput');
-    const select = $('camera-device-select');
-    select.innerHTML = '';
+    const videoDevs = devices.filter(d => d.kind === 'videoinput');
+    
+    const s1 = $('cam-select-1'), s2 = $('cam-select-2');
+    s1.innerHTML = '<option value="">Камера 1...</option>';
+    s2.innerHTML = '<option value="">+2-я Камера (Off)</option>';
 
-    videoDevices.forEach((dev, index) => {
-      const opt = document.createElement('option');
-      opt.value = dev.deviceId;
-      opt.textContent = dev.label || `Камера ${index + 1}`;
-      select.appendChild(opt);
+    videoDevs.forEach((dev, idx) => {
+      const o1 = document.createElement('option'); o1.value = dev.deviceId; o1.textContent = dev.label || `Камера ${idx+1}`;
+      const o2 = o1.cloneNode(true);
+      s1.appendChild(o1); s2.appendChild(o2);
     });
 
-    if (selectedDeviceId) select.value = selectedDeviceId;
+    if(selectedCam1Id) s1.value = selectedCam1Id;
+    if(selectedCam2Id) s2.value = selectedCam2Id;
   } catch(e){}
-}
-
-async function getStreamWithPreset(presetKey, deviceId) {
-  const p = QUALITY_PRESETS[presetKey] || QUALITY_PRESETS['1080p60'];
-  const videoConstraints = {
-    width: { ideal: p.w },
-    height: { ideal: p.h },
-    frameRate: { ideal: p.fps }
-  };
-
-  if (deviceId) {
-    videoConstraints.deviceId = { exact: deviceId };
-  } else {
-    videoConstraints.facingMode = { ideal: 'environment' };
-  }
-
-  return await navigator.mediaDevices.getUserMedia({ audio: false, video: videoConstraints });
 }
 
 async function startCameraFlow(targetId){
-  $('cam-status-text').textContent = 'Старт камеры...';
-  const selectedPreset = $('quality-selector').value;
-
+  $('cam-status-text').textContent = 'Запуск...';
   try {
-    localStream = await getStreamWithPreset(selectedPreset, selectedDeviceId);
-    requestWakeLock();
+    stream1 = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+    selectedCam1Id = stream1.getVideoTracks()[0].getSettings().deviceId;
     await populateCameraDevices();
-  } catch(e) {
-    $('cam-status-dot').classList.add('warn');
-    $('cam-status-text').textContent = 'Ошибка камеры';
-    $('cam-need-code').style.display = 'flex';
-    return;
-  }
+  } catch(e) { return; }
 
-  const v = $('cam-video'); v.srcObject = localStream;
+  $('cam-video').srcObject = stream1;
   $('cam-viewport').style.display = 'flex';
-  
-  const videoTrack = localStream.getVideoTracks()[0];
-  inspectCameraCapabilities(videoTrack);
-  updateCamHud(videoTrack.getSettings());
+  activeOutStream = stream1;
 
-  $('cam-status-text').textContent = 'Соединение...';
   peer = new Peer(PEER_CONFIG);
-
   peer.on('open', () => {
-    call = peer.call(targetId, localStream);
-    if(!call){
-      $('cam-status-dot').classList.add('warn');
-      $('cam-status-text').textContent = 'ПК не найден';
-      return;
-    }
-
-    applyEncoderParameters(call, selectedPreset);
-    startAdaptiveNetworkGuard(call);
-
-    call.peerConnection.oniceconnectionstatechange = () => {
-      const st = call.peerConnection.iceConnectionState;
-      if(st==='connected' || st==='completed'){
-        $('cam-status-dot').classList.add('ok');
-        $('cam-status-text').textContent = 'LIVE';
-      } else if(st==='failed'){
-        call.peerConnection.restartIce();
-      }
-    };
+    call = peer.call(targetId, activeOutStream);
+    $('cam-status-dot').classList.add('ok');
+    $('cam-status-text').textContent = 'LIVE';
   });
-
-  peer.on('disconnected', () => { try{peer.reconnect();}catch(e){} });
   toggleOverlayUI();
 }
 
-/* Авто-адаптация под плохой интернет */
-function startAdaptiveNetworkGuard(call) {
-  if (adaptiveTimer) clearInterval(adaptiveTimer);
-  let highRTTCount = 0;
-
-  adaptiveTimer = setInterval(async () => {
-    if (!call || !call.peerConnection) return;
-    try {
-      const stats = await call.peerConnection.getStats();
-      stats.forEach(r => {
-        if (r.type === 'remote-inbound-rtp' && r.kind === 'video') {
-          // Если пинг выше 250мс или растут потери пакетов -> временно снижаем битрейт
-          if (r.roundTripTime > 0.25 || r.packetsLost > 10) {
-            highRTTCount++;
-            if (highRTTCount >= 2) {
-              degradeBitrateForBadNetwork(call);
-              highRTTCount = 0;
-            }
-          } else {
-            highRTTCount = Math.max(0, highRTTCount - 1);
-          }
-        }
-      });
-    } catch(e){}
-  }, 2000);
-}
-
-function degradeBitrateForBadNetwork(call) {
-  try {
-    const sender = call.peerConnection.getSenders().find(s => s.track && s.track.kind==='video');
-    if (!sender) return;
-    const params = sender.getParameters();
-    if (params.encodings && params.encodings[0]) {
-      const currentBw = params.encodings[0].maxBitrate || 3_000_000;
-      params.encodings[0].maxBitrate = Math.max(800_000, Math.round(currentBw * 0.7)); // Снижаем на 30%
-      sender.setParameters(params).catch(()=>{});
-      $('cam-status-text').textContent = 'Сеть слабая (Адаптация)';
-    }
-  } catch(e){}
-}
-
-function applyEncoderParameters(call, presetKey){
-  try {
-    const sender = call.peerConnection.getSenders().find(s => s.track && s.track.kind==='video');
-    if(!sender) return;
-    const p = QUALITY_PRESETS[presetKey] || QUALITY_PRESETS['1080p60'];
-    const params = sender.getParameters();
-    if(!params.encodings) params.encodings = [{}];
-    
-    params.encodings[0].maxBitrate = p.bitrate;
-    params.encodings[0].maxFramerate = p.fps;
-    params.degradationPreference = 'maintain-framerate';
-
-    sender.setParameters(params).catch(()=>{});
-  } catch(e){}
-}
-
-/* OBS-like авто-тест скорости и выбор лучшего пресета */
-async function runOBSNetworkTest() {
-  $('benchmark-modal').classList.add('active');
-  $('benchmark-status').textContent = 'Замер пропускной способности и задержки...';
-
-  const startTime = performance.now();
-  let testPing = 0;
-
-  try {
-    const pc = new RTCPeerConnection(PEER_CONFIG.config);
-    const dc = pc.createDataChannel('test');
-    
-    await new Promise(resolve => {
-      pc.onicecandidate = e => {
-        if(!e.candidate) {
-          testPing = Math.round(performance.now() - startTime);
-          resolve();
-        }
-      };
-      pc.createOffer().then(o => pc.setLocalDescription(o));
-      setTimeout(resolve, 2000);
-    });
-    pc.close();
-  } catch(e){}
-
-  // Логика выбора пресета на основе теста
-  let recommendedPreset = '1080p60';
-  if (testPing > 200) {
-    recommendedPreset = '480p30';
-  } else if (testPing > 100) {
-    recommendedPreset = '720p60';
-  } else {
-    recommendedPreset = '1080p60';
+/* Включение второй камеры (Режим Картинка-в-Картинке) */
+async function enableDualCam(deviceId) {
+  if(!deviceId) {
+    if(canvasAnimId) cancelAnimationFrame(canvasAnimId);
+    if(stream2) { stream2.getTracks().forEach(t=>t.stop()); stream2=null; }
+    replacePeerStream(stream1);
+    $('cam-video').style.display = 'block';
+    $('dual-canvas').style.display = 'none';
+    return;
   }
 
-  $('benchmark-status').textContent = `Пинг: ${testPing}мс. Рекомендация: ${recommendedPreset}`;
-  
-  setTimeout(() => {
-    $('benchmark-modal').classList.remove('active');
-    $('quality-selector').value = recommendedPreset;
-    changeQualityPreset(recommendedPreset);
-  }, 1200);
-}
-
-function inspectCameraCapabilities(track) {
-  if (!track.getCapabilities) return;
-  const caps = track.getCapabilities();
-
-  if (caps.zoom) {
-    $('row-zoom').style.display = 'flex';
-    $('input-zoom').min = caps.zoom.min;
-    $('input-zoom').max = caps.zoom.max;
-    $('input-zoom').value = track.getSettings().zoom || 1;
-    $('val-zoom').textContent = $('input-zoom').value + 'x';
-  } else { $('row-zoom').style.display = 'none'; }
-
-  if (caps.exposureCompensation) {
-    $('row-exposure').style.display = 'flex';
-    $('input-exposure').min = caps.exposureCompensation.min;
-    $('input-exposure').max = caps.exposureCompensation.max;
-    $('input-exposure').value = track.getSettings().exposureCompensation || 0;
-    $('val-exposure').textContent = $('input-exposure').value;
-  } else { $('row-exposure').style.display = 'none'; }
-
-  if (caps.torch) {
-    $('row-torch').style.display = 'flex';
-  } else { $('row-torch').style.display = 'none'; }
-}
-
-async function applyCameraParam(paramName, value) {
-  if (!localStream) return;
-  const track = localStream.getVideoTracks()[0];
   try {
-    await track.applyConstraints({ advanced: [{ [paramName]: value }] });
-    if (paramName === 'zoom') $('val-zoom').textContent = value + 'x';
-    if (paramName === 'exposureCompensation') $('val-exposure').textContent = value;
-  } catch(e){}
+    stream2 = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: deviceId } }, audio: false });
+    $('cam-video-2').srcObject = stream2;
+    selectedCam2Id = deviceId;
+
+    const canvas = $('dual-canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 1280; canvas.height = 720;
+    canvas.style.display = 'block';
+    $('cam-video').style.display = 'none';
+
+    function renderDual() {
+      ctx.drawImage($('cam-video'), 0, 0, canvas.width, canvas.height);
+      // Рисуем вторую камеру в углу (PiP)
+      ctx.strokeStyle = '#7cff6b'; ctx.lineWidth = 4;
+      ctx.strokeRect(canvas.width - 340, canvas.height - 240, 320, 220);
+      ctx.drawImage($('cam-video-2'), canvas.width - 340, canvas.height - 240, 320, 220);
+      canvasAnimId = requestAnimationFrame(renderDual);
+    }
+    renderDual();
+
+    const canvasStream = canvas.captureStream(30);
+    replacePeerStream(canvasStream);
+  } catch(e) {
+    alert("Не удалось одновременно запустить 2-ю камеру на этом устройстве.");
+  }
 }
 
-async function toggleTorch() {
-  isTorchOn = !isTorchOn;
-  await applyCameraParam('torch', isTorchOn);
-  $('btn-torch').classList.toggle('active', isTorchOn);
+function replacePeerStream(newStream) {
+  activeOutStream = newStream;
+  if(call && call.peerConnection) {
+    const sender = call.peerConnection.getSenders().find(s => s.track && s.track.kind==='video');
+    if(sender) sender.replaceTrack(newStream.getVideoTracks()[0]);
+  }
+}
+
+async function switchMainCam(deviceId) {
+  selectedCam1Id = deviceId;
+  if(stream1) stream1.getTracks().forEach(t=>t.stop());
+  stream1 = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: deviceId } }, audio: false });
+  $('cam-video').srcObject = stream1;
+  if(!$('cam-select-2').value) replacePeerStream(stream1);
 }
 
 function toggleSettingsModal(e) {
   if (e) e.stopPropagation();
   $('cam-settings-modal').classList.toggle('active');
 }
-
-async function switchSpecificCamera(deviceId) {
-  selectedDeviceId = deviceId;
-  const currentPreset = $('quality-selector').value;
-  await changeQualityPreset(currentPreset);
-}
-
-async function changeQualityPreset(presetKey) {
-  if (!localStream) return;
-  localStream.getTracks().forEach(t => t.stop());
-
-  try {
-    localStream = await getStreamWithPreset(presetKey, selectedDeviceId);
-  } catch(e) { return; }
-
-  const newTrack = localStream.getVideoTracks()[0];
-  $('cam-video').srcObject = localStream;
-  
-  inspectCameraCapabilities(newTrack);
-  updateCamHud(newTrack.getSettings());
-
-  if (call && call.peerConnection) {
-    const sender = call.peerConnection.getSenders().find(s => s.track && s.track.kind==='video');
-    if (sender) {
-      sender.replaceTrack(newTrack);
-      applyEncoderParameters(call, presetKey);
-    }
-  }
-}
-
-function updateCamHud(settings) {
-  $('cam-hud').innerHTML = `${settings.width}×${settings.height}@${Math.round(settings.frameRate)}fps`;
-}
-
-(function autoRoute(){
-  const params = new URLSearchParams(location.search);
-  if(params.get('room')) goCamera();
-})();
 </script>
 </body>
 </html>
