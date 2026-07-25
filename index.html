@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
-<title>Glazok Multi-Cam P2P Studio</title>
+<title>Glazok Multi-Cam Studio Pro</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -60,22 +60,21 @@
     display: flex; align-items: center; justify-content: center; overflow: hidden;
   }
 
-  /* Режим мультикамерного отображения на Мониторе */
-  .video-grid {
-    width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; position: relative;
-  }
-  .video-grid video {
-    background: #000; transition: all 0.3s ease;
-  }
-  
-  /* Стили для 1 камеры */
+  .video-grid { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; position: relative; }
+  .video-grid video { background: #000; transition: all 0.3s ease; }
   .video-grid.mode-single video { width: 100%; height: 100%; object-fit: contain; }
-  
-  /* Стили для 2 камер (Рядом) */
   .video-grid.mode-split { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; }
   .video-grid.mode-split video { width: 100%; height: 100%; object-fit: contain; border: 1px solid var(--panel-border); }
 
-  /* Адаптивный мобильный UI */
+  /* Эффекты (CSS Filters) */
+  .fx-normal { filter: none; }
+  .fx-bw { filter: grayscale(100%); }
+  .fx-sepia { filter: sepia(80%) contrast(110%); }
+  .fx-cyber { filter: saturate(200%) hue-rotate(340deg) contrast(120%); }
+  .fx-noir { filter: grayscale(100%) contrast(200%) brightness(80%); }
+  .fx-invert { filter: invert(100%); }
+
+  /* Адаптивный UI */
   .overlay-ui {
     position: absolute; inset: 0; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between;
     padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
@@ -87,11 +86,20 @@
   .overlay-ui:focus-within { opacity: 1; }
 
   .top-bar { display: flex; align-items: center; justify-content: space-between; width: 100%; pointer-events: auto; gap: 6px; }
-  
   .bottom-bar { 
-    display: flex; align-items: center; justify-content: space-between; width: 100%; 
-    pointer-events: auto; gap: 6px; flex-wrap: wrap; max-height: 45dvh; overflow-y: auto;
+    display: flex; align-items: flex-end; justify-content: space-between; width: 100%; 
+    pointer-events: auto; gap: 6px;
   }
+
+  .controls-panel {
+    display: flex; flex-direction: column; gap: 8px; background: var(--panel); backdrop-filter: blur(14px);
+    border: 1px solid var(--panel-border); padding: 10px 12px; border-radius: 12px; max-width: 100%;
+    max-height: 40dvh; overflow-y: auto;
+  }
+
+  .slider-row { display: flex; align-items: center; gap: 8px; font-size: 11px; font-family: var(--mono); }
+  .slider-row label { min-width: 55px; color: var(--muted); }
+  .slider-row input[type=range] { flex: 1; accent-color: var(--accent); }
   
   .badge-status {
     display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px;
@@ -104,14 +112,14 @@
   
   .btn-icon {
     background: var(--panel); backdrop-filter: blur(12px); border: 1px solid var(--panel-border); color: var(--text);
-    padding: 7px 12px; border-radius: 8px; font-family: var(--body); font-size: 11px; font-weight: 500; cursor: pointer;
-    display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; max-width: 100%; transition: all 0.15s ease;
+    padding: 7px 11px; border-radius: 8px; font-family: var(--body); font-size: 11px; font-weight: 500; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; transition: all 0.15s ease;
   }
   .btn-icon:hover { border-color: var(--accent); background: rgba(30, 34, 45, 0.9); }
   .btn-icon.active { background: var(--accent); color: #08210a; border-color: var(--accent); font-weight: 600; }
 
   select.btn-icon { 
-    appearance: none; padding-right: 22px; 
+    appearance: none; padding-right: 20px; 
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%239ca3af' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E"); 
     background-repeat: no-repeat; background-position: calc(100% - 6px) center; 
   }
@@ -135,17 +143,17 @@
 <div class="app-container">
 
   <section id="screen-select" class="screen active">
-    <div class="brand-logo"><span class="dot"></span>GLAZOK MULTI-CAM</div>
+    <div class="brand-logo"><span class="dot"></span>GLAZOK MULTI-CAM PRO</div>
     <h1>P2P Веб-камера Studio</h1>
-    <p class="lead">Транслируйте с нескольких телефонов на один ПК без проводов и задержек.</p>
+    <p class="lead">4K / 2K трансляция с нескольких iPhone или Android устройств без задержек.</p>
     <div class="modes">
       <button class="mode-card" onclick="goMonitor()">
         <span class="mode-letter">M</span>
-        <span class="mode-copy"><strong>Монитор (ПК / Экран)</strong><span>Приём видео с 1 или 2+ телефонов</span></span>
+        <span class="mode-copy"><strong>Монитор (ПК / Приёмник)</strong><span>Приём видео с 1 или нескольких телефонов</span></span>
       </button>
       <button class="mode-card" onclick="goCamera()">
         <span class="mode-letter">C</span>
-        <span class="mode-copy"><strong>Камера (Телефон)</strong><span>Передача видеопотока</span></span>
+        <span class="mode-copy"><strong>Камера (Телефон)</strong><span>Передача видеопотока 4K/2K</span></span>
       </button>
     </div>
   </section>
@@ -153,14 +161,13 @@
   <section id="screen-monitor" class="screen">
     <div class="fullscreen-viewfinder" onclick="toggleOverlayUI()">
       
-      <div class="video-grid mode-single" id="mon-video-container">
-        </div>
+      <div class="video-grid mode-single" id="mon-video-container"></div>
       
       <div class="pairing-box" id="mon-pairing">
         <div class="brand-logo" style="font-size:15px;"><span class="dot"></span>КОД ДЛЯ ТЕЛЕФОНОВ</div>
         <div class="qrbox" id="qrcode"></div>
         <div class="code-display" id="mon-code">——————</div>
-        <p style="margin:0; font-size:11px; color:var(--muted);">Введите этот код на <b>однои или двух телефонах</b>, чтобы начать трансляцию.</p>
+        <p style="margin:0; font-size:11px; color:var(--muted);">Введите этот код на <b>одном или двух телефонах</b>, чтобы подключить их.</p>
       </div>
 
       <div class="overlay-ui">
@@ -169,8 +176,7 @@
             <span class="status-dot" id="mon-status-dot"></span>
             <span id="mon-status-text">Ожидание устройств...</span>
           </div>
-          <div class="controls-group" id="cam-switcher-bar">
-            </div>
+          <div class="controls-group" id="cam-switcher-bar"></div>
         </div>
 
         <div class="bottom-bar">
@@ -194,29 +200,52 @@
     </div>
 
     <div class="fullscreen-viewfinder" id="cam-viewport" style="display:none;" onclick="toggleOverlayUI()">
-      <video id="cam-video" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover;"></video>
+      <video id="cam-video" class="fx-normal" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover;"></video>
 
       <div class="overlay-ui">
         <div class="top-bar">
           <div class="badge-status">
             <span class="status-dot ok"></span>
-            <span id="cam-device-name">Телефон транслирует</span>
+            <span id="cam-device-name">Трансляция активна</span>
           </div>
+          <button class="btn-icon" id="btn-torch" style="display:none;" onclick="toggleTorch()">💡 Вспышка</button>
         </div>
 
         <div class="bottom-bar">
-          <button class="btn-icon" onclick="resetToSelect()">‹ Отключить</button>
+          <div class="controls-panel">
+            <div class="slider-row" id="row-zoom" style="display:none;">
+              <label>Зум</label>
+              <input type="range" id="zoom-slider" min="1" max="5" step="0.1" value="1" oninput="applyCameraHardwareParam('zoom', this.value)">
+            </div>
+            <div class="slider-row" id="row-exp" style="display:none;">
+              <label>Яркость</label>
+              <input type="range" id="exp-slider" min="-2" max="2" step="0.1" value="0" oninput="applyCameraHardwareParam('exposureCompensation', this.value)">
+            </div>
 
-          <div class="controls-group">
-            <select class="btn-icon" id="cam-select" onchange="switchLocalCamera(this.value)">
-              <option value="">Камера...</option>
-            </select>
+            <div class="controls-group" style="margin-top:4px;">
+              <select class="btn-icon" id="quality-selector" onchange="changeQuality(this.value)">
+                <option value="4k30">4K Ultra HD (2160p)</option>
+                <option value="2k30" selected>2K Quad HD (1440p)</option>
+                <option value="1080p60">1080p 60FPS</option>
+                <option value="1080p30">1080p 30FPS</option>
+                <option value="720p60">720p 60FPS</option>
+              </select>
 
-            <select class="btn-icon" id="quality-selector" onchange="changeQuality(this.value)">
-              <option value="1080p30" selected>1080p 30FPS</option>
-              <option value="720p60">720p 60FPS</option>
-              <option value="480p30">480p (Экономия)</option>
-            </select>
+              <select class="btn-icon" id="cam-select" onchange="switchLocalCamera(this.value)">
+                <option value="">Камера...</option>
+              </select>
+
+              <select class="btn-icon" onchange="applyVideoEffect(this.value)">
+                <option value="fx-normal">🎨 Без фильтра</option>
+                <option value="fx-bw">Чёрно-белый</option>
+                <option value="fx-sepia">Винтаж / Сепия</option>
+                <option value="fx-cyber">Киберпанк</option>
+                <option value="fx-noir">Нюар (Контраст)</option>
+                <option value="fx-invert">Инверсия</option>
+              </select>
+
+              <button class="btn-icon" onclick="resetToSelect()">‹ Стоп</button>
+            </div>
           </div>
         </div>
       </div>
@@ -231,11 +260,12 @@ const PEER_CONFIG = {
 };
 
 let peer = null;
-let activeStreams = new Map(); // Хранение потоков с нескольких телефонов
+let activeStreams = new Map();
 let localStream = null;
 let currentCall = null;
-let viewMode = 'single'; // 'single' или 'split'
+let viewMode = 'single';
 let activeCamId = null;
+let torchActive = false;
 
 function $(id){ return document.getElementById(id); }
 
@@ -268,7 +298,7 @@ function toggleOverlayUI(){
   overlays.forEach(o => {
     o.classList.add('visible');
     clearTimeout(overlayTimeout);
-    overlayTimeout = setTimeout(() => o.classList.remove('visible'), 4000);
+    overlayTimeout = setTimeout(() => o.classList.remove('visible'), 5000);
   });
 }
 
@@ -277,7 +307,7 @@ function toggleFullscreen(){
   else document.exitFullscreen().catch(()=>{});
 }
 
-/* ==================== МОНИТОР (ПРИЕМ С НЕСКОЛЬКИХ ТЕЛЕФОНОВ) ==================== */
+/* ==================== МОНИТОР ==================== */
 function goMonitor(){
   showScreen('screen-monitor');
   const roomCode = randCode(6).toLowerCase();
@@ -293,14 +323,11 @@ function goMonitor(){
     new QRCode($('qrcode'), { text: location.origin + location.pathname + '?room=' + roomCode, width: 140, height: 140 });
   });
 
-  // Обработка подключения каждого НОВОГО телефона
   peer.on('call', incomingCall => {
     incomingCall.answer();
     
     incomingCall.on('stream', remoteStream => {
-      const peerId = incomingCall.peer;
-      activeStreams.set(peerId, { call: incomingCall, stream: remoteStream });
-      
+      activeStreams.set(incomingCall.peer, { call: incomingCall, stream: remoteStream });
       $('mon-pairing').style.display = 'none';
       updateMonitorLayout();
       toggleOverlayUI();
@@ -333,12 +360,10 @@ function updateMonitorLayout() {
     activeCamId = streamKeys[0];
   }
 
-  // Создаем кнопки переключения телефонов в верхней панели
   streamKeys.forEach((key, idx) => {
-    const camNum = idx + 1;
     const btn = document.createElement('button');
     btn.className = `btn-icon ${key === activeCamId ? 'active' : ''}`;
-    btn.textContent = `📱 Телефон ${camNum}`;
+    btn.textContent = `📱 Телефон ${idx + 1}`;
     btn.onclick = (e) => {
       e.stopPropagation();
       activeCamId = key;
@@ -348,7 +373,6 @@ function updateMonitorLayout() {
     switcherBar.appendChild(btn);
   });
 
-  // Если подключено 2 или более телефонов, добавляем кнопку «Оба экрана»
   if (streamKeys.length >= 2) {
     const splitBtn = document.createElement('button');
     splitBtn.className = `btn-icon ${viewMode === 'split' ? 'active' : ''}`;
@@ -361,7 +385,6 @@ function updateMonitorLayout() {
     switcherBar.appendChild(splitBtn);
   }
 
-  // Отображаем видео в зависимости от выбранного режима
   if (viewMode === 'split' && streamKeys.length >= 2) {
     container.className = 'video-grid mode-split';
     streamKeys.forEach(key => {
@@ -401,18 +424,35 @@ function connectWithTypedCode(){
   startPhoneStream('glz-' + v);
 }
 
+function getConstraintsForPreset(preset) {
+  let w = 2560, h = 1440, fps = 30; // 2K QHD по умолчанию
+  if(preset === '4k30') { w = 3840; h = 2160; fps = 30; }
+  if(preset === '1080p60') { w = 1920; h = 1080; fps = 60; }
+  if(preset === '1080p30') { w = 1920; h = 1080; fps = 30; }
+  if(preset === '720p60') { w = 1280; h = 720; fps = 60; }
+
+  return {
+    width: { ideal: w },
+    height: { ideal: h },
+    frameRate: { ideal: fps },
+    facingMode: { ideal: 'environment' }
+  };
+}
+
 async function startPhoneStream(targetPeerId){
   try {
+    const preset = $('quality-selector').value;
     localStream = await navigator.mediaDevices.getUserMedia({ 
-      video: { width: { ideal: 1920 }, height: { ideal: 1080 }, facingMode: { ideal: 'environment' } }, 
+      video: getConstraintsForPreset(preset), 
       audio: false 
     });
+    
     $('cam-video').srcObject = localStream;
     $('cam-viewport').style.display = 'flex';
 
     await populateLocalCameras();
+    detectCameraCapabilities();
 
-    // Каждому телефону создаем уникальный ID, чтобы Монитор различал их
     const phonePeerId = 'cam-' + randCode(8).toLowerCase();
     peer = new Peer(phonePeerId, PEER_CONFIG);
 
@@ -421,7 +461,7 @@ async function startPhoneStream(targetPeerId){
     });
 
   } catch(e) {
-    alert("Ошибка доступа к камере: " + e.message);
+    alert("Ошибка доступа к камере 4K/2K: " + e.message);
     resetToSelect();
   }
   toggleOverlayUI();
@@ -443,16 +483,69 @@ async function populateLocalCameras() {
   } catch(e){}
 }
 
+function detectCameraCapabilities() {
+  if(!localStream) return;
+  const track = localStream.getVideoTracks()[0];
+  if(!track || !track.getCapabilities) return;
+
+  const caps = track.getCapabilities();
+
+  // Зум
+  if(caps.zoom) {
+    $('row-zoom').style.display = 'flex';
+    $('zoom-slider').min = caps.zoom.min || 1;
+    $('zoom-slider').max = caps.zoom.max || 5;
+    $('zoom-slider').step = caps.zoom.step || 0.1;
+  } else { $('row-zoom').style.display = 'none'; }
+
+  // Экспозиция
+  if(caps.exposureCompensation) {
+    $('row-exp').style.display = 'flex';
+    $('exp-slider').min = caps.exposureCompensation.min || -2;
+    $('exp-slider').max = caps.exposureCompensation.max || 2;
+    $('exp-slider').step = caps.exposureCompensation.step || 0.1;
+  } else { $('row-exp').style.display = 'none'; }
+
+  // Вспышка
+  if(caps.torch) {
+    $('btn-torch').style.display = 'inline-flex';
+  } else { $('btn-torch').style.display = 'none'; }
+}
+
+async function applyCameraHardwareParam(param, val) {
+  if(!localStream) return;
+  const track = localStream.getVideoTracks()[0];
+  try {
+    await track.applyConstraints({ advanced: [{ [param]: parseFloat(val) }] });
+  } catch(e){}
+}
+
+async function toggleTorch() {
+  if(!localStream) return;
+  const track = localStream.getVideoTracks()[0];
+  torchActive = !torchActive;
+  try {
+    await track.applyConstraints({ advanced: [{ torch: torchActive }] });
+    $('btn-torch').classList.toggle('active', torchActive);
+  } catch(e){}
+}
+
+function applyVideoEffect(className) {
+  $('cam-video').className = className;
+}
+
 async function switchLocalCamera(deviceId) {
   if(!deviceId) return;
   if(localStream) localStream.getTracks().forEach(t => t.stop());
 
-  localStream = await navigator.mediaDevices.getUserMedia({
-    video: { deviceId: { exact: deviceId } },
-    audio: false
-  });
-  
+  const preset = $('quality-selector').value;
+  const constraints = getConstraintsForPreset(preset);
+  constraints.deviceId = { exact: deviceId };
+
+  localStream = await navigator.mediaDevices.getUserMedia({ video: constraints, audio: false });
   $('cam-video').srcObject = localStream;
+
+  detectCameraCapabilities();
 
   if(currentCall && currentCall.peerConnection) {
     const sender = currentCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
@@ -463,14 +556,13 @@ async function switchLocalCamera(deviceId) {
 async function changeQuality(preset) {
   if(!localStream) return;
   const track = localStream.getVideoTracks()[0];
-  
-  let constraints = { width: 1920, height: 1080, frameRate: 30 };
-  if(preset === '720p60') constraints = { width: 1280, height: 720, frameRate: 60 };
-  if(preset === '480p30') constraints = { width: 854, height: 480, frameRate: 30 };
+  const constraints = getConstraintsForPreset(preset);
 
   try {
     await track.applyConstraints(constraints);
-  } catch(e){}
+  } catch(e){
+    console.warn("Выбранное разрешение не поддерживается устройством:", e);
+  }
 }
 </script>
 </body>
