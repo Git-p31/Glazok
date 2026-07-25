@@ -12,9 +12,9 @@
 <style>
   :root {
     --bg: #07080a;
-    --panel: rgba(18, 20, 26, 0.9);
+    --panel: rgba(18, 20, 26, 0.85);
     --panel-solid: #12141a;
-    --panel-border: rgba(255, 255, 255, 0.15);
+    --panel-border: rgba(255, 255, 255, 0.12);
     --accent: #7cff6b;
     --amber: #ffa630;
     --danger: #ff4b4b;
@@ -46,10 +46,10 @@
   .modes { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 380px; }
   .mode-card {
     display: flex; align-items: center; gap: 12px; padding: 14px; background: #13151b;
-    border: 1px solid var(--panel-border); border-radius: 10px; cursor: pointer; text-align: left;
-    color: var(--text); transition: all .2s ease;
+    border: 1px solid var(--panel-border); border-radius: 12px; cursor: pointer; text-align: left;
+    color: var(--text); transition: all .25s ease;
   }
-  .mode-card:hover { border-color: var(--accent); background: #1a1d26; }
+  .mode-card:hover { border-color: var(--accent); background: #1a1d26; transform: translateY(-2px); }
   .mode-letter { font-family: var(--mono); font-size: 22px; font-weight: 700; color: var(--accent); width: 30px; text-align: center; }
   .mode-copy strong { display: block; font-family: var(--display); font-size: 15px; margin-bottom: 2px; }
   .mode-copy span { color: var(--muted); font-size: 12px; }
@@ -60,13 +60,26 @@
     display: flex; align-items: center; justify-content: center; overflow: hidden;
   }
 
-  .video-grid { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; position: relative; }
-  .video-grid video { background: #000; transition: filter 0.2s ease, transform 0.3s ease; }
-  .video-grid.mode-single video { width: 100%; height: 100%; object-fit: contain; }
-  .video-grid.mode-split { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; }
-  .video-grid.mode-split video { width: 100%; height: 100%; object-fit: contain; border: 1px solid var(--panel-border); }
+  /* Динамическая сетка с плавными переходами */
+  .video-grid { 
+    width: 100%; height: 100%; display: grid; gap: 6px; padding: 6px; transition: all 0.4s ease;
+  }
+  .video-container-box {
+    position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: 8px;
+    background: #0d0f14; border: 1px solid var(--panel-border); transition: all 0.3s ease;
+  }
+  .video-container-box video {
+    width: 100%; height: 100%; object-fit: contain; background: #000;
+    transition: filter 0.3s ease, transform 0.3s ease, opacity 0.4s ease;
+    opacity: 0;
+  }
+  .video-container-box video.loaded { opacity: 1; }
 
-  /* Эффекты и Цветокоррекция (CSS Filters) */
+  .video-grid.mode-1 { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+  .video-grid.mode-2 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr; }
+  .video-grid.mode-3, .video-grid.mode-4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+
+  /* Эффекты и Цветокоррекция */
   .fx-normal { filter: none !important; }
   .fx-bw { filter: grayscale(100%) !important; }
   .fx-sepia { filter: sepia(85%) contrast(110%) !important; }
@@ -74,11 +87,31 @@
   .fx-noir { filter: grayscale(100%) contrast(220%) brightness(85%) !important; }
   .fx-invert { filter: invert(100%) !important; }
 
+  /* Бейджи на видео */
+  .cam-badge-label {
+    position: absolute; top: 10px; left: 10px; z-index: 5;
+    background: rgba(0,0,0,0.75); backdrop-filter: blur(8px);
+    border: 1px solid var(--panel-border); padding: 4px 10px; border-radius: 20px;
+    font-family: var(--mono); font-size: 11px; display: flex; align-items: center; gap: 6px;
+  }
+  .status-onair { color: var(--danger); font-weight: 600; text-shadow: 0 0 6px rgba(255, 75, 75, 0.6); }
+  .status-standby { color: var(--muted); }
+
+  /* Плавающий QR-код / Виджет подключения */
+  .floating-qr-widget {
+    position: absolute; top: 16px; right: 16px; z-index: 30; pointer-events: auto;
+    background: var(--panel); backdrop-filter: blur(16px); border: 1px solid var(--panel-border);
+    border-radius: 12px; padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 8px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); max-width: 180px;
+  }
+  .floating-qr-widget.minimized .qrbox-wrapper { display: none; }
+  .qrbox-wrapper { background: #fff; padding: 6px; border-radius: 6px; display: flex; }
+
   /* Адаптивный UI */
   .overlay-ui {
     position: absolute; inset: 0; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between;
     padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
-    opacity: 0; transition: opacity 0.25s ease; z-index: 20; 
+    opacity: 0; transition: opacity 0.3s ease; z-index: 20; 
     background: linear-gradient(180deg, rgba(0,0,0,0.85) 0%, transparent 25%, transparent 70%, rgba(0,0,0,0.9) 100%);
   }
   .fullscreen-viewfinder:hover .overlay-ui,
@@ -107,15 +140,16 @@
   }
   .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
   .status-dot.ok { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .status-dot.live { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
 
   .controls-group { display: flex; align-items: center; gap: 6px; pointer-events: auto; flex-wrap: wrap; max-width: 100%; }
   
   .btn-icon {
     background: var(--panel); backdrop-filter: blur(12px); border: 1px solid var(--panel-border); color: var(--text);
     padding: 7px 11px; border-radius: 8px; font-family: var(--body); font-size: 11px; font-weight: 500; cursor: pointer;
-    display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; transition: all 0.15s ease;
+    display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; transition: all 0.2s ease;
   }
-  .btn-icon:hover { border-color: var(--accent); background: rgba(30, 34, 45, 0.9); }
+  .btn-icon:hover { border-color: var(--accent); background: rgba(30, 34, 45, 0.9); transform: translateY(-1px); }
   .btn-icon.active { background: var(--accent); color: #08210a; border-color: var(--accent); font-weight: 600; }
 
   select.btn-icon { 
@@ -124,13 +158,12 @@
     background-repeat: no-repeat; background-position: calc(100% - 6px) center; 
   }
 
-  .pairing-box, .cam-input-card {
+  .cam-input-card {
     position: absolute; z-index: 25; background: var(--panel-solid); border: 1px solid var(--panel-border);
     padding: 20px; border-radius: 14px; display: flex; flex-direction: column; align-items: center; gap: 12px;
     width: calc(100vw - 32px); max-width: 340px; text-align: center;
   }
-  .qrbox { background: #fff; padding: 8px; border-radius: 8px; }
-  .code-display { font-family: var(--mono); font-size: 22px; font-weight:600; letter-spacing: .15em; color: var(--accent); background: #0c0d12; padding: 8px 14px; border-radius: 6px; border: 1px dashed var(--panel-border); width: 100%; }
+  .code-display { font-family: var(--mono); font-size: 18px; font-weight:600; letter-spacing: .15em; color: var(--accent); background: #0c0d12; padding: 6px 10px; border-radius: 6px; border: 1px dashed var(--panel-border); width: 100%; text-align: center; }
   
   input[type=text] {
     width: 100%; background: #0c0d12; border: 1px solid var(--panel-border); color: var(--text);
@@ -145,15 +178,15 @@
   <section id="screen-select" class="screen active">
     <div class="brand-logo"><span class="dot"></span>GLAZOK MULTI-CAM PRO</div>
     <h1>P2P Веб-камера Studio</h1>
-    <p class="lead">4K / 2K трансляция с нескольких iPhone или Android устройств без задержек.</p>
+    <p class="lead">Подключайте от 1 до 4 смартфонов по Wi-Fi / P2P с минимальной задержкой.</p>
     <div class="modes">
       <button class="mode-card" onclick="goMonitor()">
         <span class="mode-letter">M</span>
-        <span class="mode-copy"><strong>Монитор (ПК / Приёмник)</strong><span>Приём видео с 1 или нескольких телефонов + Эффекты</span></span>
+        <span class="mode-copy"><strong>Монитор (ПК / Приёмник)</strong><span>Приём видео с 1-4 телефонов + Эффекты</span></span>
       </button>
       <button class="mode-card" onclick="goCamera()">
         <span class="mode-letter">C</span>
-        <span class="mode-copy"><strong>Камера (Телефон)</strong><span>Передача видеопотока 4K/2K</span></span>
+        <span class="mode-copy"><strong>Камера (Телефон)</strong><span>Передача видеопотока 4K - 480p</span></span>
       </button>
     </div>
   </section>
@@ -161,14 +194,17 @@
   <section id="screen-monitor" class="screen">
     <div class="fullscreen-viewfinder" onclick="toggleOverlayUI()">
       
-      <div class="video-grid mode-single" id="mon-video-container"></div>
-      
-      <div class="pairing-box" id="mon-pairing">
-        <div class="brand-logo" style="font-size:15px;"><span class="dot"></span>КОД ДЛЯ ТЕЛЕФОНОВ</div>
-        <div class="qrbox" id="qrcode"></div>
+      <div class="floating-qr-widget" id="mon-qr-widget" onclick="event.stopPropagation()">
+        <div style="display:flex; justify-size:space-between; width:100%; align-items:center;">
+          <span style="font-family:var(--mono); font-size:10px; color:var(--muted);">КОД ПOДKЛЮЧЕНИЯ</span>
+          <button style="background:none; border:none; color:var(--muted); cursor:pointer; font-size:10px;" onclick="toggleQrWidget()">[−]</button>
+        </div>
         <div class="code-display" id="mon-code">——————</div>
-        <p style="margin:0; font-size:11px; color:var(--muted);">Введите этот код на <b>одном или двух телефонах</b>, чтобы подключить их.</p>
+        <div class="qrbox-wrapper" id="qrcode"></div>
+        <span style="font-size:9px; color:var(--muted); text-align:center;">Подключите до 4 камер</span>
       </div>
+
+      <div class="video-grid mode-1" id="mon-video-container"></div>
 
       <div class="overlay-ui">
         <div class="top-bar">
@@ -192,7 +228,7 @@
               <option value="fx-invert">Инверсия</option>
             </select>
 
-            <button class="btn-icon" id="btn-layout-mode" onclick="toggleLayoutMode()">📱 Экран: Камера 1</button>
+            <button class="btn-icon" id="btn-layout-mode" onclick="cycleLayoutMode()">🖼️ Сетка: Соло</button>
             <button class="btn-icon" onclick="toggleFullscreen()">⛶ Полноэкранный</button>
           </div>
         </div>
@@ -214,8 +250,8 @@
       <div class="overlay-ui">
         <div class="top-bar">
           <div class="badge-status">
-            <span class="status-dot ok"></span>
-            <span id="cam-device-name">Трансляция активна</span>
+            <span class="status-dot ok" id="cam-air-dot"></span>
+            <span id="cam-air-status" style="font-weight:600;">В ЭФИРЕ</span>
           </div>
           <button class="btn-icon" id="btn-torch" style="display:none;" onclick="toggleTorch()">💡 Вспышка</button>
         </div>
@@ -237,7 +273,9 @@
                 <option value="2k30" selected>2K Quad HD (1440p)</option>
                 <option value="1080p60">1080p 60FPS</option>
                 <option value="1080p30">1080p 30FPS</option>
-                <option value="720p60">720p 60FPS</option>
+                <option value="720p30">720p HD (Стабильное)</option>
+                <option value="480p30">⚡ 480p SD (Слабый Wi-Fi)</option>
+                <option value="360p30">⚡ 360p Low-Bandwidth</option>
               </select>
 
               <select class="btn-icon" id="cam-select" onchange="switchLocalCamera(this.value)">
@@ -256,14 +294,21 @@
 
 <script>
 const PEER_CONFIG = {
-  config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] }
+  config: { 
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' }, 
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' }
+    ] 
+  }
 };
 
 let peer = null;
-let activeStreams = new Map();
+let activeConnections = new Map(); // key -> { call, conn, stream, isLive }
 let localStream = null;
 let currentCall = null;
-let viewMode = 'single';
+let dataConn = null;
+let viewMode = 'auto'; // 'auto', 'single', 'grid'
 let activeCamId = null;
 let torchActive = false;
 let currentPcEffect = 'fx-normal';
@@ -283,7 +328,7 @@ function resetToSelect(){
 function teardown(){
   if(peer){ try{peer.destroy();}catch(e){} peer=null; }
   if(localStream){ localStream.getTracks().forEach(t=>t.stop()); localStream=null; }
-  activeStreams.clear();
+  activeConnections.clear();
   $('mon-video-container').innerHTML = '';
 }
 
@@ -308,6 +353,10 @@ function toggleFullscreen(){
   else document.exitFullscreen().catch(()=>{});
 }
 
+function toggleQrWidget() {
+  $('mon-qr-widget').classList.toggle('minimized');
+}
+
 /* ==================== МОНИТОР (ПК) ==================== */
 function goMonitor(){
   showScreen('screen-monitor');
@@ -317,26 +366,43 @@ function goMonitor(){
   peer = new Peer(peerId, PEER_CONFIG);
 
   peer.on('open', () => {
-    $('mon-status-dot').classList.add('ok');
-    $('mon-status-text').textContent = 'Готов к подключению телефонов';
+    $('mon-status-dot').className = 'status-dot ok';
+    $('mon-status-text').textContent = 'Готов к подключению устройств';
     $('mon-code').textContent = roomCode.toUpperCase();
     $('qrcode').innerHTML = '';
-    new QRCode($('qrcode'), { text: location.origin + location.pathname + '?room=' + roomCode, width: 140, height: 140 });
+    new QRCode($('qrcode'), { text: location.origin + location.pathname + '?room=' + roomCode, width: 120, height: 120 });
+  });
+
+  // Канал данных для статусов "В ЭФИРЕ"
+  peer.on('connection', conn => {
+    conn.on('open', () => {
+      if(!activeConnections.has(conn.peer)) {
+        activeConnections.set(conn.peer, { conn: conn });
+      } else {
+        activeConnections.get(conn.peer).conn = conn;
+      }
+      broadcastAirStatus();
+    });
   });
 
   peer.on('call', incomingCall => {
     incomingCall.answer();
     
     incomingCall.on('stream', remoteStream => {
-      activeStreams.set(incomingCall.peer, { call: incomingCall, stream: remoteStream });
-      $('mon-pairing').style.display = 'none';
+      let item = activeConnections.get(incomingCall.peer) || {};
+      item.call = incomingCall;
+      item.stream = remoteStream;
+      activeConnections.set(incomingCall.peer, item);
+      
       updateMonitorLayout();
+      broadcastAirStatus();
       toggleOverlayUI();
     });
 
     incomingCall.on('close', () => {
-      activeStreams.delete(incomingCall.peer);
+      activeConnections.delete(incomingCall.peer);
       updateMonitorLayout();
+      broadcastAirStatus();
     });
   });
 }
@@ -347,62 +413,103 @@ function updateMonitorLayout() {
   container.innerHTML = '';
   switcherBar.innerHTML = '';
 
-  const streamKeys = Array.from(activeStreams.keys());
+  const streamKeys = Array.from(activeConnections.keys()).filter(k => activeConnections.get(k).stream);
   
   if (streamKeys.length === 0) {
-    $('mon-pairing').style.display = 'flex';
+    $('mon-status-dot').className = 'status-dot';
     $('mon-status-text').textContent = 'Ожидание устройств...';
     return;
   }
 
-  $('mon-status-text').textContent = `Подключено телефонов: ${streamKeys.length}`;
+  $('mon-status-dot').className = 'status-dot live';
+  $('mon-status-text').textContent = `Подключено камер: ${streamKeys.length}`;
 
-  if (!activeCamId || !activeStreams.has(activeCamId)) {
+  if (!activeCamId || !streamKeys.includes(activeCamId)) {
     activeCamId = streamKeys[0];
   }
 
+  // Кнопки переключения камер в шапке
   streamKeys.forEach((key, idx) => {
     const btn = document.createElement('button');
-    btn.className = `btn-icon ${key === activeCamId ? 'active' : ''}`;
-    btn.textContent = `📱 Телефон ${idx + 1}`;
+    btn.className = `btn-icon ${key === activeCamId && viewMode === 'single' ? 'active' : ''}`;
+    btn.textContent = `📱 Камера ${idx + 1}`;
     btn.onclick = (e) => {
       e.stopPropagation();
       activeCamId = key;
       viewMode = 'single';
       updateMonitorLayout();
+      broadcastAirStatus();
     };
     switcherBar.appendChild(btn);
   });
 
-  if (streamKeys.length >= 2) {
-    const splitBtn = document.createElement('button');
-    splitBtn.className = `btn-icon ${viewMode === 'split' ? 'active' : ''}`;
-    splitBtn.textContent = '🖼️ Оба на экран';
-    splitBtn.onclick = (e) => {
+  if (streamKeys.length > 1) {
+    const gridBtn = document.createElement('button');
+    gridBtn.className = `btn-icon ${viewMode === 'grid' || viewMode === 'auto' ? 'active' : ''}`;
+    gridBtn.textContent = `🖼️ Все на экран (${streamKeys.length})`;
+    gridBtn.onclick = (e) => {
       e.stopPropagation();
-      viewMode = 'split';
+      viewMode = 'grid';
       updateMonitorLayout();
+      broadcastAirStatus();
     };
-    switcherBar.appendChild(splitBtn);
+    switcherBar.appendChild(gridBtn);
   }
 
-  if (viewMode === 'split' && streamKeys.length >= 2) {
-    container.className = 'video-grid mode-split';
-    streamKeys.forEach(key => {
+  const isGridDisplay = (viewMode === 'grid' || (viewMode === 'auto' && streamKeys.length > 1));
+
+  if (isGridDisplay) {
+    container.className = `video-grid mode-${Math.min(streamKeys.length, 4)}`;
+    streamKeys.slice(0, 4).forEach((key, idx) => {
+      const box = document.createElement('div');
+      box.className = 'video-container-box';
+
+      const badge = document.createElement('div');
+      badge.className = 'cam-badge-label';
+      badge.innerHTML = `<span class="status-onair">🔴 В ЭФИРЕ</span> Камера ${idx + 1}`;
+      box.appendChild(badge);
+
       const v = document.createElement('video');
       v.className = currentPcEffect;
       v.autoplay = true; v.playsInline = true;
-      v.srcObject = activeStreams.get(key).stream;
-      container.appendChild(v);
+      v.srcObject = activeConnections.get(key).stream;
+      v.onloadeddata = () => v.classList.add('loaded');
+      
+      box.appendChild(v);
+      container.appendChild(box);
     });
   } else {
-    container.className = 'video-grid mode-single';
+    container.className = 'video-grid mode-1';
+    const box = document.createElement('div');
+    box.className = 'video-container-box';
+
+    const idx = streamKeys.indexOf(activeCamId);
+    const badge = document.createElement('div');
+    badge.className = 'cam-badge-label';
+    badge.innerHTML = `<span class="status-onair">🔴 В ЭФИРЕ</span> Камера ${idx + 1}`;
+    box.appendChild(badge);
+
     const v = document.createElement('video');
     v.className = currentPcEffect;
     v.autoplay = true; v.playsInline = true;
-    v.srcObject = activeStreams.get(activeCamId).stream;
-    container.appendChild(v);
+    v.srcObject = activeConnections.get(activeCamId).stream;
+    v.onloadeddata = () => v.classList.add('loaded');
+
+    box.appendChild(v);
+    container.appendChild(box);
   }
+}
+
+function broadcastAirStatus() {
+  const streamKeys = Array.from(activeConnections.keys()).filter(k => activeConnections.get(k).stream);
+  const isGrid = (viewMode === 'grid' || (viewMode === 'auto' && streamKeys.length > 1));
+
+  activeConnections.forEach((item, key) => {
+    if (item.conn && item.conn.open) {
+      const isOnAir = isGrid || (key === activeCamId);
+      item.conn.send({ type: 'AIR_STATUS', onAir: isOnAir });
+    }
+  });
 }
 
 function applyMonitorVideoEffect(effectClass) {
@@ -413,11 +520,12 @@ function applyMonitorVideoEffect(effectClass) {
   });
 }
 
-function toggleLayoutMode() {
-  const keys = Array.from(activeStreams.keys());
+function cycleLayoutMode() {
+  const keys = Array.from(activeConnections.keys()).filter(k => activeConnections.get(k).stream);
   if (keys.length < 2) return;
-  viewMode = (viewMode === 'single') ? 'split' : 'single';
+  viewMode = (viewMode === 'single') ? 'grid' : 'single';
   updateMonitorLayout();
+  broadcastAirStatus();
 }
 
 /* ==================== КАМЕРА (ТЕЛЕФОН) ==================== */
@@ -436,11 +544,14 @@ function connectWithTypedCode(){
 }
 
 function getConstraintsForPreset(preset) {
-  let w = 2560, h = 1440, fps = 30; // 2K QHD по умолчанию
+  let w = 2560, h = 1440, fps = 30; 
   if(preset === '4k30') { w = 3840; h = 2160; fps = 30; }
+  if(preset === '2k30') { w = 2560; h = 1440; fps = 30; }
   if(preset === '1080p60') { w = 1920; h = 1080; fps = 60; }
   if(preset === '1080p30') { w = 1920; h = 1080; fps = 30; }
-  if(preset === '720p60') { w = 1280; h = 720; fps = 60; }
+  if(preset === '720p30') { w = 1280; h = 720; fps = 30; }
+  if(preset === '480p30') { w = 854; h = 480; fps = 30; }
+  if(preset === '360p30') { w = 640; h = 360; fps = 24; }
 
   return {
     width: { ideal: w },
@@ -468,14 +579,37 @@ async function startPhoneStream(targetPeerId){
     peer = new Peer(phonePeerId, PEER_CONFIG);
 
     peer.on('open', () => {
+      // Подключаем канал передачи статусов
+      dataConn = peer.connect(targetPeerId);
+      dataConn.on('data', data => {
+        if (data && data.type === 'AIR_STATUS') {
+          updatePhoneAirBadge(data.onAir);
+        }
+      });
+
+      // Передаем видеопоток
       currentCall = peer.call(targetPeerId, localStream);
     });
 
   } catch(e) {
-    alert("Ошибка доступа к камере 4K/2K: " + e.message);
+    alert("Ошибка доступа к камере: " + e.message);
     resetToSelect();
   }
   toggleOverlayUI();
+}
+
+function updatePhoneAirBadge(onAir) {
+  const dot = $('cam-air-dot');
+  const txt = $('cam-air-status');
+  if (onAir) {
+    dot.className = 'status-dot live';
+    txt.textContent = '🔴 В ЭФИРЕ';
+    txt.style.color = 'var(--danger)';
+  } else {
+    dot.className = 'status-dot';
+    txt.textContent = '⏸️ В ОЖИДАНИИ';
+    txt.style.color = 'var(--muted)';
+  }
 }
 
 async function populateLocalCameras() {
@@ -568,7 +702,7 @@ async function changeQuality(preset) {
   try {
     await track.applyConstraints(constraints);
   } catch(e){
-    console.warn("Выбранное разрешение не поддерживается устройством:", e);
+    console.warn("Ошибка изменения качества:", e);
   }
 }
 </script>
