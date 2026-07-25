@@ -12,11 +12,10 @@
 <style>
   :root {
     --bg: #07080a;
-    --panel: rgba(18, 20, 26, 0.85);
+    --panel: rgba(18, 20, 26, 0.65);
     --panel-solid: #12141a;
-    --panel-border: rgba(255, 255, 255, 0.12);
+    --panel-border: rgba(255, 255, 255, 0.15);
     --accent: #7cff6b;
-    --amber: #ffa630;
     --danger: #ff4b4b;
     --text: #f3f4f6;
     --muted: #9ca3af;
@@ -60,18 +59,14 @@
     display: flex; align-items: center; justify-content: center; overflow: hidden;
   }
 
-  /* Сетка видео */
   .video-grid { 
-    width: 100%; height: 100%; display: grid; gap: 4px; padding: 0; transition: all 0.4s ease;
+    width: 100%; height: 100%; display: grid; gap: 2px; padding: 0;
   }
   .video-container-box {
-    position: relative; width: 100%; height: 100%; overflow: hidden;
-    background: #000; transition: all 0.3s ease;
+    position: relative; width: 100%; height: 100%; overflow: hidden; background: #000;
   }
   .video-container-box video {
-    width: 100%; height: 100%; object-fit: contain; background: #000;
-    transition: filter 0.3s ease, transform 0.3s ease, opacity 0.4s ease;
-    opacity: 0;
+    width: 100%; height: 100%; object-fit: contain; background: #000; opacity: 0; transition: opacity 0.3s;
   }
   .video-container-box video.loaded { opacity: 1; }
 
@@ -79,78 +74,52 @@
   .video-grid.mode-2 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr; }
   .video-grid.mode-3, .video-grid.mode-4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
 
-  /* Эффекты и Цветокоррекция */
-  .fx-normal { filter: none !important; }
-  .fx-bw { filter: grayscale(100%) !important; }
-  .fx-sepia { filter: sepia(85%) contrast(110%) !important; }
-  .fx-cyber { filter: saturate(220%) hue-rotate(330deg) contrast(125%) !important; }
-  .fx-noir { filter: grayscale(100%) contrast(220%) brightness(85%) !important; }
-  .fx-invert { filter: invert(100%) !important; }
-
-  /* Виджет QR-кода и Подключения (Появляется ТОЛЬКО по запросу) */
+  /* Виджет QR-кода */
   .floating-qr-widget {
-    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 50; pointer-events: auto;
-    background: var(--panel-solid); border: 1px solid var(--panel-border);
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 60;
+    background: rgba(18, 20, 26, 0.92); border: 1px solid var(--panel-border);
     border-radius: 16px; padding: 20px; display: none; flex-direction: column; align-items: center; gap: 12px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.8); backdrop-filter: blur(20px); max-width: 320px; width: 90vw;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.8); backdrop-filter: blur(16px); max-width: 320px; width: 90vw;
   }
-  .floating-qr-widget.visible { display: flex; animation: fadeIn 0.25s ease; }
+  .floating-qr-widget.visible { display: flex; }
   .qrbox-wrapper { background: #fff; padding: 8px; border-radius: 8px; display: flex; }
 
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translate(-50%, -46%); }
-    to { opacity: 1; transform: translate(-50%, -50%); }
-  }
-
-  /* Оверлей UI */
+  /* Прозрачный оверлей UI */
   .overlay-ui {
     position: absolute; inset: 0; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between;
-    padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
-    opacity: 0; transition: opacity 0.3s ease; z-index: 20; 
-    background: linear-gradient(180deg, rgba(0,0,0,0.85) 0%, transparent 25%, transparent 70%, rgba(0,0,0,0.9) 100%);
+    padding: 16px; z-index: 20; opacity: 1; transition: opacity 0.25s ease;
   }
-  .fullscreen-viewfinder:hover .overlay-ui,
-  .overlay-ui.visible { opacity: 1; }
+  .overlay-ui.hidden { opacity: 0; pointer-events: none !important; }
 
   .top-bar { display: flex; align-items: center; justify-content: space-between; width: 100%; pointer-events: auto; gap: 6px; }
-  .bottom-bar { 
-    display: flex; align-items: flex-end; justify-content: space-between; width: 100%; 
-    pointer-events: auto; gap: 6px;
-  }
+  .bottom-bar { display: flex; align-items: center; justify-content: flex-end; width: 100%; pointer-events: auto; position: relative; }
 
-  .controls-panel {
-    display: flex; flex-direction: column; gap: 8px; background: var(--panel); backdrop-filter: blur(14px);
-    border: 1px solid var(--panel-border); padding: 10px 12px; border-radius: 12px; max-width: 100%;
-    max-height: 40dvh; overflow-y: auto;
-  }
-
-  .slider-row { display: flex; align-items: center; gap: 8px; font-size: 11px; font-family: var(--mono); }
-  .slider-row label { min-width: 55px; color: var(--muted); }
-  .slider-row input[type=range] { flex: 1; accent-color: var(--accent); }
-  
   .badge-status {
-    display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px;
+    display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11px;
     background: var(--panel); backdrop-filter: blur(12px); border: 1px solid var(--panel-border); padding: 6px 12px; border-radius: 20px;
   }
-  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
   .status-dot.ok { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
   .status-dot.live { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
 
-  .controls-group { display: flex; align-items: center; gap: 6px; pointer-events: auto; flex-wrap: wrap; max-width: 100%; }
+  .controls-group { display: flex; align-items: center; gap: 6px; pointer-events: auto; }
   
   .btn-icon {
     background: var(--panel); backdrop-filter: blur(12px); border: 1px solid var(--panel-border); color: var(--text);
-    padding: 7px 11px; border-radius: 8px; font-family: var(--body); font-size: 11px; font-weight: 500; cursor: pointer;
-    display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; transition: all 0.2s ease;
+    padding: 8px 14px; border-radius: 10px; font-family: var(--body); font-size: 12px; font-weight: 500; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; transition: all 0.2s ease;
   }
-  .btn-icon:hover { border-color: var(--accent); background: rgba(30, 34, 45, 0.9); transform: translateY(-1px); }
+  .btn-icon:hover { border-color: var(--accent); background: rgba(30, 34, 45, 0.85); }
   .btn-icon.active { background: var(--accent); color: #08210a; border-color: var(--accent); font-weight: 600; }
 
-  select.btn-icon { 
-    appearance: none; padding-right: 20px; 
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%239ca3af' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E"); 
-    background-repeat: no-repeat; background-position: calc(100% - 6px) center; 
+  /* Единственная выпадающая панель меню на ПК */
+  .single-menu-popover {
+    position: absolute; bottom: 50px; right: 0; background: rgba(18, 20, 26, 0.9);
+    border: 1px solid var(--panel-border); backdrop-filter: blur(16px);
+    border-radius: 14px; padding: 12px; display: none; flex-direction: column; gap: 8px;
+    min-width: 200px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 30;
   }
+  .single-menu-popover.open { display: flex; }
 
   .cam-input-card {
     position: absolute; z-index: 25; background: var(--panel-solid); border: 1px solid var(--panel-border);
@@ -163,6 +132,12 @@
     width: 100%; background: #0c0d12; border: 1px solid var(--panel-border); color: var(--text);
     font-family: var(--mono); font-size: 18px; letter-spacing: .12em; padding: 10px; border-radius: 6px; text-align: center; text-transform: uppercase;
   }
+
+  .slider-row { display: flex; align-items: center; gap: 8px; font-size: 11px; font-family: var(--mono); }
+  .slider-row label { min-width: 55px; color: var(--muted); }
+  .slider-row input[type=range] { flex: 1; accent-color: var(--accent); }
+  .controls-panel { display: flex; flex-direction: column; gap: 8px; background: var(--panel); backdrop-filter: blur(14px); border: 1px solid var(--panel-border); padding: 10px 12px; border-radius: 12px; max-width: 100%; }
+  select.btn-icon { appearance: none; padding-right: 20px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%239ca3af' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: calc(100% - 6px) center; }
 </style>
 </head>
 <body>
@@ -180,18 +155,18 @@
       </button>
       <button class="mode-card" onclick="goCamera()">
         <span class="mode-letter">C</span>
-        <span class="mode-copy"><strong>Камера (Телефон)</strong><span>Передача видео + Полный пульт управления</span></span>
+        <span class="mode-copy"><strong>Камера (Телефон)</strong><span>Передача видео + Пульт управления</span></span>
       </button>
     </div>
   </section>
 
   <section id="screen-monitor" class="screen">
-    <div class="fullscreen-viewfinder" onclick="toggleOverlayUI()">
+    <div class="fullscreen-viewfinder" id="mon-viewfinder" onclick="handleMonitorClick(event)">
       
       <div class="floating-qr-widget" id="mon-qr-widget" onclick="event.stopPropagation()">
         <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
           <span style="font-family:var(--mono); font-size:11px; color:var(--muted);">ПОДКЛЮЧЕНИЕ КАМЕР</span>
-          <button style="background:none; border:none; color:var(--text); cursor:pointer; font-size:14px;" onclick="closeQrWidget()">✕</button>
+          <button style="background:none; border:none; color:var(--text); cursor:pointer; font-size:16px;" onclick="closeQrWidget()">✕</button>
         </div>
         <div class="code-display" id="mon-code">——————</div>
         <div class="qrbox-wrapper" id="qrcode"></div>
@@ -210,22 +185,15 @@
         </div>
 
         <div class="bottom-bar">
-          <button class="btn-icon" onclick="resetToSelect()">‹ Меню</button>
-          
-          <div class="controls-group">
-            <button class="btn-icon active" onclick="event.stopPropagation(); openQrWidget();">🔑 Код / QR</button>
+          <button class="btn-icon" onclick="togglePcMenu(event)">⚙️ Меню</button>
 
-            <select class="btn-icon" id="mon-effect-selector" onchange="applyMonitorVideoEffect(this.value)">
-              <option value="fx-normal">🎨 Без фильтра</option>
-              <option value="fx-bw">Чёрно-белый</option>
-              <option value="fx-sepia">Винтаж / Сепия</option>
-              <option value="fx-cyber">Киберпанк</option>
-              <option value="fx-noir">Нюар</option>
-              <option value="fx-invert">Инверсия</option>
-            </select>
-
+          <div class="single-menu-popover" id="pc-menu-popover" onclick="event.stopPropagation()">
+            <button class="btn-icon" onclick="openQrWidget()">🔑 Код / QR-код (K)</button>
             <button class="btn-icon" id="btn-layout-mode" onclick="cycleLayoutMode()">🖼️ Сетка: Соло</button>
             <button class="btn-icon" onclick="toggleFullscreen()">⛶ Полноэкранный</button>
+            <button class="btn-icon" onclick="togglePcUiForce()">👁️ Скрыть UI (H)</button>
+            <hr style="border:none; border-top:1px solid var(--panel-border); margin:4px 0;">
+            <button class="btn-icon" style="color:var(--danger);" onclick="resetToSelect()">‹ В главное меню</button>
           </div>
         </div>
       </div>
@@ -240,10 +208,10 @@
       <button class="btn-icon active" style="justify-content:center; width:100%; padding:10px;" onclick="connectWithTypedCode()">Подключить этот телефон</button>
     </div>
 
-    <div class="fullscreen-viewfinder" id="cam-viewport" style="display:none;" onclick="toggleOverlayUI()">
+    <div class="fullscreen-viewfinder" id="cam-viewport" style="display:none;">
       <video id="cam-video" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover;"></video>
 
-      <div class="overlay-ui visible" id="cam-overlay">
+      <div class="overlay-ui" id="cam-overlay">
         <div class="top-bar">
           <div class="badge-status">
             <span class="status-dot ok" id="cam-air-dot"></span>
@@ -270,8 +238,7 @@
                 <option value="1080p60">1080p 60FPS</option>
                 <option value="1080p30">1080p 30FPS</option>
                 <option value="720p30">720p HD</option>
-                <option value="480p30">⚡ 480p SD (Слабый Wi-Fi)</option>
-                <option value="360p30">⚡ 360p Low-Bandwidth</option>
+                <option value="480p30">⚡ 480p SD</option>
               </select>
 
               <select class="btn-icon" id="cam-select" onchange="switchLocalCamera(this.value)">
@@ -307,7 +274,7 @@ let dataConn = null;
 let viewMode = 'auto'; 
 let activeCamId = null;
 let torchActive = false;
-let currentPcEffect = 'fx-normal';
+let isUiVisible = true;
 
 function $(id){ return document.getElementById(id); }
 
@@ -334,14 +301,27 @@ function randCode(len){
   return s;
 }
 
-let overlayTimeout=null;
-function toggleOverlayUI(){
-  const overlays = document.querySelectorAll('.overlay-ui');
-  overlays.forEach(o => {
-    o.classList.add('visible');
-    clearTimeout(overlayTimeout);
-    overlayTimeout = setTimeout(() => o.classList.remove('visible'), 3500);
-  });
+/* Переключение скрытия UI */
+function handleMonitorClick(e) {
+  // Закрываем меню при клике в пустую область
+  $('pc-menu-popover').classList.remove('open');
+  togglePcUiForce();
+}
+
+function togglePcUiForce() {
+  isUiVisible = !isUiVisible;
+  const overlay = $('mon-overlay');
+  if (isUiVisible) {
+    overlay.classList.remove('hidden');
+  } else {
+    overlay.classList.add('hidden');
+    $('pc-menu-popover').classList.remove('open');
+  }
+}
+
+function togglePcMenu(e) {
+  e.stopPropagation();
+  $('pc-menu-popover').classList.toggle('open');
 }
 
 function toggleFullscreen(){
@@ -351,11 +331,23 @@ function toggleFullscreen(){
 
 function openQrWidget() {
   $('mon-qr-widget').classList.add('visible');
+  $('pc-menu-popover').classList.remove('open');
 }
 
 function closeQrWidget() {
   $('mon-qr-widget').classList.remove('visible');
 }
+
+// Горячие клавиши (H - скрытие UI, K - QR код)
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'h' || e.key === 'H' || e.key === 'р' || e.key === 'Р') {
+    togglePcUiForce();
+  }
+  if (e.key === 'k' || e.key === 'K' || e.key === 'л' || e.key === 'Л') {
+    if ($('mon-qr-widget').classList.contains('visible')) closeQrWidget();
+    else openQrWidget();
+  }
+});
 
 /* ==================== МОНИТОР (ПК) ==================== */
 function goMonitor(){
@@ -371,7 +363,7 @@ function goMonitor(){
     $('mon-code').textContent = roomCode.toUpperCase();
     $('qrcode').innerHTML = '';
     new QRCode($('qrcode'), { text: location.origin + location.pathname + '?room=' + roomCode, width: 140, height: 140 });
-    openQrWidget(); // Показываем код при запуске
+    openQrWidget();
   });
 
   peer.on('connection', conn => {
@@ -394,10 +386,9 @@ function goMonitor(){
       item.stream = remoteStream;
       activeConnections.set(incomingCall.peer, item);
       
-      closeQrWidget(); // Автоматически скрываем код при подключении первой кадра
+      closeQrWidget();
       updateMonitorLayout();
       broadcastAirStatus();
-      toggleOverlayUI();
     });
 
     incomingCall.on('close', () => {
@@ -466,7 +457,6 @@ function updateMonitorLayout() {
       box.className = 'video-container-box';
 
       const v = document.createElement('video');
-      v.className = currentPcEffect;
       v.autoplay = true; v.playsInline = true;
       v.srcObject = activeConnections.get(key).stream;
       v.onloadeddata = () => v.classList.add('loaded');
@@ -480,7 +470,6 @@ function updateMonitorLayout() {
     box.className = 'video-container-box';
 
     const v = document.createElement('video');
-    v.className = currentPcEffect;
     v.autoplay = true; v.playsInline = true;
     v.srcObject = activeConnections.get(activeCamId).stream;
     v.onloadeddata = () => v.classList.add('loaded');
@@ -499,14 +488,6 @@ function broadcastAirStatus() {
       const isOnAir = isGrid || (key === activeCamId);
       item.conn.send({ type: 'AIR_STATUS', onAir: isOnAir });
     }
-  });
-}
-
-function applyMonitorVideoEffect(effectClass) {
-  currentPcEffect = effectClass;
-  const videos = document.querySelectorAll('#mon-video-container video');
-  videos.forEach(v => {
-    v.className = effectClass;
   });
 }
 
@@ -541,7 +522,6 @@ function getConstraintsForPreset(preset) {
   if(preset === '1080p30') { w = 1920; h = 1080; fps = 30; }
   if(preset === '720p30') { w = 1280; h = 720; fps = 30; }
   if(preset === '480p30') { w = 854; h = 480; fps = 30; }
-  if(preset === '360p30') { w = 640; h = 360; fps = 24; }
 
   return {
     width: { ideal: w },
@@ -685,9 +665,7 @@ async function changeQuality(preset) {
 
   try {
     await track.applyConstraints(constraints);
-  } catch(e){
-    console.warn("Ошибка изменения качества:", e);
-  }
+  } catch(e){}
 }
 </script>
 </body>
