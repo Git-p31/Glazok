@@ -9,222 +9,61 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<style>
-  :root{
-    --bg:#0b0b0e;--panel:rgba(24,24,30,.72);--panel-solid:#17171d;
-    --panel-border:rgba(255,255,255,.08);--panel-hover:rgba(255,255,255,.12);
-    --accent:#ff6b4a;--accent-glow:rgba(255,107,74,.35);--accent-dim:rgba(255,107,74,.15);
-    --danger:#ff4b4b;--ok:#34d399;--warning:#fbbf24;
-    --text:#f5f5f7;--muted:#8e8e98;
-    --mono:'IBM Plex Mono',monospace;--display:'Space Grotesk',sans-serif;--body:'Inter',sans-serif;
-    --r-sm:8px;--r-md:12px;--r-lg:16px;--r-xl:20px;
-    --ease:cubic-bezier(.4,0,.2,1);--ease-bounce:cubic-bezier(.34,1.56,.64,1);
-  }
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
-  html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--body);touch-action:manipulation;-webkit-font-smoothing:antialiased}
-  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
-  input,select{font-family:inherit}
-  .app{width:100vw;height:100dvh;position:relative;overflow:hidden}
-  .screen{position:absolute;inset:0;display:none;opacity:0;transition:opacity .3s var(--ease)}
-  .screen.active{display:flex;flex-direction:column;opacity:1}
-
-  /* === СТАРТ === */
-  #screen-select{padding:32px 24px;background:var(--bg);overflow-y:auto;align-items:center;justify-content:center}
-  .logo{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:700;font-size:22px;margin-bottom:12px;letter-spacing:.03em}
-  .logo .dot{width:12px;height:12px;border-radius:50%;background:var(--accent);box-shadow:0 0 16px var(--accent-glow);animation:pulse 2s infinite}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-  h1{font-family:var(--display);font-size:32px;margin-bottom:8px;text-align:center;background:linear-gradient(135deg,#fff,#ff6b4a);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-  .lead{color:var(--muted);text-align:center;margin-bottom:32px;font-size:14px;max-width:420px;line-height:1.5}
-  .modes{display:flex;flex-direction:column;gap:12px;width:100%;max-width:400px}
-  .mode-card{display:flex;align-items:center;gap:16px;padding:18px;background:var(--panel-solid);border:1px solid var(--panel-border);border-radius:var(--r-lg);cursor:pointer;transition:all .25s var(--ease)}
-  .mode-card:hover,.mode-card:active{border-color:var(--accent);background:#1d1d25;transform:translateY(-2px);box-shadow:0 12px 32px rgba(0,0,0,.5)}
-  .mode-letter{font-family:var(--mono);font-size:24px;font-weight:700;color:var(--accent);width:36px;text-align:center;flex-shrink:0}
-  .mode-copy strong{display:block;font-family:var(--display);font-size:16px;margin-bottom:3px}
-  .mode-copy span{color:var(--muted);font-size:12px}
-  .mode-card.install{border-color:var(--accent-dim);background:linear-gradient(135deg,rgba(255,107,74,.08),transparent)}
-  .mode-card.install:hover{border-color:var(--accent);background:var(--accent-dim)}
-
-  /* === СТУДИЯ (ПК) === */
-  .studio{display:flex;width:100%;height:100%;position:relative}
-  .sidebar{width:68px;background:#0f0f13;border-right:1px solid var(--panel-border);display:flex;flex-direction:column;align-items:center;padding:16px 0;gap:10px;z-index:20;transition:opacity .3s var(--ease)}
-  .sidebar .logo-dot{width:14px;height:14px;border-radius:50%;background:var(--accent);box-shadow:0 0 14px var(--accent-glow);margin-bottom:16px}
-  .sb-btn{width:46px;height:46px;border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;color:var(--accent);transition:all .2s var(--ease);position:relative}
-  .sb-btn:hover{background:#1a1a21}
-  .sb-btn:active{transform:scale(.92)}
-  .sb-btn svg{width:22px;height:22px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
-  .sb-btn.danger{color:var(--danger);margin-top:auto}
-  .sb-spacer{flex:1}
-
-  .stage{flex:1;position:relative;background:#000;overflow:hidden}
-  .stage-top{position:absolute;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 16px;pointer-events:none;transition:opacity .3s var(--ease)}
-  .stage-top>*{pointer-events:auto}
-  .live-badge{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.12em;color:var(--ok);display:none;align-items:center;gap:6px}
-  .live-badge.on{display:flex}
-  .live-badge::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 10px var(--ok);animation:pulse 1.5s infinite}
-
-  .net-info{display:flex;gap:10px;font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--panel-border);padding:6px 12px;border-radius:20px}
-  .net-info b{color:var(--text);font-weight:500}
-  .net-info.good b{color:var(--ok)}
-  .net-info.bad b{color:var(--danger)}
-
-  .right-panel{width:280px;background:rgba(17,17,22,.9);backdrop-filter:blur(20px);border-left:1px solid var(--panel-border);padding:20px 18px;display:flex;flex-direction:column;gap:18px;overflow-y:auto;z-index:20;transition:opacity .3s var(--ease)}
-  .right-panel h3{font-family:var(--display);font-size:12px;color:var(--muted);font-weight:500;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px}
-
-  .studio.zen .sidebar,.studio.zen .right-panel,.studio.zen .stage-top{opacity:0;pointer-events:none}
-
-  /* === ВИДЕО === */
-  .video-grid{width:100%;height:100%;display:grid;gap:2px;background:#000}
-  .video-box{position:relative;overflow:hidden;background:#000;display:flex;align-items:center;justify-content:center}
-  .video-box video{width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity .4s var(--ease)}
-  .video-box video.loaded{opacity:1}
-  .video-box .empty{color:var(--muted);font-family:var(--mono);font-size:11px}
-  .v-1{grid-template:1fr/1fr}
-  .v-2{grid-template:1fr/1fr 1fr}
-  .v-3,.v-4{grid-template:1fr 1fr/1fr 1fr}
-
-  /* === QR === */
-  .qr-modal{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(.95);z-index:60;background:rgba(20,20,26,.95);border:1px solid var(--panel-border);border-radius:var(--r-xl);padding:24px;display:none;flex-direction:column;align-items:center;gap:14px;box-shadow:0 24px 80px rgba(0,0,0,.8);backdrop-filter:blur(24px);max-width:340px;width:90vw;opacity:0;transition:all .3s var(--ease-bounce)}
-  .qr-modal.visible{display:flex;opacity:1;transform:translate(-50%,-50%) scale(1)}
-  .qr-head{display:flex;justify-content:space-between;width:100%;align-items:center}
-  .qr-head span{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.1em}
-  .qr-close{color:var(--muted);font-size:20px;padding:4px 8px;border-radius:6px;transition:all .2s}
-  .qr-close:hover{background:var(--panel-hover);color:var(--text)}
-  .qr-code{font-family:var(--mono);font-size:24px;font-weight:700;letter-spacing:.18em;color:var(--accent);background:#0d0d11;padding:12px 16px;border-radius:12px;border:1px dashed var(--panel-border);width:100%;text-align:center;user-select:all;cursor:pointer;transition:all .2s}
-  .qr-code:hover{background:#14141a}
-  .qr-box{background:#fff;padding:12px;border-radius:12px;display:flex}
-  .qr-hint{font-size:11px;color:var(--muted);text-align:center;line-height:1.4}
-
-  /* === UI КОНТРОЛЫ === */
-  .badge{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--panel-border);padding:7px 14px;border-radius:24px}
-  .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
-  .dot.ok{background:var(--ok);box-shadow:0 0 8px var(--ok)}
-  .dot.live{background:var(--danger);box-shadow:0 0 8px var(--danger);animation:pulse 1.5s infinite}
-  .btn-group{display:flex;align-items:center;gap:6px}
-  .btn{background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--panel-border);color:var(--text);padding:9px 16px;border-radius:var(--r-md);font-size:12px;font-weight:500;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;transition:all .2s var(--ease)}
-  .btn:hover{border-color:var(--accent);background:#202028}
-  .btn:active{transform:scale(.96)}
-  .btn.active{background:var(--accent);color:#2a0e06;border-color:var(--accent);font-weight:600;box-shadow:0 0 18px var(--accent-glow)}
-  .btn.primary{background:var(--accent);color:#2a0e06;border-color:var(--accent);font-weight:600}
-  .btn.primary:hover{box-shadow:0 0 18px var(--accent-glow);border-color:var(--accent)}
-
-  .code-input{width:100%;background:#0d0d11;border:1px solid var(--panel-border);color:var(--text);font-family:var(--mono);font-size:20px;letter-spacing:.15em;padding:12px;border-radius:12px;text-align:center;text-transform:uppercase;transition:all .2s}
-  .code-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
-
-  /* === КАМЕРА (ТЕЛЕФОН) === */
-  .cam-card{position:absolute;z-index:25;background:var(--panel-solid);border:1px solid var(--panel-border);padding:24px;border-radius:var(--r-xl);display:flex;flex-direction:column;align-items:center;gap:14px;width:calc(100vw - 32px);max-width:360px;box-shadow:0 24px 80px rgba(0,0,0,.7)}
-  .cam-card h2{font-family:var(--display);font-size:18px;margin:0}
-  .cam-card .back{align-self:flex-start;color:var(--muted);font-size:13px;display:flex;align-items:center;gap:6px}
-  .cam-card .back:hover{color:var(--text)}
-
-  .cam-view{position:relative;width:100vw;height:100dvh;background:#000;display:none}
-  .cam-view.on{display:flex}
-  .cam-view video{width:100%;height:100%;object-fit:cover;transition:transform .2s var(--ease);transform-origin:center}
-  .cam-focus{position:absolute;width:80px;height:80px;border:2px solid var(--accent);border-radius:50%;pointer-events:none;opacity:0;transition:opacity .3s;transform:translate(-50%,-50%) scale(1.4);box-shadow:0 0 20px var(--accent-glow)}
-  .cam-focus.show{opacity:1;animation:focusPulse .8s var(--ease) forwards}
-  @keyframes focusPulse{0%{transform:translate(-50%,-50%) scale(1.4);opacity:0}20%{opacity:1}100%{transform:translate(-50%,-50%) scale(1);opacity:0}}
-
-  .cam-ui{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;padding:16px;z-index:10;pointer-events:none}
-  .cam-ui>*{pointer-events:auto}
-  .cam-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
-  .cam-bottom{display:flex;flex-direction:column;gap:10px}
-  .cam-controls{display:flex;flex-direction:column;gap:10px;background:var(--panel);backdrop-filter:blur(16px);border:1px solid var(--panel-border);padding:14px 16px;border-radius:var(--r-lg);max-width:100%}
-  .s-row{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11px}
-  .s-row label{min-width:58px;color:var(--muted)}
-  .s-row input[type=range]{flex:1;accent-color:var(--accent);height:24px}
-  .s-row b{color:var(--text);font-weight:500;min-width:36px;text-align:right}
-  select.btn{appearance:none;padding-right:26px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%238e8e98' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:calc(100% - 8px) center}
-  .cam-row{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
-
-  /* === ПУЛЬТ === */
-  .knob{display:flex;flex-direction:column;gap:6px}
-  .knob label{font-family:var(--mono);font-size:11px;color:var(--muted);display:flex;justify-content:space-between}
-  .knob label b{color:var(--text);font-weight:500}
-  .knob input[type=range]{width:100%;accent-color:var(--accent);height:26px}
-
-  /* === TOAST === */
-  .toasts{position:fixed;top:20px;right:20px;z-index:1000;display:flex;flex-direction:column;gap:8px;pointer-events:none}
-  .toast{background:var(--panel-solid);border:1px solid var(--panel-border);backdrop-filter:blur(14px);padding:12px 16px;border-radius:var(--r-md);font-size:13px;max-width:320px;box-shadow:0 8px 24px rgba(0,0,0,.5);display:flex;align-items:center;gap:10px;opacity:0;transform:translateX(20px);animation:toastIn .3s var(--ease) forwards}
-  .toast.out{animation:toastOut .3s var(--ease) forwards}
-  .toast .ico{font-size:16px;flex-shrink:0}
-  .toast.ok{border-color:var(--ok)}
-  .toast.err{border-color:var(--danger)}
-  .toast.warn{border-color:var(--warning)}
-  @keyframes toastIn{to{opacity:1;transform:translateX(0)}}
-  @keyframes toastOut{to{opacity:0;transform:translateX(20px)}}
-
-  /* === MOBILE === */
-  @media (max-width:820px){
-    .sidebar,.right-panel{display:none}
-    h1{font-size:26px}
-    .lead{font-size:13px}
-    .mode-card{padding:14px}
-  }
-
-  /* === LOADING === */
-  .loader{display:inline-block;width:16px;height:16px;border:2px solid var(--panel-border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
-  @keyframes spin{to{transform:rotate(360deg)}}
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="app" id="app">
-
-  <!-- СТАРТ -->
   <section id="screen-select" class="screen active">
     <div class="logo"><span class="dot"></span>GLAZOK STUDIO</div>
     <h1>P2P Веб-камера Studio</h1>
-    <p class="lead">Подключайте до 4 смартфонов по Wi-Fi / P2P с минимальной задержкой. Превратите телефон в профессиональную веб-камеру.</p>
+    <p class="lead">Подключайте до 4 смартфонов по Wi-Fi / P2P с минимальной задержкой.</p>
     <div class="modes">
       <button class="mode-card" data-mode="monitor">
         <span class="mode-letter">M</span>
-        <span class="mode-copy"><strong>Монитор (ПК)</strong><span>Студия с пультом управления камерами</span></span>
+        <span class="mode-copy"><strong>Монитор (ПК)</strong><span>Студия с пультом управления</span></span>
       </button>
       <button class="mode-card" data-mode="camera">
         <span class="mode-letter">C</span>
-        <span class="mode-copy"><strong>Камера (телефон)</strong><span>Передача видео + ручные настройки</span></span>
+        <span class="mode-copy"><strong>Камера (телефон)</strong><span>Передача видео + настройки</span></span>
       </button>
       <button class="mode-card install" id="install-btn" style="display:none" data-mode="install">
         <span class="mode-letter">⬇</span>
-        <span class="mode-copy"><strong>Установить приложение</strong><span>Иконка на рабочий стол</span></span>
+        <span class="mode-copy"><strong>Установить</strong><span>На рабочий стол</span></span>
       </button>
     </div>
   </section>
 
-  <!-- СТУДИЯ -->
   <section id="screen-monitor" class="screen">
     <div class="studio" id="studio">
       <aside class="sidebar">
         <div class="logo-dot"></div>
-        <button class="sb-btn" data-act="qr" title="Подключить камеру (K)">
-          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14h1M14 20h1M18 18h3v3h-3z"/></svg>
-        </button>
-        <button class="sb-btn" data-act="grid" title="Сетка камер">
-          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>
-        </button>
-        <button class="sb-btn" data-act="full" title="Во весь экран">
-          <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
-        </button>
-        <button class="sb-btn" data-act="zen" title="Скрыть интерфейс (H)">
-          <svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
-        </button>
+        <button class="sb-btn" data-act="qr" title="Подключить (K)"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14h1M14 20h1M18 18h3v3h-3z"/></svg></button>
+        <button class="sb-btn" data-act="grid" title="Сетка"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg></button>
+        <button class="sb-btn" data-act="full" title="Fullscreen"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+        <button class="sb-btn" data-act="zen" title="Zen (H)"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        <button class="sb-btn" data-act="output" title="OBS Output"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button>
         <div class="sb-spacer"></div>
-        <button class="sb-btn danger" data-act="exit" title="Выход">
-          <svg viewBox="0 0 24 24"><path d="M15 4l-8 8 8 8"/></svg>
-        </button>
+        <button class="sb-btn danger" data-act="exit" title="Выход"><svg viewBox="0 0 24 24"><path d="M15 4l-8 8 8 8"/></svg></button>
       </aside>
 
       <main class="stage" id="stage">
         <div class="stage-top">
-          <div class="badge"><span class="dot" id="m-dot"></span><span id="m-text">Ожидание устройств...</span></div>
+          <div class="badge"><span class="dot" id="m-dot"></span><span id="m-text">Ожидание...</span></div>
           <div class="btn-group" id="cam-bar"></div>
-          <div class="net-info" id="net-info"><span>Ping: <b id="net-ping">—</b>ms</span><span>FPS: <b id="net-fps">—</b></span></div>
+          <div class="net-info" id="net-info">
+            <span>Ping: <b id="net-ping">—</b>ms</span>
+            <span>FPS: <b id="net-fps">—</b></span>
+            <span>Bitrate: <b id="net-bitrate">—</b>kbps</span>
+            <span>Loss: <b id="net-loss">—</b>%</span>
+          </div>
           <div class="live-badge" id="live">● LIVE</div>
         </div>
         <div class="video-grid v-1" id="v-grid"></div>
         <div class="qr-modal" id="qr-modal">
-          <div class="qr-head"><span>ПОДКЛЮЧЕНИЕ КАМЕР</span><button class="qr-close" data-act="qr-close">✕</button></div>
-          <div class="qr-code" id="qr-code" title="Нажми чтобы скопировать">——————</div>
+          <div class="qr-head"><span>ПОДКЛЮЧЕНИЕ</span><button class="qr-close" data-act="qr-close">✕</button></div>
+          <div class="qr-code" id="qr-code">——————</div>
           <div class="qr-box" id="qr-box"></div>
-          <div class="qr-hint">Отсканируйте камерой телефона<br>или введите код вручную</div>
+          <div class="qr-hint">Отсканируйте камерой или введите код</div>
         </div>
       </main>
 
@@ -235,28 +74,51 @@
         <div class="knob"><label>Contrast <b id="v-c">100</b></label><input type="range" min="50" max="150" step="1" value="100" data-ctrl="contrast"></div>
         <div class="knob"><label>Saturation <b id="v-s">100</b></label><input type="range" min="0" max="200" step="1" value="100" data-ctrl="sat"></div>
         <div style="border-top:1px solid var(--panel-border);margin-top:8px;padding-top:16px">
-          <h3>Быстрые действия</h3>
-          <button class="btn" data-act="torch" style="width:100%;justify-content:center;margin-top:8px">💡 Включить вспышку</button>
+          <h3>Bitrate</h3>
+          <div class="knob">
+            <select id="bitrate-select" data-ctrl="bitrate">
+              <option value="auto">Auto</option>
+              <option value="500">500 kbps</option>
+              <option value="1500">1500 kbps</option>
+              <option value="3000" selected>3000 kbps</option>
+              <option value="6000">6000 kbps</option>
+              <option value="10000">10000 kbps</option>
+              <option value="20000">20000 kbps</option>
+            </select>
+          </div>
+        </div>
+        <div style="border-top:1px solid var(--panel-border);margin-top:8px;padding-top:16px">
+          <h3>Действия</h3>
+          <button class="btn" data-act="torch" style="width:100%;justify-content:center;margin-top:8px">💡 Вспышка</button>
           <button class="btn" data-act="snap" style="width:100%;justify-content:center;margin-top:8px">📸 Снимок</button>
+          <button class="btn" data-act="reconnect" style="width:100%;justify-content:center;margin-top:8px">🔄 Переподключить</button>
+        </div>
+        <div style="border-top:1px solid var(--panel-border);margin-top:8px;padding-top:16px">
+          <h3>Статистика</h3>
+          <div id="cam-stats" style="font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.8"></div>
         </div>
       </aside>
     </div>
   </section>
 
-  <!-- КАМЕРА -->
   <section id="screen-camera" class="screen">
     <div class="cam-card" id="cam-card">
       <button class="back" data-act="back">← Назад</button>
       <h2>Код трансляции ПК</h2>
       <input type="text" class="code-input" id="c-input" maxlength="6" placeholder="A1B2C3" autocomplete="off" spellcheck="false">
-      <button class="btn primary" data-act="connect" style="width:100%;justify-content:center;padding:12px">Подключить телефон</button>
+      <button class="btn primary" data-act="connect" style="width:100%;justify-content:center;padding:12px">Подключить</button>
     </div>
     <div class="cam-view" id="cam-view">
       <video id="c-video" autoplay playsinline muted></video>
       <div class="cam-focus" id="c-focus"></div>
       <div class="cam-ui">
         <div class="cam-top">
-          <div class="badge"><span class="dot ok" id="c-dot"></span><span id="c-text" style="font-weight:600">В ЭФИРЕ</span></div>
+          <div class="badge"><span class="dot ok" id="c-dot"></span><span id="c-text">В ЭФИРЕ</span></div>
+          <div class="net-info" style="font-size:10px">
+            <span>Ping: <b id="c-net-ping">—</b>ms</span>
+            <span>FPS: <b id="c-net-fps">—</b></span>
+            <span>Bitrate: <b id="c-net-bitrate">—</b>kbps</span>
+          </div>
           <button class="btn" id="b-torch" style="display:none" data-act="torch">💡</button>
         </div>
         <div class="cam-bottom">
@@ -280,644 +142,8 @@
       </div>
     </div>
   </section>
-
 </div>
-
 <div class="toasts" id="toasts"></div>
-
-<script>
-/* ============================================================
-   GLAZOK STUDIO — оптимизированный единый модуль
-   ============================================================ */
-
-// ---------- УТИЛИТЫ ----------
-const $ = id => document.getElementById(id);
-const $$ = (sel, root=document) => [...root.querySelectorAll(sel)];
-const log = (...a) => console.log('%c[G]%c', 'color:#ff6b4a;font-weight:bold', '', ...a);
-const err = (...a) => console.error('%c[G!]', 'color:#ff4b4b;font-weight:bold', ...a);
-
-function toast(msg, type='ok', ms=3000){
-  const el = document.createElement('div');
-  el.className = `toast ${type}`;
-  el.innerHTML = `<span class="ico">${type==='ok'?'✓':type==='err'?'✕':'⚠'}</span><span>${msg}</span>`;
-  $('toasts').appendChild(el);
-  setTimeout(()=>{ el.classList.add('out'); setTimeout(()=>el.remove(), 300); }, ms);
-}
-
-function vibrate(ms=20){ try{ navigator.vibrate && navigator.vibrate(ms); }catch(e){} }
-
-function debounce(fn, ms){
-  let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); };
-}
-
-// ---------- СОСТОЯНИЕ ----------
-const state = {
-  mode: null,           // 'monitor' | 'camera'
-  peer: null,
-  room: null,
-  stream: null,
-  call: null,
-  data: null,
-  connections: new Map(),
-  activeCam: null,
-  viewMode: 'auto',
-  filters: { contrast:100, sat:100 },
-  zen: false,
-  torch: false,
-  wakeLock: null,
-  pinch: { scale:1, dist:0 },
-  fps: { frames:0, last:performance.now(), val:0 },
-  ping: { last:0, val:0 }
-};
-
-// ---------- PWA / Манифест (inline) ----------
-(function setupPWA(){
-  // SVG иконка как data URL
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0b0b0e"/><circle cx="256" cy="256" r="110" fill="none" stroke="#ff6b4a" stroke-width="36"/><circle cx="256" cy="256" r="46" fill="#ff6b4a"/></svg>`;
-  const iconUrl = 'data:image/svg+xml;base64,' + btoa(svg);
-
-  const manifest = {
-    name: 'Glazok Studio', short_name:'Glazok',
-    description:'P2P веб-камера студия',
-    start_url: location.href.split('?')[0], scope:'./',
-    display:'standalone', orientation:'any',
-    background_color:'#0b0b0e', theme_color:'#0b0b0e', lang:'ru',
-    icons:[{ src:iconUrl, sizes:'any', type:'image/svg+xml', purpose:'any maskable' }],
-    shortcuts:[
-      { name:'Монитор (ПК)', short_name:'Монитор', url:'?m=monitor' },
-      { name:'Камера (телефон)', short_name:'Камера', url:'?m=camera' }
-    ]
-  };
-  const blob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
-  const link = document.createElement('link');
-  link.rel='manifest'; link.href = URL.createObjectURL(blob);
-  document.head.appendChild(link);
-
-  // Apple touch icon
-  const apple = document.createElement('link');
-  apple.rel='apple-touch-icon'; apple.href=iconUrl;
-  document.head.appendChild(apple);
-  document.head.insertAdjacentHTML('beforeend',
-    '<meta name="theme-color" content="#0b0b0e"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">');
-
-  // beforeinstallprompt
-  let prompt = null;
-  window.addEventListener('beforeinstallprompt', e=>{
-    e.preventDefault(); prompt = e;
-    $('install-btn').style.display = 'flex';
-    $('install-btn').onclick = ()=>{ prompt.prompt(); prompt = null; };
-  });
-
-  // Service worker (оффлайн)
-  if('serviceWorker' in navigator){
-    const swCode = `
-      const C='glazok-v2';
-      self.addEventListener('install',e=>{self.skipWaiting()});
-      self.addEventListener('activate',e=>{self.clients.claim()});
-      self.addEventListener('fetch',e=>{
-        if(e.request.method!=='GET')return;
-        e.respondWith(fetch(e.request).catch(()=>caches.match(e.request)));
-      });
-    `;
-    const swBlob = new Blob([swCode],{type:'application/javascript'});
-    navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(()=>{});
-  }
-
-  // Deeplink из PWA shortcuts
-  const m = new URLSearchParams(location.search).get('m');
-  if(m==='monitor') setTimeout(()=>setMode('monitor'),100);
-  if(m==='camera') setTimeout(()=>setMode('camera'),100);
-})();
-
-// ---------- НАВИГАЦИЯ ----------
-function setMode(mode){
-  state.mode = mode;
-  $$('.screen').forEach(s=>s.classList.remove('active'));
-  if(mode==='monitor'){ $('screen-monitor').classList.add('active'); initMonitor(); }
-  else if(mode==='camera'){ $('screen-camera').classList.add('active'); initCamera(); }
-  else $('screen-select').classList.add('active');
-}
-
-function exit(){ teardown(); setMode(null); }
-
-// ---------- ОБЩИЕ ----------
-function teardown(){
-  try{ state.peer && state.peer.destroy(); }catch(e){}
-  state.peer = null;
-  if(state.stream){ state.stream.getTracks().forEach(t=>t.stop()); state.stream = null; }
-  state.connections.clear();
-  state.call = null; state.data = null;
-  $('v-grid').innerHTML = '';
-  if(state.wakeLock){ try{ state.wakeLock.release(); }catch(e){} state.wakeLock=null; }
-}
-
-function randCode(n){
-  const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s='';
-  for(let i=0;i<n;i++) s+=a[Math.floor(Math.random()*a.length)];
-  return s;
-}
-
-const PEER_CFG = {
-  config:{ iceServers:[
-    {urls:'stun:stun.l.google.com:19302'},
-    {urls:'stun:stun1.l.google.com:19302'}
-  ]}
-};
-
-// ---------- МОНИТОР (ПК) ----------
-function initMonitor(){
-  const room = randCode(6).toLowerCase();
-  state.room = room;
-  const peer = new Peer('glz-'+room, PEER_CFG);
-  state.peer = peer;
-
-  peer.on('open', ()=>{
-    $('m-dot').className = 'dot ok';
-    $('m-text').textContent = 'Готов к подключению';
-    $('qr-code').textContent = room.toUpperCase();
-    renderQR();
-    showQR(true);
-    toast('Монитор готов. Код: '+room.toUpperCase());
-  });
-
-  peer.on('connection', conn=>{
-    conn.on('open', ()=>{
-      const entry = state.connections.get(conn.peer) || {};
-      entry.conn = conn;
-      state.connections.set(conn.peer, entry);
-      log('Data channel:', conn.peer);
-      conn.on('data', d=>{
-        if(d.type==='PING'){ try{ conn.send({type:'PONG',t:Date.now()}); }catch(e){} }
-        if(d.type==='FPS'){ updateNetInfo(d.fps, state.ping.val); }
-      });
-      broadcastAir();
-    });
-  });
-
-  peer.on('call', call=>{
-    call.answer();
-    call.on('stream', s=>{
-      const entry = state.connections.get(call.peer) || {};
-      entry.call = call; entry.stream = s;
-      state.connections.set(call.peer, entry);
-      showQR(false);
-      updateGrid();
-      toast('Камера подключена');
-    });
-    call.on('close', ()=>{
-      state.connections.delete(call.peer);
-      updateGrid();
-      toast('Камера отключилась','warn');
-    });
-    call.on('error', e=>err('Call error:',e));
-  });
-
-  peer.on('error', e=>{
-    err('Peer error:',e);
-    if(e.type==='unavailable') toast('Комната занята, пересоздаём...','warn');
-  });
-}
-
-function renderQR(){
-  $('qr-box').innerHTML = '';
-  const url = location.origin + location.pathname + '?m=camera&room=' + state.room;
-  new QRCode($('qr-box'), { text:url, width:160, height:160, colorDark:'#0b0b0e', colorLight:'#ffffff' });
-}
-
-function showQR(v){ $('qr-modal').classList.toggle('visible', v); }
-
-function updateGrid(){
-  const g = $('v-grid'), bar = $('cam-bar');
-  g.innerHTML = ''; bar.innerHTML = '';
-  const keys = [...state.connections.keys()].filter(k=>state.connections.get(k).stream);
-
-  if(keys.length===0){
-    $('m-dot').className = 'dot';
-    $('m-text').textContent = 'Ожидание устройств...';
-    $('live').classList.remove('on');
-    showQR(true);
-    g.className = 'video-grid v-1';
-    const box = document.createElement('div');
-    box.className = 'video-box';
-    box.innerHTML = '<div class="empty">Ожидание камер...</div>';
-    g.appendChild(box);
-    return;
-  }
-
-  $('m-dot').className = 'dot live';
-  $('m-text').textContent = `В эфире: ${keys.length}`;
-  $('live').classList.add('on');
-
-  if(!state.activeCam || !keys.includes(state.activeCam)) state.activeCam = keys[0];
-
-  keys.forEach((k,i)=>{
-    const b = document.createElement('button');
-    b.className = 'btn' + (k===state.activeCam && state.viewMode==='single' ? ' active' : '');
-    b.textContent = '📱 К'+(i+1);
-    b.onclick = ()=>{ state.activeCam=k; state.viewMode='single'; updateGrid(); broadcastAir(); };
-    bar.appendChild(b);
-  });
-
-  if(keys.length>1){
-    const gb = document.createElement('button');
-    gb.className = 'btn' + (state.viewMode==='grid' ? ' active' : '');
-    gb.textContent = '🖼 Сетка';
-    gb.onclick = ()=>{ state.viewMode='grid'; updateGrid(); broadcastAir(); };
-    bar.appendChild(gb);
-  }
-
-  const isGrid = state.viewMode==='grid' || (state.viewMode==='auto' && keys.length>1);
-  g.className = 'video-grid v-'+Math.min(keys.length,4);
-
-  (isGrid ? keys.slice(0,4) : [state.activeCam]).forEach(k=>{
-    const box = document.createElement('div');
-    box.className = 'video-box';
-    const v = document.createElement('video');
-    v.autoplay = true; v.playsInline = true;
-    v.srcObject = state.connections.get(k).stream;
-    v.onloadeddata = ()=>{ v.classList.add('loaded'); applyFilters(v); };
-    box.appendChild(v);
-    g.appendChild(box);
-  });
-}
-
-function applyFilters(v){
-  v.style.filter = `contrast(${state.filters.contrast}%) saturate(${state.filters.sat}%)`;
-}
-function applyAllFilters(){
-  $$('#v-grid video').forEach(applyFilters);
-}
-
-function broadcastAir(){
-  const keys = [...state.connections.keys()].filter(k=>state.connections.get(k).stream);
-  const isGrid = state.viewMode==='grid' || (state.viewMode==='auto' && keys.length>1);
-  state.connections.forEach((item,k)=>{
-    if(item.conn && item.conn.open){
-      try{ item.conn.send({type:'AIR', onAir: isGrid || k===state.activeCam}); }catch(e){}
-    }
-  });
-}
-
-// Пульт управления (слайдеры на ПК)
-const onCtrl = debounce((p,v)=>{
-  state.connections.forEach(item=>{
-    if(item.conn && item.conn.open){
-      try{ item.conn.send({type:'CTRL', param:p, value:parseFloat(v)}); }catch(e){}
-    }
-  });
-}, 40);
-
-// ---------- КАМЕРА (ТЕЛЕФОН) ----------
-async function initCamera(){
-  // Wake Lock — экран не гаснет
-  if('wakeLock' in navigator){
-    try{ state.wakeLock = await navigator.wakeLock.request('screen'); log('WakeLock активен'); }
-    catch(e){ err('WakeLock:',e); }
-  }
-
-  // QR shortcut — автоподключение
-  const room = new URLSearchParams(location.search).get('room');
-  if(room){ $('cam-card').style.display='none'; startPhone('glz-'+room.toLowerCase()); return; }
-  $('cam-card').style.display = 'flex';
-}
-
-function presets(p){
-  const m = {
-    '4k30':[3840,2160,30], '2k30':[2560,1440,30], '1080p60':[1920,1080,60],
-    '1080p30':[1920,1080,30], '720p30':[1280,720,30], '480p30':[854,480,30]
-  };
-  const [w,h,f] = m[p] || m['2k30'];
-  return { width:{ideal:w}, height:{ideal:h}, frameRate:{ideal:f}, facingMode:{ideal:'environment'} };
-}
-
-async function startPhone(targetId){
-  try{
-    const q = $('c-quality').value;
-    state.stream = await navigator.mediaDevices.getUserMedia({ video:presets(q), audio:false });
-    $('c-video').srcObject = state.stream;
-    $('cam-view').classList.add('on');
-    $('cam-card').style.display = 'none';
-    await listCams();
-    detectCaps();
-
-    const p = new Peer('cam-'+randCode(8).toLowerCase(), PEER_CFG);
-    state.peer = p;
-
-    p.on('open', ()=>{
-      state.data = p.connect(targetId);
-      state.data.on('data', d=>{
-        if(d.type==='AIR') updateAirBadge(d.onAir);
-        if(d.type==='CTRL') applyConstraint(d.param, d.value);
-        if(d.type==='TORCH') toggleTorch(true, d.on);
-        if(d.type==='PONG'){
-          state.ping.val = Math.round(Date.now() - state.ping.last);
-          sendFPS();
-        }
-      });
-      state.call = p.call(targetId, state.stream);
-      log('Звоним на', targetId);
-      toast('Подключение к ПК...');
-    });
-
-    p.on('error', e=>{
-      err('Phone peer:',e);
-      toast('Ошибка связи: '+e.type, 'err');
-    });
-
-    // FPS counter
-    startFPSCounter();
-  }catch(e){
-    err('getUserMedia:', e);
-    toast('Нет доступа к камере: '+e.message, 'err');
-    exit();
-  }
-}
-
-function updateAirBadge(on){
-  const d = $('c-dot'), t = $('c-text');
-  if(on){ d.className='dot live'; t.textContent='🔴 В ЭФИРЕ'; t.style.color='var(--danger)'; vibrate(30); }
-  else { d.className='dot'; t.textContent='⏸ ОЖИДАНИЕ'; t.style.color='var(--muted)'; }
-}
-
-async function listCams(){
-  try{
-    const devs = await navigator.mediaDevices.enumerateDevices();
-    const sel = $('c-cam'); sel.innerHTML = '';
-    devs.filter(d=>d.kind==='videoinput').forEach((d,i)=>{
-      const o = document.createElement('option');
-      o.value = d.deviceId;
-      o.textContent = d.label || ('Камера '+(i+1));
-      sel.appendChild(o);
-    });
-  }catch(e){}
-}
-
-function detectCaps(){
-  if(!state.stream) return;
-  const t = state.stream.getVideoTracks()[0];
-  if(!t.getCapabilities) return;
-  const c = t.getCapabilities();
-
-  if(c.zoom){
-    $('r-zoom').style.display='flex';
-    $('s-zoom').min = c.zoom.min||1;
-    $('s-zoom').max = c.zoom.max||5;
-    $('s-zoom').step = c.zoom.step||0.1;
-  }
-  if(c.exposureCompensation){
-    $('r-exp').style.display='flex';
-    $('s-exp').min = c.exposureCompensation.min||-2;
-    $('s-exp').max = c.exposureCompensation.max||2;
-    $('s-exp').step = c.exposureCompensation.step||0.1;
-  }
-  $('b-torch').style.display = c.torch ? 'inline-flex' : 'none';
-
-  // Фокус по тапу
-  if(c.focusMode && c.focusMode.includes('continuous')){
-    t.applyConstraints({ advanced:[{focusMode:'continuous'}] }).catch(()=>{});
-  }
-}
-
-async function applyConstraint(p, v){
-  if(!state.stream) return;
-  const t = state.stream.getVideoTracks()[0];
-  try{
-    const param = p==='exposure' ? 'exposureCompensation' : p;
-    await t.applyConstraints({ advanced:[{[param]: parseFloat(v)}] });
-    // Обновляем локальные слайдеры
-    if(p==='zoom'){ $('s-zoom').value=v; $('v-zoom').textContent=parseFloat(v).toFixed(1); }
-    if(p==='exposure'){ $('s-exp').value=v; $('v-exp').textContent=parseFloat(v).toFixed(1); }
-  }catch(e){ err('applyConstraint',p,v,e); }
-}
-
-async function switchCam(id){
-  if(!id || !state.stream) return;
-  state.stream.getTracks().forEach(t=>t.stop());
-  const c = presets($('c-quality').value);
-  c.deviceId = { exact:id };
-  state.stream = await navigator.mediaDevices.getUserMedia({ video:c, audio:false });
-  $('c-video').srcObject = state.stream;
-  detectCaps();
-  if(state.call && state.call.peerConnection){
-    const sender = state.call.peerConnection.getSenders().find(s=>s.track?.kind==='video');
-    if(sender) sender.replaceTrack(state.stream.getVideoTracks()[0]);
-  }
-}
-
-async function changeQuality(){
-  if(!state.stream) return;
-  const t = state.stream.getVideoTracks()[0];
-  try{ await t.applyConstraints(presets($('c-quality').value)); }catch(e){}
-}
-
-async function toggleTorch(forced, on){
-  if(!state.stream) return;
-  const t = state.stream.getVideoTracks()[0];
-  state.torch = forced ? on : !state.torch;
-  try{
-    await t.applyConstraints({ advanced:[{ torch:state.torch }] });
-    $('b-torch').classList.toggle('active', state.torch);
-    vibrate(20);
-  }catch(e){ err('torch',e); }
-}
-
-// ---------- PINCH ZOOM (телефон) ----------
-(function pinchZoom(){
-  const vid = $('c-video');
-  let scale=1, lastDist=0;
-
-  vid.addEventListener('touchstart', e=>{
-    if(e.touches.length===2){
-      lastDist = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      );
-    }
-  }, {passive:true});
-
-  vid.addEventListener('touchmove', e=>{
-    if(e.touches.length===2){
-      const d = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      );
-      const delta = d - lastDist;
-      lastDist = d;
-      scale = Math.max(1, Math.min(5, scale + delta*0.01));
-      vid.style.transform = `scale(${scale})`;
-      // Синхронизируем с железом если возможно
-      if(state.stream){
-        const t = state.stream.getVideoTracks()[0];
-        const caps = t.getCapabilities?.() || {};
-        if(caps.zoom){
-          const z = Math.max(caps.zoom.min, Math.min(caps.zoom.max, scale));
-          t.applyConstraints({ advanced:[{zoom:z}] }).catch(()=>{});
-        }
-      }
-    }
-  }, {passive:true});
-
-  vid.addEventListener('touchend', ()=>{ lastDist=0; });
-})();
-
-// ---------- TAP TO FOCUS ----------
-(function tapFocus(){
-  const vid = $('c-video');
-  const focus = $('c-focus');
-
-  vid.addEventListener('click', async e=>{
-    if(!state.stream) return;
-    const t = state.stream.getVideoTracks()[0];
-    const caps = t.getCapabilities?.() || {};
-    if(!caps.focusMode) return;
-
-    const r = vid.getBoundingClientRect();
-    const x = (e.clientX - r.left) / r.width;
-    const y = (e.clientY - r.top) / r.height;
-
-    focus.style.left = e.clientX+'px';
-    focus.style.top = e.clientY+'px';
-    focus.classList.add('show');
-    setTimeout(()=>focus.classList.remove('show'), 800);
-
-    try{
-      await t.applyConstraints({ advanced:[{
-        focusMode:'single-shot',
-        pointOfInterest: { x, y }
-      }] });
-      vibrate(15);
-    }catch(e){}
-  });
-})();
-
-// ---------- FPS COUNTER ----------
-function startFPSCounter(){
-  let last = performance.now(), frames=0;
-  const tick = ()=>{
-    frames++;
-    const now = performance.now();
-    if(now-last >= 1000){
-      state.fps.val = frames;
-      frames = 0; last = now;
-      sendFPS();
-    }
-    if(state.mode==='camera') requestAnimationFrame(tick);
-  };
-  requestAnimationFrame(tick);
-}
-
-function sendFPS(){
-  if(state.data?.open){
-    state.ping.last = Date.now();
-    try{ state.data.send({ type:'FPS', fps:state.fps.val }); }catch(e){}
-    try{ state.data.send({ type:'PING', t:Date.now() }); }catch(e){}
-  }
-}
-
-function updateNetInfo(fps, ping){
-  $('net-fps').textContent = fps;
-  $('net-ping').textContent = ping;
-  const box = $('net-info');
-  box.classList.toggle('good', ping < 50 && fps > 25);
-  box.classList.toggle('bad', ping > 200 || fps < 15);
-}
-
-// ---------- EVENT DELEGATION ----------
-document.addEventListener('click', e=>{
-  const t = e.target.closest('[data-act],[data-mode],[data-ctrl]');
-  if(!t) return;
-
-  if(t.dataset.mode){
-    if(t.dataset.mode==='install'){ /* handled in setupPWA */ return; }
-    setMode(t.dataset.mode);
-    return;
-  }
-
-  const act = t.dataset.act;
-  if(act==='back') exit();
-  if(act==='exit') exit();
-  if(act==='stop') exit();
-  if(act==='qr') showQR(true);
-  if(act==='qr-close') showQR(false);
-  if(act==='grid'){ state.viewMode = state.viewMode==='grid' ? 'single' : 'grid'; updateGrid(); broadcastAir(); }
-  if(act==='full'){
-    if(!document.fullscreenElement) document.documentElement.requestFullscreen?.();
-    else document.exitFullscreen?.();
-  }
-  if(act==='zen'){ state.zen = !state.zen; $('studio').classList.toggle('zen', state.zen); }
-  if(act==='torch') toggleTorch();
-  if(act==='snap') snap();
-  if(act==='connect'){
-    const v = $('c-input').value.trim().toLowerCase();
-    if(v.length<4){ toast('Код должен быть минимум 4 символа','err'); return; }
-    startPhone('glz-'+v);
-  }
-});
-
-// Слайдеры
-document.addEventListener('input', e=>{
-  const t = e.target;
-  if(t.dataset.ctrl){
-    const v = t.value;
-    if(t.dataset.ctrl==='zoom'){ $('v-z').textContent=parseFloat(v).toFixed(1); onCtrl('zoom',v); }
-    if(t.dataset.ctrl==='exposure'){ $('v-b').textContent=parseFloat(v).toFixed(1); onCtrl('exposure',v); }
-    if(t.dataset.ctrl==='contrast'){ $('v-c').textContent=v; state.filters.contrast=v; applyAllFilters(); }
-    if(t.dataset.ctrl==='sat'){ $('v-s').textContent=v; state.filters.sat=v; applyAllFilters(); }
-  }
-  if(t.id==='s-zoom'){ $('v-zoom').textContent=parseFloat(t.value).toFixed(1); applyConstraint('zoom',t.value); }
-  if(t.id==='s-exp'){ $('v-exp').textContent=parseFloat(t.value).toFixed(1); applyConstraint('exposure',t.value); }
-});
-
-$('c-quality')?.addEventListener('change', changeQuality);
-$('c-cam')?.addEventListener('change', e=>switchCam(e.target.value));
-
-// Копирование кода
-$('qr-code')?.addEventListener('click', ()=>{
-  const code = $('qr-code').textContent;
-  navigator.clipboard?.writeText(code).then(()=>toast('Код скопирован'));
-});
-
-// ---------- KEYBOARD ----------
-window.addEventListener('keydown', e=>{
-  if(state.mode!=='monitor') return;
-  if(e.key==='h'||e.key==='H'||e.key==='р'||e.key==='Р'){
-    state.zen = !state.zen;
-    $('studio').classList.toggle('zen', state.zen);
-  }
-  if(e.key==='k'||e.key==='K'||e.key==='л'||e.key==='Л') showQR(!$('qr-modal').classList.contains('visible'));
-  if(e.key==='Escape') showQR(false);
-});
-
-// Stage click — zen mode
-$('stage')?.addEventListener('click', e=>{
-  if(e.target.closest('.qr-modal, .btn, .stage-top, .sidebar, .right-panel')) return;
-  state.zen = !state.zen;
-  $('studio').classList.toggle('zen', state.zen);
-});
-
-// ---------- SLEEP / WAKE ----------
-document.addEventListener('visibilitychange', async ()=>{
-  if(document.visibilityState==='visible' && state.mode==='camera' && 'wakeLock' in navigator){
-    try{ state.wakeLock = await navigator.wakeLock.request('screen'); }catch(e){}
-  }
-});
-
-// ---------- SNAP (снимок экрана) ----------
-function snap(){
-  const v = $$('#v-grid video')[0];
-  if(!v || !v.videoWidth){ toast('Нет видео','warn'); return; }
-  const c = document.createElement('canvas');
-  c.width = v.videoWidth; c.height = v.videoHeight;
-  c.getContext('2d').drawImage(v,0,0);
-  const a = document.createElement('a');
-  a.download = 'glazok-snap-'+Date.now()+'.png';
-  a.href = c.toDataURL('image/png');
-  a.click();
-  toast('Снимок сохранён');
-}
-
-// ---------- INIT ----------
-log('Glazok Studio загружен');
-</script>
+<script src="app.js"></script>
 </body>
 </html>
