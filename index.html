@@ -1,149 +1,4057 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no, maximum-scale=1">
-<title>Glazok Multi-Cam Studio</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#0b0b0e">
+  <meta name="description" content="Glazok Studio — P2P камера для смартфона">
+
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon.svg">
+  <link rel="apple-touch-icon" href="./icon.svg">
+
+  <title>Glazok Studio</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap"
+    rel="stylesheet"
+  >
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #0b0b0e;
+      --panel: rgba(24, 24, 30, .78);
+      --panel-solid: #17171d;
+      --border: rgba(255, 255, 255, .08);
+      --hover: rgba(255, 255, 255, .12);
+
+      --accent: #ff6b4a;
+      --accent-dim: rgba(255, 107, 74, .15);
+      --accent-glow: rgba(255, 107, 74, .35);
+
+      --danger: #ff4b4b;
+      --ok: #34d399;
+      --warning: #fbbf24;
+
+      --text: #f5f5f7;
+      --muted: #8e8e98;
+
+      --display: "Space Grotesk", sans-serif;
+      --body: "Inter", sans-serif;
+      --mono: "IBM Plex Mono", monospace;
+
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 20px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--body);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+      border: 0;
+      color: inherit;
+    }
+
+    .app {
+      position: relative;
+      width: 100vw;
+      height: 100dvh;
+      overflow: hidden;
+    }
+
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: none;
+    }
+
+    .screen.active {
+      display: flex;
+    }
+
+    /* =========================
+       START
+    ========================= */
+
+    #screen-select {
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      padding: 24px;
+      overflow-y: auto;
+      background:
+        radial-gradient(circle at 50% 30%, rgba(255,107,74,.08), transparent 35%),
+        var(--bg);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      font-family: var(--display);
+      font-weight: 700;
+      font-size: 22px;
+      letter-spacing: .04em;
+    }
+
+    .logo-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 20px var(--accent-glow);
+      animation: pulse 2s infinite;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+      text-align: center;
+      font-family: var(--display);
+      font-size: clamp(26px, 5vw, 38px);
+      background: linear-gradient(135deg, #fff, var(--accent));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .lead {
+      max-width: 500px;
+      margin-bottom: 30px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+      text-align: center;
+    }
+
+    .modes {
+      display: flex;
+      flex-direction: column;
+      width: min(100%, 420px);
+      gap: 12px;
+    }
+
+    .mode-card {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      width: 100%;
+      padding: 18px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--panel-solid);
+      text-align: left;
+      transition: .2s ease;
+    }
+
+    .mode-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    .mode-letter {
+      flex: 0 0 40px;
+      font-family: var(--mono);
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--accent);
+      text-align: center;
+    }
+
+    .mode-copy strong {
+      display: block;
+      margin-bottom: 4px;
+      font-family: var(--display);
+    }
+
+    .mode-copy span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .install {
+      border-color: var(--accent-dim);
+      background: linear-gradient(135deg, rgba(255,107,74,.08), transparent);
+    }
+
+    /* =========================
+       STUDIO
+    ========================= */
+
+    #screen-monitor {
+      width: 100%;
+      height: 100%;
+    }
+
+    .studio {
+      display: flex;
+      width: 100%;
+      height: 100%;
+    }
+
+    .sidebar {
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 68px;
+      padding: 16px 0;
+      gap: 10px;
+      border-right: 1px solid var(--border);
+      background: #0f0f13;
+      transition: opacity .25s ease;
+    }
+
+    .sidebar-logo {
+      width: 14px;
+      height: 14px;
+      margin-bottom: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 16px var(--accent-glow);
+    }
+
+    .sb-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 46px;
+      height: 46px;
+      border-radius: var(--radius-md);
+      background: transparent;
+      color: var(--accent);
+      transition: .2s ease;
+    }
+
+    .sb-btn:hover {
+      background: #1a1a21;
+    }
+
+    .sb-btn:active {
+      transform: scale(.94);
+    }
+
+    .sb-btn svg {
+      width: 22px;
+      height: 22px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .sb-btn.danger {
+      margin-top: auto;
+      color: var(--danger);
+    }
+
+    .stage {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+      background: #000;
+      overflow: hidden;
+    }
+
+    .stage-top {
+      z-index: 10;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      padding: 14px 16px;
+      pointer-events: none;
+
+      transition: opacity .25s ease;
+    }
+
+    .stage-top > * {
+      pointer-events: auto;
+    }
+
+    .stage-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 12px;
+
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      background: var(--panel);
+      backdrop-filter: blur(14px);
+
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+    }
+
+    .status-dot.ok {
+      background: var(--ok);
+      box-shadow: 0 0 8px var(--ok);
+    }
+
+    .status-dot.live {
+      background: var(--danger);
+      box-shadow: 0 0 8px var(--danger);
+      animation: pulse 1.4s infinite;
+    }
+
+    .status-dot.warn {
+      background: var(--warning);
+      box-shadow: 0 0 8px var(--warning);
+    }
+
+    .cam-bar {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .net-info {
+      display: flex;
+      gap: 12px;
+      margin-left: auto;
+      padding: 7px 12px;
+
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      background: var(--panel);
+      backdrop-filter: blur(14px);
+
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 10px;
+    }
+
+    .net-info b {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .net-info.good b {
+      color: var(--ok);
+    }
+
+    .net-info.bad b {
+      color: var(--danger);
+    }
+
+    .live-badge {
+      display: none;
+      color: var(--ok);
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .live-badge.visible {
+      display: block;
+    }
+
+    .video-grid {
+      display: grid;
+      width: 100%;
+      height: 100%;
+      gap: 2px;
+      background: #000;
+    }
+
+    .video-grid.v1 {
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr;
+    }
+
+    .video-grid.v2 {
+      grid-template-columns: repeat(2, 1fr);
+      grid-template-rows: 1fr;
+    }
+
+    .video-grid.v3,
+    .video-grid.v4 {
+      grid-template-columns: repeat(2, 1fr);
+      grid-template-rows: repeat(2, 1fr);
+    }
+
+    .video-box {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      background: #050505;
+    }
+
+    .video-box video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      opacity: 0;
+      transition: opacity .25s ease;
+      filter:
+        brightness(var(--brightness, 1))
+        contrast(var(--contrast, 100%))
+        saturate(var(--saturation, 100%));
+    }
+
+    .video-box video.loaded {
+      opacity: 1;
+    }
+
+    .video-label {
+      position: absolute;
+      left: 10px;
+      bottom: 10px;
+
+      padding: 5px 9px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(10px);
+
+      color: #fff;
+      font-family: var(--mono);
+      font-size: 10px;
+    }
+
+    .empty {
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+
+    /* =========================
+       RIGHT PANEL
+    ========================= */
+
+    .right-panel {
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      width: 280px;
+      gap: 18px;
+      padding: 20px 18px;
+
+      border-left: 1px solid var(--border);
+      background: rgba(17,17,22,.94);
+      backdrop-filter: blur(20px);
+
+      overflow-y: auto;
+      transition: opacity .25s ease;
+    }
+
+    .right-panel h3 {
+      margin-bottom: 4px;
+      color: var(--muted);
+      font-family: var(--display);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    .control {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .control label {
+      display: flex;
+      justify-content: space-between;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+
+    .control label b {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+
+    .divider {
+      height: 1px;
+      margin: 2px 0;
+      background: var(--border);
+    }
+
+    /* =========================
+       BUTTONS
+    ========================= */
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+
+      padding: 9px 14px;
+
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+
+      background: var(--panel);
+      color: var(--text);
+
+      font-size: 12px;
+      font-weight: 500;
+
+      backdrop-filter: blur(14px);
+      transition: .2s ease;
+    }
+
+    .btn:hover {
+      border-color: var(--accent);
+      background: #202028;
+    }
+
+    .btn.active,
+    .btn.primary {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #2a0e06;
+      font-weight: 600;
+    }
+
+    .btn.danger {
+      border-color: rgba(255,75,75,.3);
+      color: var(--danger);
+    }
+
+    .btn.full {
+      width: 100%;
+    }
+
+    /* =========================
+       QR
+    ========================= */
+
+    .qr-modal {
+      position: absolute;
+      z-index: 50;
+      top: 50%;
+      left: 50%;
+
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+
+      width: min(90vw, 340px);
+      padding: 24px;
+
+      transform: translate(-50%, -50%);
+
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+
+      background: rgba(20,20,26,.96);
+      box-shadow: 0 24px 80px rgba(0,0,0,.8);
+      backdrop-filter: blur(24px);
+    }
+
+    .qr-modal.visible {
+      display: flex;
+    }
+
+    .qr-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+    }
+
+    .qr-head span {
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .1em;
+    }
+
+    .qr-close {
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .qr-close:hover {
+      background: var(--hover);
+      color: #fff;
+    }
+
+    .qr-code-text {
+      width: 100%;
+      padding: 12px;
+
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+
+      background: #0d0d11;
+
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: .15em;
+      text-align: center;
+
+      cursor: pointer;
+      user-select: all;
+    }
+
+    .qr-box {
+      display: flex;
+      padding: 12px;
+      border-radius: 12px;
+      background: white;
+    }
+
+    .qr-hint {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.5;
+      text-align: center;
+    }
+
+    /* =========================
+       CAMERA
+    ========================= */
+
+    #screen-camera {
+      align-items: center;
+      justify-content: center;
+      background: #000;
+    }
+
+    .camera-connect {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: min(90vw, 380px);
+      padding: 24px;
+
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+
+      background: var(--panel-solid);
+      box-shadow: 0 24px 80px rgba(0,0,0,.7);
+    }
+
+    .camera-connect h2 {
+      margin-bottom: 8px;
+      font-family: var(--display);
+      font-size: 20px;
+    }
+
+    .camera-connect p {
+      margin-bottom: 20px;
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .code-input {
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 13px;
+
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      outline: none;
+
+      background: #0d0d11;
+      color: #fff;
+
+      font-family: var(--mono);
+      font-size: 20px;
+      letter-spacing: .15em;
+      text-align: center;
+      text-transform: uppercase;
+    }
+
+    .code-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+
+    .camera-view {
+      position: absolute;
+      inset: 0;
+      display: none;
+      background: #000;
+    }
+
+    .camera-view.visible {
+      display: block;
+    }
+
+    .camera-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform-origin: center;
+    }
+
+    .camera-ui {
+      position: absolute;
+      inset: 0;
+
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+
+      padding:
+        max(16px, env(safe-area-inset-top))
+        16px
+        max(16px, env(safe-area-inset-bottom));
+
+      pointer-events: none;
+    }
+
+    .camera-ui > * {
+      pointer-events: auto;
+    }
+
+    .camera-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .camera-bottom {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .camera-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+
+      padding: 14px;
+
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+
+      background: var(--panel);
+      backdrop-filter: blur(18px);
+    }
+
+    .camera-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .camera-row .btn,
+    .camera-row select {
+      flex: 1;
+      min-width: 120px;
+    }
+
+    .camera-setting {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+
+    .camera-setting label {
+      width: 55px;
+    }
+
+    .camera-setting input {
+      flex: 1;
+    }
+
+    .camera-setting b {
+      width: 40px;
+      color: #fff;
+      text-align: right;
+    }
+
+    /* =========================
+       TOAST
+    ========================= */
+
+    .toasts {
+      position: fixed;
+      z-index: 1000;
+      top: 18px;
+      right: 18px;
+
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+
+      pointer-events: none;
+    }
+
+    .toast {
+      max-width: 320px;
+      padding: 12px 16px;
+
+      border: 1px solid var(--border);
+      border-radius: 12px;
+
+      background: var(--panel-solid);
+      box-shadow: 0 10px 30px rgba(0,0,0,.5);
+
+      font-size: 13px;
+    }
+
+    .toast.ok {
+      border-color: var(--ok);
+    }
+
+    .toast.error {
+      border-color: var(--danger);
+    }
+
+    .toast.warn {
+      border-color: var(--warning);
+    }
+
+    /* =========================
+       ZEN
+    ========================= */
+
+    .studio.zen .sidebar,
+    .studio.zen .right-panel,
+    .studio.zen .stage-top {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .45; }
+    }
+
+    /* =========================
+       MOBILE
+    ========================= */
+
+    @media (max-width: 820px) {
+      .sidebar,
+      .right-panel {
+        display: none;
+      }
+
+      .stage-top {
+        padding: 10px;
+      }
+
+      .net-info {
+        display: none;
+      }
+
+      .cam-bar {
+        max-width: 70%;
+      }
+
+      .mode-card {
+        padding: 15px;
+      }
+
+      .camera-connect {
+        box-shadow: none;
+      }
+    }
+  </style>
 </head>
+
 <body>
-<div class="app" id="app">
+
+<div class="app">
+
+  <!-- =========================
+       START
+  ========================= -->
+
   <section id="screen-select" class="screen active">
-    <div class="logo"><span class="dot"></span>GLAZOK STUDIO</div>
-    <h1>P2P Веб-камера Studio</h1>
-    <p class="lead">Подключайте до 4 смартфонов по Wi-Fi / P2P с минимальной задержкой.</p>
+
+    <div class="logo">
+      <span class="logo-dot"></span>
+      GLAZOK STUDIO
+    </div>
+
+    <h1>P2P Web Camera</h1>
+
+    <p class="lead">
+      Превратите смартфон в беспроводную камеру.
+      Подключайте до 4 устройств к одной студии через P2P.
+    </p>
+
     <div class="modes">
+
       <button class="mode-card" data-mode="monitor">
         <span class="mode-letter">M</span>
-        <span class="mode-copy"><strong>Монитор (ПК)</strong><span>Студия с пультом управления</span></span>
+
+        <span class="mode-copy">
+          <strong>Монитор — ПК</strong>
+          <span>Студия управления смартфонами</span>
+        </span>
       </button>
+
       <button class="mode-card" data-mode="camera">
         <span class="mode-letter">C</span>
-        <span class="mode-copy"><strong>Камера (телефон)</strong><span>Передача видео + настройки</span></span>
+
+        <span class="mode-copy">
+          <strong>Камера — телефон</strong>
+          <span>Использовать смартфон как камеру</span>
+        </span>
       </button>
-      <button class="mode-card install" id="install-btn" style="display:none" data-mode="install">
-        <span class="mode-letter">⬇</span>
-        <span class="mode-copy"><strong>Установить</strong><span>На рабочий стол</span></span>
+
+      <button
+        class="mode-card install"
+        id="install-button"
+        style="display:none"
+      >
+        <span class="mode-letter">↓</span>
+
+        <span class="mode-copy">
+          <strong>Установить Glazok</strong>
+          <span>Добавить приложение на устройство</span>
+        </span>
       </button>
+
     </div>
+
   </section>
+
+
+  <!-- =========================
+       MONITOR
+  ========================= -->
 
   <section id="screen-monitor" class="screen">
+
     <div class="studio" id="studio">
+
       <aside class="sidebar">
-        <div class="logo-dot"></div>
-        <button class="sb-btn" data-act="qr" title="Подключить (K)"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14h1M14 20h1M18 18h3v3h-3z"/></svg></button>
-        <button class="sb-btn" data-act="grid" title="Сетка"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg></button>
-        <button class="sb-btn" data-act="full" title="Fullscreen"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
-        <button class="sb-btn" data-act="zen" title="Zen (H)"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
-        <button class="sb-btn" data-act="output" title="OBS Output"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button>
-        <div class="sb-spacer"></div>
-        <button class="sb-btn danger" data-act="exit" title="Выход"><svg viewBox="0 0 24 24"><path d="M15 4l-8 8 8 8"/></svg></button>
+
+        <div class="sidebar-logo"></div>
+
+        <button class="sb-btn" data-action="qr" title="Подключить камеру">
+          <svg viewBox="0 0 24 24">
+            <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+            <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+            <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+            <path d="M14 14h3v3h-3zM20 14h1M14 20h1M18 18h3v3h-3z"></path>
+          </svg>
+        </button>
+
+        <button class="sb-btn" data-action="grid" title="Сетка">
+          <svg viewBox="0 0 24 24">
+            <rect x="3" y="3" width="8" height="8" rx="2"></rect>
+            <rect x="13" y="3" width="8" height="8" rx="2"></rect>
+            <rect x="3" y="13" width="8" height="8" rx="2"></rect>
+            <rect x="13" y="13" width="8" height="8" rx="2"></rect>
+          </svg>
+        </button>
+
+        <button class="sb-btn" data-action="fullscreen" title="Fullscreen">
+          <svg viewBox="0 0 24 24">
+            <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"></path>
+          </svg>
+        </button>
+
+        <button class="sb-btn" data-action="zen" title="Скрыть интерфейс">
+          <svg viewBox="0 0 24 24">
+            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+        </button>
+
+        <button class="sb-btn danger" data-action="exit" title="Выход">
+          ←
+        </button>
+
       </aside>
+
 
       <main class="stage" id="stage">
+
         <div class="stage-top">
-          <div class="badge"><span class="dot" id="m-dot"></span><span id="m-text">Ожидание...</span></div>
-          <div class="btn-group" id="cam-bar"></div>
-          <div class="net-info" id="net-info">
-            <span>Ping: <b id="net-ping">—</b>ms</span>
-            <span>FPS: <b id="net-fps">—</b></span>
-            <span>Bitrate: <b id="net-bitrate">—</b>kbps</span>
-            <span>Loss: <b id="net-loss">—</b>%</span>
+
+          <div class="stage-status">
+            <span class="status-dot" id="monitor-dot"></span>
+            <span id="monitor-status">Запуск студии...</span>
           </div>
-          <div class="live-badge" id="live">● LIVE</div>
+
+          <div class="cam-bar" id="camera-buttons"></div>
+
+          <div class="net-info" id="network-info">
+            <span>RTT: <b id="latency">—</b> ms</span>
+            <span>FPS: <b id="fps">—</b></span>
+          </div>
+
+          <div class="live-badge" id="live-badge">
+            ● LIVE
+          </div>
+
         </div>
-        <div class="video-grid v-1" id="v-grid"></div>
+
+
+        <div class="video-grid v1" id="video-grid"></div>
+
+
         <div class="qr-modal" id="qr-modal">
-          <div class="qr-head"><span>ПОДКЛЮЧЕНИЕ</span><button class="qr-close" data-act="qr-close">✕</button></div>
-          <div class="qr-code" id="qr-code">——————</div>
+
+          <div class="qr-head">
+            <span>ПОДКЛЮЧЕНИЕ КАМЕРЫ</span>
+            <button class="qr-close" data-action="close-qr">×</button>
+          </div>
+
+          <div
+            class="qr-code-text"
+            id="room-code"
+            title="Нажмите для копирования"
+          >
+            ------
+          </div>
+
           <div class="qr-box" id="qr-box"></div>
-          <div class="qr-hint">Отсканируйте камерой или введите код</div>
+
+          <div class="qr-hint">
+            Отсканируйте QR-код смартфоном<br>
+            или введите код вручную.
+          </div>
+
         </div>
+
       </main>
 
+
       <aside class="right-panel">
-        <h3>Пульт управления</h3>
-        <div class="knob"><label>Zoom <b id="v-z">1.0</b></label><input type="range" min="1" max="5" step="0.1" value="1" data-ctrl="zoom"></div>
-        <div class="knob"><label>Brightness <b id="v-b">0.0</b></label><input type="range" min="-2" max="2" step="0.1" value="0" data-ctrl="exposure"></div>
-        <div class="knob"><label>Contrast <b id="v-c">100</b></label><input type="range" min="50" max="150" step="1" value="100" data-ctrl="contrast"></div>
-        <div class="knob"><label>Saturation <b id="v-s">100</b></label><input type="range" min="0" max="200" step="1" value="100" data-ctrl="sat"></div>
-        <div style="border-top:1px solid var(--panel-border);margin-top:8px;padding-top:16px">
-          <h3>Bitrate</h3>
-          <div class="knob">
-            <select id="bitrate-select" data-ctrl="bitrate">
-              <option value="auto">Auto</option>
-              <option value="500">500 kbps</option>
-              <option value="1500">1500 kbps</option>
-              <option value="3000" selected>3000 kbps</option>
-              <option value="6000">6000 kbps</option>
-              <option value="10000">10000 kbps</option>
-              <option value="20000">20000 kbps</option>
-            </select>
-          </div>
+
+        <h3>Камера</h3>
+
+        <div class="control">
+          <label>
+            Zoom
+            <b id="zoom-value">1.0</b>
+          </label>
+
+          <input
+            type="range"
+            min="1"
+            max="5"
+            step=".1"
+            value="1"
+            data-control="zoom"
+          >
         </div>
-        <div style="border-top:1px solid var(--panel-border);margin-top:8px;padding-top:16px">
-          <h3>Действия</h3>
-          <button class="btn" data-act="torch" style="width:100%;justify-content:center;margin-top:8px">💡 Вспышка</button>
-          <button class="btn" data-act="snap" style="width:100%;justify-content:center;margin-top:8px">📸 Снимок</button>
-          <button class="btn" data-act="reconnect" style="width:100%;justify-content:center;margin-top:8px">🔄 Переподключить</button>
+
+        <div class="control">
+          <label>
+            Exposure
+            <b id="exposure-value">0.0</b>
+          </label>
+
+          <input
+            type="range"
+            min="-2"
+            max="2"
+            step=".1"
+            value="0"
+            data-control="exposure"
+          >
         </div>
-        <div style="border-top:1px solid var(--panel-border);margin-top:8px;padding-top:16px">
-          <h3>Статистика</h3>
-          <div id="cam-stats" style="font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.8"></div>
+
+
+        <div class="divider"></div>
+
+        <h3>Изображение</h3>
+
+        <div class="control">
+          <label>
+            Brightness
+            <b id="brightness-value">100</b>
+          </label>
+
+          <input
+            type="range"
+            min="50"
+            max="150"
+            value="100"
+            data-control="brightness"
+          >
         </div>
+
+        <div class="control">
+          <label>
+            Contrast
+            <b id="contrast-value">100</b>
+          </label>
+
+          <input
+            type="range"
+            min="50"
+            max="150"
+            value="100"
+            data-control="contrast"
+          >
+        </div>
+
+        <div class="control">
+          <label>
+            Saturation
+            <b id="saturation-value">100</b>
+          </label>
+
+          <input
+            type="range"
+            min="0"
+            max="200"
+            value="100"
+            data-control="saturation"
+          >
+        </div>
+
+
+        <div class="divider"></div>
+
+        <h3>Быстрые действия</h3>
+
+        <button class="btn full" data-action="torch">
+          💡 Вспышка
+        </button>
+
+        <button class="btn full" data-action="snapshot">
+          📸 Снимок
+        </button>
+
+        <button class="btn full" data-action="qr">
+          ＋ Добавить камеру
+        </button>
+
       </aside>
+
     </div>
+
   </section>
 
+
+  <!-- =========================
+       CAMERA
+  ========================= -->
+
   <section id="screen-camera" class="screen">
-    <div class="cam-card" id="cam-card">
-      <button class="back" data-act="back">← Назад</button>
-      <h2>Код трансляции ПК</h2>
-      <input type="text" class="code-input" id="c-input" maxlength="6" placeholder="A1B2C3" autocomplete="off" spellcheck="false">
-      <button class="btn primary" data-act="connect" style="width:100%;justify-content:center;padding:12px">Подключить</button>
+
+    <div class="camera-connect" id="camera-connect">
+
+      <button class="btn" data-action="back" style="margin-bottom:18px">
+        ← Назад
+      </button>
+
+      <h2>Подключение</h2>
+
+      <p>
+        Введите код, который показывает Glazok Studio на компьютере.
+      </p>
+
+      <input
+        class="code-input"
+        id="connection-code"
+        maxlength="6"
+        autocomplete="off"
+        autocapitalize="characters"
+        spellcheck="false"
+        placeholder="A1B2C3"
+      >
+
+      <button class="btn primary full" data-action="connect">
+        Подключить камеру
+      </button>
+
     </div>
-    <div class="cam-view" id="cam-view">
-      <video id="c-video" autoplay playsinline muted></video>
-      <div class="cam-focus" id="c-focus"></div>
-      <div class="cam-ui">
-        <div class="cam-top">
-          <div class="badge"><span class="dot ok" id="c-dot"></span><span id="c-text">В ЭФИРЕ</span></div>
-          <div class="net-info" style="font-size:10px">
-            <span>Ping: <b id="c-net-ping">—</b>ms</span>
-            <span>FPS: <b id="c-net-fps">—</b></span>
-            <span>Bitrate: <b id="c-net-bitrate">—</b>kbps</span>
+
+
+    <div class="camera-view" id="camera-view">
+
+      <video
+        id="camera-video"
+        class="camera-video"
+        autoplay
+        playsinline
+        muted
+      ></video>
+
+      <div class="camera-ui">
+
+        <div class="camera-top">
+
+          <div class="stage-status">
+            <span class="status-dot warn" id="camera-dot"></span>
+            <span id="camera-status">Подключение...</span>
           </div>
-          <button class="btn" id="b-torch" style="display:none" data-act="torch">💡</button>
+
+          <button
+            class="btn"
+            id="torch-button"
+            data-action="torch"
+            style="display:none"
+          >
+            💡
+          </button>
+
         </div>
-        <div class="cam-bottom">
-          <div class="cam-controls">
-            <div class="s-row" id="r-zoom" style="display:none"><label>Zoom</label><input type="range" id="s-zoom" min="1" max="5" step="0.1" value="1"><b id="v-zoom">1.0</b></div>
-            <div class="s-row" id="r-exp" style="display:none"><label>Exp</label><input type="range" id="s-exp" min="-2" max="2" step="0.1" value="0"><b id="v-exp">0.0</b></div>
-            <div class="cam-row">
-              <select class="btn" id="c-quality">
-                <option value="4k30">4K 30fps</option>
-                <option value="2k30" selected>2K 30fps</option>
-                <option value="1080p60">1080p 60fps</option>
-                <option value="1080p30">1080p 30fps</option>
-                <option value="720p30">720p 30fps</option>
-                <option value="480p30">480p 30fps</option>
-              </select>
-              <select class="btn" id="c-cam"><option value="">Камера...</option></select>
-              <button class="btn" data-act="stop">⏹ Стоп</button>
+
+
+        <div class="camera-bottom">
+
+          <div class="camera-controls">
+
+            <div
+              class="camera-setting"
+              id="zoom-row"
+              style="display:none"
+            >
+              <label>Zoom</label>
+
+              <input
+                type="range"
+                id="camera-zoom"
+                min="1"
+                max="5"
+                step=".1"
+                value="1"
+              >
+
+              <b id="camera-zoom-value">1.0</b>
             </div>
+
+
+            <div
+              class="camera-setting"
+              id="exposure-row"
+              style="display:none"
+            >
+              <label>Exp</label>
+
+              <input
+                type="range"
+                id="camera-exposure"
+                min="-2"
+                max="2"
+                step=".1"
+                value="0"
+              >
+
+              <b id="camera-exposure-value">0.0</b>
+            </div>
+
+
+            <div class="camera-row">
+
+              <select class="btn" id="quality-select">
+                <option value="1080p30">1080p 30 FPS</option>
+                <option value="1080p60">1080p 60 FPS</option>
+                <option value="1440p30">2K 30 FPS</option>
+                <option value="2160p30">4K 30 FPS</option>
+                <option value="720p30">720p 30 FPS</option>
+                <option value="480p30">480p 30 FPS</option>
+              </select>
+
+              <select class="btn" id="camera-select">
+                <option value="">Камера...</option>
+              </select>
+
+              <button class="btn danger" data-action="stop">
+                ⏹ Стоп
+              </button>
+
+            </div>
+
           </div>
+
         </div>
+
       </div>
+
     </div>
+
   </section>
+
 </div>
+
+
 <div class="toasts" id="toasts"></div>
-<script src="app.js"></script>
+
+
+<script>
+"use strict";
+
+/* =========================================================
+   GLAZOK STUDIO PWA
+   ========================================================= */
+
+const $ = id => document.getElementById(id);
+
+const state = {
+  mode: null,
+
+  peer: null,
+  room: null,
+
+  stream: null,
+  call: null,
+  data: null,
+
+  connections: new Map(),
+
+  activeCamera: null,
+  viewMode: "auto",
+
+  zen: false,
+  torch: false,
+
+  wakeLock: null,
+
+  reconnectTimer: null,
+  reconnectAttempts: 0,
+
+  monitorPingTimer: null,
+
+  image: {
+    brightness: 100,
+    contrast: 100,
+    saturation: 100
+  },
+
+  fps: {
+    value: 0,
+    frames: 0,
+    lastTime: performance.now()
+  }
+};
+
+
+/* =========================================================
+   TOAST
+   ========================================================= */
+
+function toast(message, type = "ok") {
+  const el = document.createElement("div");
+
+  el.className = `toast ${type}`;
+  el.textContent = message;
+
+  $("toasts").appendChild(el);
+
+  setTimeout(() => {
+    el.remove();
+  }, 3200);
+}
+
+
+/* =========================================================
+   RANDOM ROOM
+   ========================================================= */
+
+function randomCode(length = 6) {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+  let result = "";
+
+  for (let i = 0; i < length; i++) {
+    result += chars[Math.floor(Math.random() * chars.length)];
+  }
+
+  return result;
+}
+
+
+/* =========================================================
+   PEER CONFIG
+   ========================================================= */
+
+const PEER_CONFIG = {
+  config: {
+    iceServers: [
+      {
+        urls: "stun:stun.l.google.com:19302"
+      },
+      {
+        urls: "stun:stun1.l.google.com:19302"
+      }
+    ]
+  }
+};
+
+
+/* =========================================================
+   NAVIGATION
+   ========================================================= */
+
+function setMode(mode) {
+
+  teardown();
+
+  state.mode = mode;
+
+  document.querySelectorAll(".screen").forEach(screen => {
+    screen.classList.remove("active");
+  });
+
+  if (mode === "monitor") {
+
+    $("screen-monitor").classList.add("active");
+
+    initMonitor();
+
+  } else if (mode === "camera") {
+
+    $("screen-camera").classList.add("active");
+
+    initCamera();
+
+  } else {
+
+    $("screen-select").classList.add("active");
+
+  }
+}
+
+
+function exitApp() {
+  setMode(null);
+}
+
+
+/* =========================================================
+   CLEANUP
+   ========================================================= */
+
+function teardown() {
+
+  clearTimeout(state.reconnectTimer);
+
+  if (state.monitorPingTimer) {
+    clearInterval(state.monitorPingTimer);
+    state.monitorPingTimer = null;
+  }
+
+  if (state.peer) {
+    try {
+      state.peer.destroy();
+    } catch {}
+  }
+
+  state.peer = null;
+
+  if (state.stream) {
+    state.stream.getTracks().forEach(track => {
+      try {
+        track.stop();
+      } catch {}
+    });
+  }
+
+  state.stream = null;
+
+  state.call = null;
+  state.data = null;
+
+  state.connections.clear();
+
+  if (state.wakeLock) {
+    try {
+      state.wakeLock.release();
+    } catch {}
+
+    state.wakeLock = null;
+  }
+
+  $("video-grid").innerHTML = "";
+
+  state.activeCamera = null;
+  state.reconnectAttempts = 0;
+}
+
+
+/* =========================================================
+   MONITOR
+   ========================================================= */
+
+function initMonitor() {
+
+  state.room = randomCode(6).toLowerCase();
+
+  const peerId = "glz-" + state.room;
+
+  setMonitorStatus("Создание студии...", "warn");
+
+  const peer = new Peer(peerId, PEER_CONFIG);
+
+  state.peer = peer;
+
+
+  peer.on("open", () => {
+
+    setMonitorStatus("Готов к подключению", "ok");
+
+    $("room-code").textContent = state.room.toUpperCase();
+
+    renderQR();
+
+    updateGrid();
+
+    showQR(true);
+
+    toast(
+      "Студия готова. Код: " +
+      state.room.toUpperCase()
+    );
+
+  });
+
+
+  peer.on("connection", connection => {
+
+    connection.on("open", () => {
+
+      if (state.connections.size >= 4) {
+
+        connection.send({
+          type: "ERROR",
+          message: "MAX_CAMERAS"
+        });
+
+        setTimeout(() => {
+          try {
+            connection.close();
+          } catch {}
+        }, 300);
+
+        toast("Максимум 4 камеры", "warn");
+
+        return;
+      }
+
+
+      let entry =
+        state.connections.get(connection.peer) || {};
+
+      entry.conn = connection;
+
+      state.connections.set(
+        connection.peer,
+        entry
+      );
+
+
+      connection.on("data", data => {
+
+        handleMonitorData(
+          connection.peer,
+          data
+        );
+
+      });
+
+
+      connection.on("close", () => {
+
+        removeCamera(connection.peer);
+
+      });
+
+
+      connection.on("error", () => {
+
+        removeCamera(connection.peer);
+
+      });
+
+
+      connection.send({
+        type: "WELCOME",
+        room: state.room
+      });
+
+      broadcastAir();
+
+    });
+
+  });
+
+
+  peer.on("call", call => {
+
+    call.answer();
+
+    call.on("stream", stream => {
+
+      let entry =
+        state.connections.get(call.peer) || {};
+
+      entry.call = call;
+      entry.stream = stream;
+
+      state.connections.set(
+        call.peer,
+        entry
+      );
+
+      showQR(false);
+
+      updateGrid();
+
+      toast("Камера подключена");
+
+    });
+
+
+    call.on("close", () => {
+
+      removeCamera(call.peer);
+
+    });
+
+
+    call.on("error", error => {
+
+      console.error("Call error:", error);
+
+      removeCamera(call.peer);
+
+    });
+
+  });
+
+
+  peer.on("error", error => {
+
+    console.error("Peer error:", error);
+
+    if (error.type === "unavailable-id") {
+
+      toast(
+        "ID комнаты занят. Создаём новую...",
+        "warn"
+      );
+
+      setTimeout(() => {
+
+        if (state.mode === "monitor") {
+          initMonitor();
+        }
+
+      }, 800);
+
+      return;
+    }
+
+    toast(
+      "Ошибка P2P: " + error.type,
+      "error"
+    );
+
+  });
+
+
+  peer.on("disconnected", () => {
+
+    setMonitorStatus(
+      "Соединение с сервером потеряно",
+      "warn"
+    );
+
+    try {
+      peer.reconnect();
+    } catch {}
+
+  });
+
+}
+
+
+/* =========================================================
+   MONITOR DATA
+   ========================================================= */
+
+function handleMonitorData(peerId, data) {
+
+  if (!data || typeof data !== "object") {
+    return;
+  }
+
+
+  if (data.type === "PONG") {
+
+    const rtt =
+      Date.now() - Number(data.t || Date.now());
+
+    updateLatency(rtt);
+
+    return;
+  }
+
+
+  if (data.type === "FPS") {
+
+    updateFPS(Number(data.fps) || 0);
+
+    return;
+  }
+
+}
+
+
+/* =========================================================
+   REMOVE CAMERA
+   ========================================================= */
+
+function removeCamera(peerId) {
+
+  if (!state.connections.has(peerId)) {
+    return;
+  }
+
+  state.connections.delete(peerId);
+
+  if (state.activeCamera === peerId) {
+    state.activeCamera = null;
+  }
+
+  updateGrid();
+
+  toast("Камера отключена", "warn");
+
+}
+
+
+/* =========================================================
+   GRID
+   ========================================================= */
+
+function updateGrid() {
+
+  const grid = $("video-grid");
+  const bar = $("camera-buttons");
+
+  grid.innerHTML = "";
+  bar.innerHTML = "";
+
+  const cameras = [
+    ...state.connections.entries()
+  ].filter(([, item]) => item.stream);
+
+
+  if (!cameras.length) {
+
+    grid.className = "video-grid v1";
+
+    const empty = document.createElement("div");
+
+    empty.className = "video-box";
+
+    empty.innerHTML = `
+      <div class="empty">
+        Ожидание камер...
+      </div>
+    `;
+
+    grid.appendChild(empty);
+
+    $("live-badge").classList.remove("visible");
+
+    setMonitorStatus(
+      "Ожидание устройств...",
+      "warn"
+    );
+
+    showQR(true);
+
+    return;
+  }
+
+
+  $("live-badge").classList.add("visible");
+
+  setMonitorStatus(
+    `В эфире: ${cameras.length}/4`,
+    "live"
+  );
+
+
+  const keys = cameras.map(([key]) => key);
+
+
+  if (
+    !state.activeCamera ||
+    !keys.includes(state.activeCamera)
+  ) {
+    state.activeCamera = keys[0];
+  }
+
+
+  cameras.forEach(([peerId], index) => {
+
+    const button =
+      document.createElement("button");
+
+    button.className =
+      "btn" +
+      (
+        state.activeCamera === peerId &&
+        state.viewMode === "single"
+          ? " active"
+          : ""
+      );
+
+    button.textContent =
+      "📱 К" + (index + 1);
+
+    button.onclick = () => {
+
+      state.activeCamera = peerId;
+      state.viewMode = "single";
+
+      updateGrid();
+      broadcastAir();
+
+    };
+
+    bar.appendChild(button);
+
+  });
+
+
+  if (cameras.length > 1) {
+
+    const gridButton =
+      document.createElement("button");
+
+    gridButton.className =
+      "btn" +
+      (
+        state.viewMode === "grid"
+          ? " active"
+          : ""
+      );
+
+    gridButton.textContent = "▦ Сетка";
+
+    gridButton.onclick = () => {
+
+      state.viewMode =
+        state.viewMode === "grid"
+          ? "single"
+          : "grid";
+
+      updateGrid();
+      broadcastAir();
+
+    };
+
+    bar.appendChild(gridButton);
+
+  }
+
+
+  const showGrid =
+    state.viewMode === "grid" ||
+    (
+      state.viewMode === "auto" &&
+      cameras.length > 1
+    );
+
+
+  const visible =
+    showGrid
+      ? cameras.slice(0, 4)
+      : cameras.filter(
+          ([peerId]) =>
+            peerId === state.activeCamera
+        );
+
+
+  grid.className =
+    "video-grid v" +
+    Math.max(1, Math.min(4, visible.length));
+
+
+  visible.forEach(([peerId, item], index) => {
+
+    const box =
+      document.createElement("div");
+
+    box.className = "video-box";
+
+
+    const video =
+      document.createElement("video");
+
+    video.autoplay = true;
+    video.playsInline = true;
+    video.muted = true;
+    video.srcObject = item.stream;
+
+
+    video.onloadeddata = () => {
+
+      video.classList.add("loaded");
+
+      applyImageFilters(video);
+
+    };
+
+
+    const label =
+      document.createElement("div");
+
+    label.className = "video-label";
+
+    label.textContent =
+      "CAM " + (keys.indexOf(peerId) + 1);
+
+
+    box.appendChild(video);
+    box.appendChild(label);
+
+    grid.appendChild(box);
+
+  });
+
+}
+
+
+/* =========================================================
+   AIR
+   ========================================================= */
+
+function broadcastAir() {
+
+  const cameras =
+    [...state.connections.entries()]
+      .filter(([, item]) => item.stream);
+
+
+  const grid =
+    state.viewMode === "grid" ||
+    (
+      state.viewMode === "auto" &&
+      cameras.length > 1
+    );
+
+
+  state.connections.forEach((item, peerId) => {
+
+    if (!item.conn?.open) {
+      return;
+    }
+
+
+    try {
+
+      item.conn.send({
+        type: "AIR",
+        onAir:
+          grid ||
+          peerId === state.activeCamera
+      });
+
+    } catch {}
+
+  });
+
+}
+
+
+/* =========================================================
+   CONTROLS
+   ========================================================= */
+
+let controlTimer = null;
+
+function sendControl(param, value) {
+
+  clearTimeout(controlTimer);
+
+  controlTimer = setTimeout(() => {
+
+    state.connections.forEach(item => {
+
+      if (!item.conn?.open) {
+        return;
+      }
+
+      try {
+
+        item.conn.send({
+          type: "CTRL",
+          param,
+          value: Number(value)
+        });
+
+      } catch {}
+
+    });
+
+  }, 30);
+
+}
+
+
+/* =========================================================
+   QR
+   ========================================================= */
+
+function renderQR() {
+
+  const box = $("qr-box");
+
+  box.innerHTML = "";
+
+  if (
+    typeof QRCode === "undefined"
+  ) {
+
+    box.textContent =
+      "QR library unavailable";
+
+    return;
+  }
+
+
+  const url =
+    location.origin +
+    location.pathname +
+    "?m=camera&room=" +
+    encodeURIComponent(state.room);
+
+
+  new QRCode(box, {
+    text: url,
+    width: 170,
+    height: 170,
+    colorDark: "#0b0b0e",
+    colorLight: "#ffffff"
+  });
+
+}
+
+
+function showQR(show) {
+
+  $("qr-modal")
+    .classList.toggle("visible", show);
+
+}
+
+
+/* =========================================================
+   CAMERA
+   ========================================================= */
+
+async function initCamera() {
+
+  await requestWakeLock();
+
+  const params =
+    new URLSearchParams(location.search);
+
+  const room =
+    params.get("room");
+
+
+  if (room) {
+
+    $("camera-connect").style.display =
+      "none";
+
+    await startPhone(
+      "glz-" + room.toLowerCase()
+    );
+
+    return;
+  }
+
+
+  $("camera-connect").style.display =
+    "flex";
+
+}
+
+
+/* =========================================================
+   VIDEO PRESETS
+   ========================================================= */
+
+function getVideoPreset(name) {
+
+  const presets = {
+
+    "2160p30": {
+      width: { ideal: 3840 },
+      height: { ideal: 2160 },
+      frameRate: { ideal: 30 }
+    },
+
+    "1440p30": {
+      width: { ideal: 2560 },
+      height: { ideal: 1440 },
+      frameRate: { ideal: 30 }
+    },
+
+    "1080p60": {
+      width: { ideal: 1920 },
+      height: { ideal: 1080 },
+      frameRate: { ideal: 60 }
+    },
+
+    "1080p30": {
+      width: { ideal: 1920 },
+      height: { ideal: 1080 },
+      frameRate: { ideal: 30 }
+    },
+
+    "720p30": {
+      width: { ideal: 1280 },
+      height: { ideal: 720 },
+      frameRate: { ideal: 30 }
+    },
+
+    "480p30": {
+      width: { ideal: 854 },
+      height: { ideal: 480 },
+      frameRate: { ideal: 30 }
+    }
+
+  };
+
+
+  return (
+    presets[name] ||
+    presets["1080p30"]
+  );
+
+}
+
+
+/* =========================================================
+   START PHONE
+   ========================================================= */
+
+async function startPhone(targetId) {
+
+  if (state.peer) {
+    return;
+  }
+
+
+  try {
+
+    setCameraStatus(
+      "Запрашиваем камеру...",
+      "warn"
+    );
+
+
+    const preset =
+      getVideoPreset(
+        $("quality-select").value
+      );
+
+
+    state.stream =
+      await navigator.mediaDevices.getUserMedia({
+        video: {
+          ...preset,
+          facingMode: {
+            ideal: "environment"
+          }
+        },
+        audio: false
+      });
+
+
+    $("camera-video").srcObject =
+      state.stream;
+
+
+    $("camera-view")
+      .classList.add("visible");
+
+
+    $("camera-connect")
+      .style.display = "none";
+
+
+    await listCameras();
+
+    detectCameraCapabilities();
+
+    startVideoFPS();
+
+
+    const peer =
+      new Peer(
+        "cam-" +
+        randomCode(8).toLowerCase(),
+        PEER_CONFIG
+      );
+
+
+    state.peer = peer;
+
+
+    peer.on("open", () => {
+
+      setCameraStatus(
+        "Подключение к ПК...",
+        "warn"
+      );
+
+
+      connectToMonitor(targetId);
+
+    });
+
+
+    peer.on("disconnected", () => {
+
+      setCameraStatus(
+        "Соединение потеряно",
+        "warn"
+      );
+
+      scheduleReconnect(targetId);
+
+    });
+
+
+    peer.on("error", error => {
+
+      console.error(
+        "Camera Peer error:",
+        error
+      );
+
+
+      if (
+        error.type === "peer-unavailable"
+      ) {
+
+        setCameraStatus(
+          "ПК не найден",
+          "error"
+        );
+
+        toast(
+          "Студия не найдена. Проверьте код.",
+          "error"
+        );
+
+        return;
+      }
+
+
+      toast(
+        "Ошибка соединения: " +
+        error.type,
+        "error"
+      );
+
+    });
+
+
+  } catch (error) {
+
+    console.error(
+      "Camera error:",
+      error
+    );
+
+
+    let message =
+      "Не удалось получить камеру";
+
+
+    if (error.name === "NotAllowedError") {
+      message =
+        "Разрешите доступ к камере в браузере";
+    }
+
+    if (error.name === "NotFoundError") {
+      message =
+        "Камера не найдена";
+    }
+
+    if (error.name === "NotReadableError") {
+      message =
+        "Камера уже используется другим приложением";
+    }
+
+    toast(message, "error");
+
+    setCameraStatus(
+      message,
+      "error"
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   CONNECT MONITOR
+   ========================================================= */
+
+function connectToMonitor(targetId) {
+
+  if (!state.peer) {
+    return;
+  }
+
+
+  try {
+
+    state.data =
+      state.peer.connect(targetId, {
+        reliable: true
+      });
+
+
+    state.data.on("open", () => {
+
+      setCameraStatus(
+        "Подключено",
+        "ok"
+      );
+
+      state.reconnectAttempts = 0;
+
+      toast("Телефон подключён к студии");
+
+      startPing();
+
+    });
+
+
+    state.data.on("data", data => {
+
+      handleCameraData(data);
+
+    });
+
+
+    state.data.on("close", () => {
+
+      setCameraStatus(
+        "Соединение закрыто",
+        "warn"
+      );
+
+      scheduleReconnect(targetId);
+
+    });
+
+
+    state.data.on("error", error => {
+
+      console.error(
+        "Data channel:",
+        error
+      );
+
+    });
+
+
+    state.call =
+      state.peer.call(
+        targetId,
+        state.stream
+      );
+
+
+    state.call.on("close", () => {
+
+      setCameraStatus(
+        "Видеосвязь закрыта",
+        "warn"
+      );
+
+      scheduleReconnect(targetId);
+
+    });
+
+
+  } catch (error) {
+
+    console.error(error);
+
+    scheduleReconnect(targetId);
+
+  }
+
+}
+
+
+/* =========================================================
+   CAMERA DATA
+   ========================================================= */
+
+function handleCameraData(data) {
+
+  if (!data || typeof data !== "object") {
+    return;
+  }
+
+
+  if (data.type === "AIR") {
+
+    updateAirStatus(
+      Boolean(data.onAir)
+    );
+
+  }
+
+
+  if (data.type === "CTRL") {
+
+    applyCameraConstraint(
+      data.param,
+      data.value
+    );
+
+  }
+
+
+  if (data.type === "PONG") {
+
+    const rtt =
+      Date.now() -
+      Number(data.t || Date.now());
+
+  }
+
+
+  if (data.type === "ERROR") {
+
+    if (
+      data.message === "MAX_CAMERAS"
+    ) {
+
+      toast(
+        "На студии уже 4 камеры",
+        "error"
+      );
+
+      stopCamera();
+
+    }
+
+  }
+
+}
+
+
+/* =========================================================
+   RECONNECT
+   ========================================================= */
+
+function scheduleReconnect(targetId) {
+
+  if (state.reconnectAttempts >= 5) {
+
+    setCameraStatus(
+      "Не удалось переподключиться",
+      "error"
+    );
+
+    toast(
+      "Соединение потеряно",
+      "error"
+    );
+
+    return;
+  }
+
+
+  clearTimeout(
+    state.reconnectTimer
+  );
+
+
+  state.reconnectAttempts++;
+
+
+  const delay =
+    Math.min(
+      1000 *
+      Math.pow(2, state.reconnectAttempts - 1),
+      10000
+    );
+
+
+  setCameraStatus(
+    `Переподключение ${state.reconnectAttempts}/5...`,
+    "warn"
+  );
+
+
+  state.reconnectTimer =
+    setTimeout(() => {
+
+      if (!state.peer) {
+        return;
+      }
+
+      try {
+        state.peer.reconnect();
+      } catch {}
+
+      connectToMonitor(targetId);
+
+    }, delay);
+
+}
+
+
+/* =========================================================
+   CAMERA CAPABILITIES
+   ========================================================= */
+
+function detectCameraCapabilities() {
+
+  if (!state.stream) {
+    return;
+  }
+
+
+  const track =
+    state.stream.getVideoTracks()[0];
+
+
+  if (!track) {
+    return;
+  }
+
+
+  if (!track.getCapabilities) {
+    return;
+  }
+
+
+  const caps =
+    track.getCapabilities();
+
+
+  if (caps.zoom) {
+
+    $("zoom-row").style.display =
+      "flex";
+
+    $("camera-zoom").min =
+      caps.zoom.min ?? 1;
+
+    $("camera-zoom").max =
+      caps.zoom.max ?? 5;
+
+    $("camera-zoom").step =
+      caps.zoom.step ?? .1;
+
+  }
+
+
+  if (caps.exposureCompensation) {
+
+    $("exposure-row").style.display =
+      "flex";
+
+    $("camera-exposure").min =
+      caps.exposureCompensation.min ?? -2;
+
+    $("camera-exposure").max =
+      caps.exposureCompensation.max ?? 2;
+
+    $("camera-exposure").step =
+      caps.exposureCompensation.step ?? .1;
+
+  }
+
+
+  if (caps.torch) {
+
+    $("torch-button").style.display =
+      "inline-flex";
+
+  }
+
+
+  if (
+    caps.focusMode &&
+    caps.focusMode.includes("continuous")
+  ) {
+
+    track.applyConstraints({
+      advanced: [
+        {
+          focusMode: "continuous"
+        }
+      ]
+    }).catch(() => {});
+
+  }
+
+}
+
+
+/* =========================================================
+   APPLY CAMERA CONTROL
+   ========================================================= */
+
+async function applyCameraConstraint(
+  parameter,
+  value
+) {
+
+  if (!state.stream) {
+    return;
+  }
+
+
+  const track =
+    state.stream.getVideoTracks()[0];
+
+
+  if (!track) {
+    return;
+  }
+
+
+  let key =
+    parameter === "exposure"
+      ? "exposureCompensation"
+      : parameter;
+
+
+  try {
+
+    await track.applyConstraints({
+      advanced: [
+        {
+          [key]: Number(value)
+        }
+      ]
+    });
+
+
+    if (parameter === "zoom") {
+
+      $("camera-zoom").value =
+        value;
+
+      $("camera-zoom-value").textContent =
+        Number(value).toFixed(1);
+
+    }
+
+
+    if (parameter === "exposure") {
+
+      $("camera-exposure").value =
+        value;
+
+      $("camera-exposure-value").textContent =
+        Number(value).toFixed(1);
+
+    }
+
+  } catch (error) {
+
+    console.debug(
+      "Unsupported camera control:",
+      parameter,
+      error
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   TORCH
+   ========================================================= */
+
+async function toggleTorch() {
+
+  if (!state.stream) {
+    return;
+  }
+
+
+  const track =
+    state.stream.getVideoTracks()[0];
+
+
+  if (!track?.getCapabilities) {
+    toast(
+      "Вспышка не поддерживается",
+      "warn"
+    );
+
+    return;
+  }
+
+
+  const caps =
+    track.getCapabilities();
+
+
+  if (!caps.torch) {
+
+    toast(
+      "Вспышка не поддерживается",
+      "warn"
+    );
+
+    return;
+  }
+
+
+  state.torch =
+    !state.torch;
+
+
+  try {
+
+    await track.applyConstraints({
+      advanced: [
+        {
+          torch: state.torch
+        }
+      ]
+    });
+
+
+    $("torch-button")
+      .classList.toggle(
+        "active",
+        state.torch
+      );
+
+  } catch {
+
+    state.torch =
+      !state.torch;
+
+    toast(
+      "Не удалось изменить вспышку",
+      "error"
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   CAMERA LIST
+   ========================================================= */
+
+async function listCameras() {
+
+  try {
+
+    const devices =
+      await navigator.mediaDevices.enumerateDevices();
+
+
+    const select =
+      $("camera-select");
+
+
+    select.innerHTML = "";
+
+
+    devices
+      .filter(
+        device =>
+          device.kind === "videoinput"
+      )
+      .forEach((device, index) => {
+
+        const option =
+          document.createElement("option");
+
+        option.value =
+          device.deviceId;
+
+        option.textContent =
+          device.label ||
+          `Камера ${index + 1}`;
+
+        select.appendChild(option);
+
+      });
+
+  } catch (error) {
+
+    console.debug(
+      "enumerateDevices:",
+      error
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   SWITCH CAMERA
+   ========================================================= */
+
+async function switchCamera(deviceId) {
+
+  if (!deviceId) {
+    return;
+  }
+
+
+  try {
+
+    const preset =
+      getVideoPreset(
+        $("quality-select").value
+      );
+
+
+    const newStream =
+      await navigator.mediaDevices.getUserMedia({
+        video: {
+          ...preset,
+          deviceId: {
+            exact: deviceId
+          }
+        },
+        audio: false
+      });
+
+
+    const newTrack =
+      newStream.getVideoTracks()[0];
+
+
+    const oldTrack =
+      state.stream?.getVideoTracks()[0];
+
+
+    if (
+      state.call?.peerConnection &&
+      newTrack
+    ) {
+
+      const sender =
+        state.call.peerConnection
+          .getSenders()
+          .find(
+            s =>
+              s.track?.kind === "video"
+          );
+
+
+      if (sender) {
+
+        await sender.replaceTrack(
+          newTrack
+        );
+
+      }
+
+    }
+
+
+    if (oldTrack) {
+      oldTrack.stop();
+    }
+
+
+    state.stream =
+      newStream;
+
+
+    $("camera-video").srcObject =
+      newStream;
+
+
+    detectCameraCapabilities();
+
+
+    toast("Камера переключена");
+
+  } catch (error) {
+
+    console.error(error);
+
+    toast(
+      "Не удалось переключить камеру",
+      "error"
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   QUALITY
+   ========================================================= */
+
+async function changeQuality() {
+
+  if (!state.stream) {
+    return;
+  }
+
+
+  const track =
+    state.stream.getVideoTracks()[0];
+
+
+  const preset =
+    getVideoPreset(
+      $("quality-select").value
+    );
+
+
+  try {
+
+    await track.applyConstraints(
+      preset
+    );
+
+  } catch (error) {
+
+    console.warn(
+      "Quality:",
+      error
+    );
+
+    toast(
+      "Камера не поддерживает это качество",
+      "warn"
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   AIR STATUS
+   ========================================================= */
+
+function updateAirStatus(onAir) {
+
+  const dot =
+    $("camera-dot");
+
+  const status =
+    $("camera-status");
+
+
+  if (onAir) {
+
+    dot.className =
+      "status-dot live";
+
+    status.textContent =
+      "🔴 В ЭФИРЕ";
+
+  } else {
+
+    dot.className =
+      "status-dot warn";
+
+    status.textContent =
+      "⏸ ОЖИДАНИЕ";
+
+  }
+
+}
+
+
+/* =========================================================
+   STATUS
+   ========================================================= */
+
+function setMonitorStatus(
+  text,
+  type = "normal"
+) {
+
+  $("monitor-status").textContent =
+    text;
+
+
+  const dot =
+    $("monitor-dot");
+
+
+  dot.className =
+    "status-dot " +
+    (
+      type === "ok"
+        ? "ok"
+        : type === "live"
+          ? "live"
+          : type === "warn"
+            ? "warn"
+            : ""
+    );
+
+}
+
+
+function setCameraStatus(
+  text,
+  type = "normal"
+) {
+
+  $("camera-status").textContent =
+    text;
+
+
+  const dot =
+    $("camera-dot");
+
+
+  dot.className =
+    "status-dot " +
+    (
+      type === "ok"
+        ? "ok"
+        : type === "error"
+          ? "live"
+          : "warn"
+    );
+
+}
+
+
+/* =========================================================
+   PING / RTT
+   ========================================================= */
+
+function startPing() {
+
+  if (state.monitorPingTimer) {
+    clearInterval(
+      state.monitorPingTimer
+    );
+  }
+
+
+  state.monitorPingTimer =
+    setInterval(() => {
+
+      if (!state.data?.open) {
+        return;
+      }
+
+
+      try {
+
+        state.data.send({
+          type: "PING",
+          t: Date.now()
+        });
+
+      } catch {}
+
+    }, 2000);
+
+}
+
+
+/* =========================================================
+   FPS
+   ========================================================= */
+
+function startVideoFPS() {
+
+  if (!state.stream) {
+    return;
+  }
+
+
+  const video =
+    $("camera-video");
+
+
+  if (
+    "requestVideoFrameCallback" in video
+  ) {
+
+    let frames = 0;
+    let last = performance.now();
+
+
+    const callback = now => {
+
+      frames++;
+
+
+      if (now - last >= 1000) {
+
+        const fps =
+          Math.round(
+            frames /
+            ((now - last) / 1000)
+          );
+
+
+        state.fps.value =
+          fps;
+
+        frames = 0;
+        last = now;
+
+
+        if (state.data?.open) {
+
+          try {
+
+            state.data.send({
+              type: "FPS",
+              fps
+            });
+
+          } catch {}
+
+        }
+
+      }
+
+
+      if (state.mode === "camera") {
+
+        video.requestVideoFrameCallback(
+          callback
+        );
+
+      }
+
+    };
+
+
+    video.requestVideoFrameCallback(
+      callback
+    );
+
+    return;
+  }
+
+
+  let frames = 0;
+  let last = performance.now();
+
+
+  function raf(now) {
+
+    frames++;
+
+
+    if (now - last >= 1000) {
+
+      state.fps.value =
+        frames;
+
+      frames = 0;
+      last = now;
+
+
+      if (state.data?.open) {
+
+        try {
+
+          state.data.send({
+            type: "FPS",
+            fps: state.fps.value
+          });
+
+        } catch {}
+
+      }
+
+    }
+
+
+    if (state.mode === "camera") {
+      requestAnimationFrame(raf);
+    }
+
+  }
+
+
+  requestAnimationFrame(raf);
+
+}
+
+
+function updateFPS(value) {
+
+  $("fps").textContent =
+    value || "—";
+
+}
+
+
+/* =========================================================
+   LATENCY
+   ========================================================= */
+
+function updateLatency(value) {
+
+  $("latency").textContent =
+    value;
+
+  const box =
+    $("network-info");
+
+
+  box.classList.toggle(
+    "good",
+    value < 80
+  );
+
+
+  box.classList.toggle(
+    "bad",
+    value > 250
+  );
+
+}
+
+
+/* =========================================================
+   IMAGE FILTERS
+   ========================================================= */
+
+function applyImageFilters(video) {
+
+  video.style.setProperty(
+    "--brightness",
+    state.image.brightness / 100
+  );
+
+  video.style.setProperty(
+    "--contrast",
+    state.image.contrast + "%"
+  );
+
+  video.style.setProperty(
+    "--saturation",
+    state.image.saturation + "%"
+  );
+
+}
+
+
+function applyAllImageFilters() {
+
+  document
+    .querySelectorAll("#video-grid video")
+    .forEach(
+      applyImageFilters
+    );
+
+}
+
+
+/* =========================================================
+   SNAPSHOT
+   ========================================================= */
+
+function snapshot() {
+
+  const video =
+    document.querySelector(
+      "#video-grid video"
+    );
+
+
+  if (
+    !video ||
+    !video.videoWidth
+  ) {
+
+    toast(
+      "Нет активного видео",
+      "warn"
+    );
+
+    return;
+  }
+
+
+  const canvas =
+    document.createElement("canvas");
+
+
+  canvas.width =
+    video.videoWidth;
+
+  canvas.height =
+    video.videoHeight;
+
+
+  const context =
+    canvas.getContext("2d");
+
+
+  context.filter =
+    `brightness(${state.image.brightness}%)
+     contrast(${state.image.contrast}%)
+     saturate(${state.image.saturation}%)`;
+
+
+  context.drawImage(
+    video,
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+
+  const link =
+    document.createElement("a");
+
+
+  link.download =
+    `glazok-${Date.now()}.png`;
+
+
+  link.href =
+    canvas.toDataURL(
+      "image/png"
+    );
+
+
+  link.click();
+
+
+  toast("Снимок сохранён");
+
+}
+
+
+/* =========================================================
+   WAKE LOCK
+   ========================================================= */
+
+async function requestWakeLock() {
+
+  if (
+    !("wakeLock" in navigator)
+  ) {
+    return;
+  }
+
+
+  try {
+
+    state.wakeLock =
+      await navigator.wakeLock.request(
+        "screen"
+      );
+
+  } catch (error) {
+
+    console.debug(
+      "WakeLock:",
+      error
+    );
+
+  }
+
+}
+
+
+document.addEventListener(
+  "visibilitychange",
+  async () => {
+
+    if (
+      document.visibilityState ===
+      "visible" &&
+      state.mode === "camera"
+    ) {
+
+      await requestWakeLock();
+
+    }
+
+  }
+);
+
+
+/* =========================================================
+   STOP CAMERA
+   ========================================================= */
+
+function stopCamera() {
+
+  if (state.stream) {
+
+    state.stream
+      .getTracks()
+      .forEach(
+        track => track.stop()
+      );
+
+  }
+
+
+  if (state.peer) {
+
+    try {
+      state.peer.destroy();
+    } catch {}
+
+  }
+
+
+  state.stream = null;
+  state.peer = null;
+  state.call = null;
+  state.data = null;
+
+
+  $("camera-video").srcObject =
+    null;
+
+
+  $("camera-view")
+    .classList.remove("visible");
+
+
+  $("camera-connect").style.display =
+    "flex";
+
+}
+
+
+/* =========================================================
+   EVENT HANDLERS
+   ========================================================= */
+
+document.addEventListener(
+  "click",
+  event => {
+
+    const target =
+      event.target.closest(
+        "[data-mode],[data-action]"
+      );
+
+
+    if (!target) {
+      return;
+    }
+
+
+    if (target.dataset.mode) {
+
+      setMode(
+        target.dataset.mode
+      );
+
+      return;
+    }
+
+
+    const action =
+      target.dataset.action;
+
+
+    switch (action) {
+
+      case "back":
+      case "exit":
+        exitApp();
+        break;
+
+
+      case "connect": {
+
+        const code =
+          $("connection-code")
+            .value
+            .trim()
+            .toLowerCase();
+
+
+        if (!/^[a-z0-9]{4,6}$/.test(code)) {
+
+          toast(
+            "Введите корректный код",
+            "error"
+          );
+
+          return;
+        }
+
+
+        startPhone(
+          "glz-" + code
+        );
+
+        break;
+      }
+
+
+      case "stop":
+        stopCamera();
+        break;
+
+
+      case "qr":
+        showQR(true);
+        break;
+
+
+      case "close-qr":
+        showQR(false);
+        break;
+
+
+      case "grid":
+
+        state.viewMode =
+          state.viewMode === "grid"
+            ? "single"
+            : "grid";
+
+        updateGrid();
+        broadcastAir();
+
+        break;
+
+
+      case "fullscreen":
+
+        if (!document.fullscreenElement) {
+
+          document.documentElement
+            .requestFullscreen?.();
+
+        } else {
+
+          document
+            .exitFullscreen?.();
+
+        }
+
+        break;
+
+
+      case "zen":
+
+        state.zen =
+          !state.zen;
+
+        $("studio")
+          .classList.toggle(
+            "zen",
+            state.zen
+          );
+
+        break;
+
+
+      case "torch":
+        toggleTorch();
+        break;
+
+
+      case "snapshot":
+        snapshot();
+        break;
+
+    }
+
+  }
+);
+
+
+/* =========================================================
+   INPUT
+   ========================================================= */
+
+document.addEventListener(
+  "input",
+  event => {
+
+    const control =
+      event.target.dataset.control;
+
+
+    if (!control) {
+      return;
+    }
+
+
+    const value =
+      Number(event.target.value);
+
+
+    if (control === "zoom") {
+
+      $("zoom-value")
+        .textContent =
+        value.toFixed(1);
+
+      sendControl(
+        "zoom",
+        value
+      );
+
+    }
+
+
+    if (control === "exposure") {
+
+      $("exposure-value")
+        .textContent =
+        value.toFixed(1);
+
+      sendControl(
+        "exposure",
+        value
+      );
+
+    }
+
+
+    if (control === "brightness") {
+
+      state.image.brightness =
+        value;
+
+      $("brightness-value")
+        .textContent =
+        value;
+
+      applyAllImageFilters();
+
+    }
+
+
+    if (control === "contrast") {
+
+      state.image.contrast =
+        value;
+
+      $("contrast-value")
+        .textContent =
+        value;
+
+      applyAllImageFilters();
+
+    }
+
+
+    if (control === "saturation") {
+
+      state.image.saturation =
+        value;
+
+      $("saturation-value")
+        .textContent =
+        value;
+
+      applyAllImageFilters();
+
+    }
+
+  }
+);
+
+
+/* =========================================================
+   CAMERA CONTROLS
+   ========================================================= */
+
+$("camera-zoom")
+  .addEventListener(
+    "input",
+    event => {
+
+      const value =
+        Number(event.target.value);
+
+
+      $("camera-zoom-value")
+        .textContent =
+        value.toFixed(1);
+
+
+      applyCameraConstraint(
+        "zoom",
+        value
+      );
+
+    }
+  );
+
+
+$("camera-exposure")
+  .addEventListener(
+    "input",
+    event => {
+
+      const value =
+        Number(event.target.value);
+
+
+      $("camera-exposure-value")
+        .textContent =
+        value.toFixed(1);
+
+
+      applyCameraConstraint(
+        "exposure",
+        value
+      );
+
+    }
+  );
+
+
+$("quality-select")
+  .addEventListener(
+    "change",
+    changeQuality
+  );
+
+
+$("camera-select")
+  .addEventListener(
+    "change",
+    event => {
+
+      switchCamera(
+        event.target.value
+      );
+
+    }
+  );
+
+
+/* =========================================================
+   COPY ROOM
+   ========================================================= */
+
+$("room-code")
+  .addEventListener(
+    "click",
+    async () => {
+
+      const code =
+        $("room-code")
+          .textContent
+          .trim();
+
+
+      try {
+
+        await navigator.clipboard
+          .writeText(code);
+
+        toast("Код скопирован");
+
+      } catch {
+
+        toast(
+          "Не удалось скопировать",
+          "warn"
+        );
+
+      }
+
+    }
+  );
+
+
+/* =========================================================
+   KEYBOARD
+   ========================================================= */
+
+window.addEventListener(
+  "keydown",
+  event => {
+
+    if (
+      state.mode !== "monitor"
+    ) {
+      return;
+    }
+
+
+    if (
+      event.key === "h" ||
+      event.key === "H" ||
+      event.key === "р" ||
+      event.key === "Р"
+    ) {
+
+      state.zen =
+        !state.zen;
+
+      $("studio")
+        .classList.toggle(
+          "zen",
+          state.zen
+        );
+
+    }
+
+
+    if (
+      event.key === "k" ||
+      event.key === "K" ||
+      event.key === "л" ||
+      event.key === "Л"
+    ) {
+
+      showQR(
+        !$("qr-modal")
+          .classList.contains(
+            "visible"
+          )
+      );
+
+    }
+
+
+    if (event.key === "Escape") {
+
+      showQR(false);
+
+    }
+
+  }
+);
+
+
+/* =========================================================
+   STAGE ZEN CLICK
+   ========================================================= */
+
+$("stage")
+  .addEventListener(
+    "click",
+    event => {
+
+      if (
+        event.target.closest(
+          ".qr-modal,.btn,.stage-top"
+        )
+      ) {
+        return;
+      }
+
+
+      state.zen =
+        !state.zen;
+
+
+      $("studio")
+        .classList.toggle(
+          "zen",
+          state.zen
+        );
+
+    }
+  );
+
+
+/* =========================================================
+   PWA INSTALL
+   ========================================================= */
+
+let deferredInstallPrompt = null;
+
+
+window.addEventListener(
+  "beforeinstallprompt",
+  event => {
+
+    event.preventDefault();
+
+    deferredInstallPrompt =
+      event;
+
+
+    $("install-button")
+      .style.display =
+      "flex";
+
+  }
+);
+
+
+$("install-button")
+  .addEventListener(
+    "click",
+    async () => {
+
+      if (!deferredInstallPrompt) {
+        return;
+      }
+
+
+      deferredInstallPrompt.prompt();
+
+      await deferredInstallPrompt
+        .userChoice;
+
+
+      deferredInstallPrompt = null;
+
+      $("install-button")
+        .style.display =
+        "none";
+
+    }
+  );
+
+
+/* =========================================================
+   SERVICE WORKER
+   ========================================================= */
+
+if (
+  "serviceWorker" in navigator
+) {
+
+  window.addEventListener(
+    "load",
+    () => {
+
+      navigator.serviceWorker
+        .register("./sw.js")
+        .then(() => {
+
+          console.log(
+            "[Glazok] Service Worker registered"
+          );
+
+        })
+        .catch(error => {
+
+          console.warn(
+            "[Glazok] Service Worker:",
+            error
+          );
+
+        });
+
+    }
+  );
+
+}
+
+
+/* =========================================================
+   URL SHORTCUT
+   ========================================================= */
+
+const startupMode =
+  new URLSearchParams(
+    location.search
+  ).get("m");
+
+
+if (
+  startupMode === "monitor" ||
+  startupMode === "camera"
+) {
+
+  setTimeout(
+    () => setMode(startupMode),
+    50
+  );
+
+}
+
+
+/* =========================================================
+   INIT
+   ========================================================= */
+
+updateGrid();
+
+console.log(
+  "%cGLAZOK STUDIO",
+  "color:#ff6b4a;font-size:20px;font-weight:bold"
+);
+
+</script>
+
 </body>
 </html>

@@ -1,0 +1,37 @@
+{
+  "name": "Glazok Studio",
+  "short_name": "Glazok",
+  "description": "P2P беспроводная камера для смартфона",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b0b0e",
+  "theme_color": "#0b0b0e",
+  "lang": "ru",
+  "categories": [
+    "camera",
+    "video",
+    "multimedia"
+  ],
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Монитор",
+      "short_name": "Монитор",
+      "url": "./?m=monitor"
+    },
+    {
+      "name": "Камера",
+      "short_name": "Камера",
+      "url": "./?m=camera"
+    }
+  ]
+}
