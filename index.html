@@ -870,9 +870,22 @@
        ZEN
     ========================= */
 
-    .studio.zen .sidebar,
-    .studio.zen .right-panel,
     .studio.zen .stage-top {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* В обычном режиме панели просто гаснут, но сохраняют место в layout —
+       для десктоп-браузера это ок. А для OBS Browser Source нужен честный
+       full-bleed кадр без невидимых полей по краям, поэтому схлопываем их
+       по ширине и убираем анимацию, чтобы OBS сразу видел чистую картинку. */
+    .studio.zen .sidebar,
+    .studio.zen .right-panel {
+      width: 0;
+      min-width: 0;
+      padding: 0;
+      border: 0;
+      overflow: hidden;
       opacity: 0;
       pointer-events: none;
     }
@@ -1366,6 +1379,7 @@ const state = {
 
   reconnectTimer: null,
   reconnectAttempts: 0,
+  currentBitrate: null,
 
   monitorPingTimer: null,
 
@@ -1422,16 +1436,38 @@ function randomCode(length = 6) {
    PEER CONFIG
    ========================================================= */
 
+// Если STUN не пробивает NAT (частый случай, когда телефон в мобильной сети
+// или разные провайдеры/сети у камеры и монитора), WebRTC не сможет найти
+// прямой путь и звонок просто не установится. TURN-сервер решает это —
+// трафик идёт через релей. Ниже — публичный бесплатный TURN (Open Relay).
+// Он общий и может быть перегружен, поэтому для стабильной ежедневной
+// работы лучше завести свой бесплатный TURN на https://www.metered.ca/tools/openrelay/
+// (там дают персональные логин/пароль, до 20 ГБ/мес бесплатно) и подставить
+// их сюда вместо/вместе с публичными.
 const PEER_CONFIG = {
   config: {
     iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" },
       {
-        urls: "stun:stun.l.google.com:19302"
+        urls: "turn:openrelay.metered.ca:80",
+        username: "openrelayproject",
+        credential: "openrelayproject"
       },
       {
-        urls: "stun:stun1.l.google.com:19302"
+        urls: "turn:openrelay.metered.ca:443",
+        username: "openrelayproject",
+        credential: "openrelayproject"
+      },
+      {
+        urls: "turn:openrelay.metered.ca:443?transport=tcp",
+        username: "openrelayproject",
+        credential: "openrelayproject"
       }
-    ]
+    ],
+    // "all" — сначала пробует прямое соединение (быстрее, выше качество),
+    // и только если не получилось — падает на TURN-релей.
+    iceTransportPolicy: "all"
   }
 };
 
@@ -2179,10 +2215,66 @@ function getVideoPreset(name) {
   };
 
 
-  return (
-    presets[name] ||
-    presets["1080p30"]
-  );
+  // Битрейт по умолчанию в WebRTC не зависит от разрешения (обычно
+  // ограничен ~2.5 Мбит/с), поэтому 4K/2K без явного maxBitrate выглядит
+  // почти как 720p, только тяжелее для процессора. Задаём вручную.
+  const bitrates = {
+    "2160p30": 20_000_000,
+    "1440p30": 12_000_000,
+    "1080p60": 10_000_000,
+    "1080p30": 6_000_000,
+    "720p30": 3_000_000,
+    "480p30": 1_200_000
+  };
+
+  const preset = presets[name] || presets["1080p30"];
+  preset.maxBitrate = bitrates[name] || bitrates["1080p30"];
+
+  return preset;
+
+}
+
+
+/* =========================================================
+   ENCODING (BITRATE / QUALITY PRIORITY)
+   ========================================================= */
+
+// Заставляет WebRTC реально использовать высокий битрейт и при нехватке
+// канала жертвовать частотой кадров, а не резать разрешение в мыло —
+// это и есть разница между "как Camo Studio" и "просто WebRTC по умолчанию".
+async function applyEncoding(peerConnection, maxBitrate) {
+
+  if (!peerConnection) {
+    return;
+  }
+
+  try {
+
+    const sender = peerConnection
+      .getSenders()
+      .find(s => s.track?.kind === "video");
+
+    if (!sender) {
+      return;
+    }
+
+    const params = sender.getParameters();
+
+    if (!params.encodings || !params.encodings.length) {
+      params.encodings = [{}];
+    }
+
+    params.encodings[0].maxBitrate = maxBitrate;
+    params.encodings[0].scaleResolutionDownBy = 1;
+    params.degradationPreference = "maintain-resolution";
+
+    await sender.setParameters(params);
+
+  } catch (error) {
+
+    console.warn("Encoding params:", error);
+
+  }
 
 }
 
@@ -2210,6 +2302,9 @@ async function startPhone(targetId) {
       getVideoPreset(
         $("quality-select").value
       );
+
+    state.currentBitrate =
+      preset.maxBitrate;
 
 
     state.stream =
@@ -2424,6 +2519,12 @@ function connectToMonitor(targetId) {
       );
 
 
+    applyEncoding(
+      state.call.peerConnection,
+      state.currentBitrate
+    );
+
+
     state.call.on("close", () => {
 
       setCameraStatus(
@@ -2512,22 +2613,6 @@ function handleCameraData(data) {
 
 function scheduleReconnect(targetId) {
 
-  if (state.reconnectAttempts >= 5) {
-
-    setCameraStatus(
-      "Не удалось переподключиться",
-      "error"
-    );
-
-    toast(
-      "Соединение потеряно",
-      "error"
-    );
-
-    return;
-  }
-
-
   clearTimeout(
     state.reconnectTimer
   );
@@ -2535,17 +2620,22 @@ function scheduleReconnect(targetId) {
 
   state.reconnectAttempts++;
 
-
+  // Экспоненциальная задержка растёт до 10 сек и дальше не увеличивается —
+  // но попытки не заканчиваются никогда (как в Camo Studio: моргнул Wi-Fi,
+  // через пару секунд картинка сама вернулась, руками ничего перезапускать
+  // не нужно). Пользователь всегда может нажать "Стоп" сам.
   const delay =
     Math.min(
       1000 *
-      Math.pow(2, state.reconnectAttempts - 1),
+      Math.pow(2, Math.min(state.reconnectAttempts - 1, 4)),
       10000
     );
 
 
   setCameraStatus(
-    `Переподключение ${state.reconnectAttempts}/5...`,
+    state.reconnectAttempts <= 5
+      ? `Переподключение ${state.reconnectAttempts}...`
+      : "Переподключение... (проверьте сеть)",
     "warn"
   );
 
@@ -2918,6 +3008,11 @@ async function switchCamera(deviceId) {
           newTrack
         );
 
+        await applyEncoding(
+          state.call.peerConnection,
+          state.currentBitrate
+        );
+
       }
 
     }
@@ -2981,6 +3076,18 @@ async function changeQuality() {
     await track.applyConstraints(
       preset
     );
+
+    state.currentBitrate =
+      preset.maxBitrate;
+
+    if (state.call?.peerConnection) {
+
+      await applyEncoding(
+        state.call.peerConnection,
+        state.currentBitrate
+      );
+
+    }
 
   } catch (error) {
 
@@ -4021,10 +4128,13 @@ if (
    URL SHORTCUT
    ========================================================= */
 
-const startupMode =
+const startupParams =
   new URLSearchParams(
     location.search
-  ).get("m");
+  );
+
+const startupMode =
+  startupParams.get("m");
 
 
 if (
@@ -4033,7 +4143,25 @@ if (
 ) {
 
   setTimeout(
-    () => setMode(startupMode),
+    () => {
+
+      setMode(startupMode);
+
+      // Для OBS Browser Source: .../?m=monitor&zen=1 —
+      // сразу чистая картинка без интерфейса, ничего нажимать не нужно.
+      if (
+        startupMode === "monitor" &&
+        startupParams.get("zen") === "1"
+      ) {
+
+        state.zen = true;
+
+        $("studio")
+          .classList.add("zen");
+
+      }
+
+    },
     50
   );
 
