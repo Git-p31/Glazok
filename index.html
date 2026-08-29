@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
   <meta name="theme-color" content="#050508">
-  <title>Glazok Studio Custom HD</title>
+  <title>Glazok Studio Ultra HD</title>
 
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg">
@@ -588,14 +588,20 @@
     }
   });
 
-  // Авто-вход по ссылке
+  // Авто-вход по ссылкам и ярлыкам из manifest.webmanifest (?m=monitor / ?m=camera или ?room=CODE)
   window.addEventListener("DOMContentLoaded", () => {
     const params = new URLSearchParams(window.location.search);
+    const mode = params.get("m");
     const room = params.get("room");
-    if (room) {
+
+    if (mode === "monitor") {
+      setMode("monitor");
+    } else if (mode === "camera" || room) {
       setMode("camera");
-      $("connection-code").value = room.toUpperCase();
-      startCameraStream(room);
+      if (room) {
+        $("connection-code").value = room.toUpperCase();
+        startCameraStream(room);
+      }
     }
   });
 </script>
