@@ -284,7 +284,7 @@
       <div class="camera-ui">
         <div class="pill">
           <span class="status-dot live"></span>
-          <span>В ЭФИРЕ (AUTO-MAX)</span>
+          <span>В ЭФИРЕ (1 КАМЕРА)</span>
         </div>
         <div class="camera-actions">
           <button class="btn-icon" data-action="torch">💡 Вспышка</button>
@@ -303,7 +303,15 @@
   "use strict";
 
   const $ = id => document.getElementById(id);
-  const state = { mode: null, peer: null, room: null, stream: null, torchOn: false, facingMode: "environment" };
+  const state = { 
+    mode: null, 
+    peer: null, 
+    call: null,
+    room: null, 
+    stream: null, 
+    torchOn: false, 
+    facingMode: "environment" 
+  };
 
   function toast(msg) {
     const el = document.createElement("div");
@@ -343,9 +351,21 @@
     }
   }
 
+  function stopMediaStream() {
+    if (state.stream) {
+      state.stream.getTracks().forEach(track => {
+        track.stop();
+      });
+      state.stream = null;
+    }
+    state.torchOn = false;
+  }
+
   function teardown() {
+    stopMediaStream();
+    if (state.call) { state.call.close(); state.call = null; }
     if (state.peer) { state.peer.destroy(); state.peer = null; }
-    if (state.stream) { state.stream.getTracks().forEach(t => t.stop()); state.stream = null; }
+    
     $("monitor-video").srcObject = null;
     $("camera-video").srcObject = null;
   }
@@ -362,11 +382,24 @@
     });
 
     state.peer.on("call", call => {
+      // Закрываем предыдущий вызов, если он существовал
+      if (state.call) {
+        state.call.close();
+      }
+      state.call = call;
+
       call.answer();
       call.on("stream", stream => {
-        $("monitor-video").srcObject = stream;
+        const vid = $("monitor-video");
+        vid.srcObject = stream;
         $("monitor-status").textContent = "Трансляция активна";
         $("monitor-dot").className = "status-dot live";
+      });
+
+      call.on("close", () => {
+        $("monitor-status").textContent = "Камера отключилась";
+        $("monitor-dot").className = "status-dot ok";
+        $("monitor-video").srcObject = null;
       });
     });
   }
@@ -377,13 +410,9 @@
     $("camera-view").style.display = "none";
   }
 
-  async function startCameraStream(code) {
-    const cleanCode = code.trim().toLowerCase();
-    if (!cleanCode) return toast("Введите код!");
+  async function getCameraStream() {
+    stopMediaStream(); // Гарантированно гасим прошлый поток устройства перед запросом нового
 
-    teardown();
-
-    // Запрос максимального разрешения и плавных 60 FPS
     const constraints = {
       audio: false,
       video: {
@@ -394,41 +423,86 @@
       }
     };
 
+    state.stream = await navigator.mediaDevices.getUserMedia(constraints);
+    $("camera-video").srcObject = state.stream;
+    return state.stream;
+  }
+
+  async function startCameraStream(code) {
+    const cleanCode = code.trim().toLowerCase();
+    if (!cleanCode) return toast("Введите код!");
+
     try {
-      state.stream = await navigator.mediaDevices.getUserMedia(constraints);
-      $("camera-video").srcObject = state.stream;
+      const newStream = await getCameraStream();
 
-      state.peer = new Peer(PEER_CONFIG);
-      state.peer.on("open", () => {
-        const target = "glz-" + cleanCode;
-        const call = state.peer.call(target, state.stream);
+      if (!state.peer || state.peer.destroyed) {
+        state.peer = new Peer(PEER_CONFIG);
+        
+        state.peer.on("open", () => {
+          makeCall("glz-" + cleanCode, newStream);
+        });
 
-        // Динамическая адаптация потока в зависимости от ширины канала
-        if (call && call.peerConnection) {
-          const pc = call.peerConnection;
-          pc.getSenders().forEach(sender => {
-            if (sender.track && sender.track.kind === 'video') {
-              const params = sender.getParameters();
-              if (!params.encodings || params.encodings.length === 0) {
-                params.encodings = [{}];
-              }
-              // Приоритет детальности картинки над динамическим сжатием
-              params.degradationPreference = 'maintain-resolution';
-              params.encodings[0].maxBitrate = 30000000; // Потолок 30 Mbps для Wi-Fi/5G
-              sender.setParameters(params).catch(() => {});
-            }
-          });
-        }
-
-        $("camera-connect").style.display = "none";
-        $("camera-view").style.display = "flex";
-        toast("Подключено! Качество адаптируется к сети.");
-      });
-
-      state.peer.on("error", () => toast("Ошибка подключения к коду"));
+        state.peer.on("error", () => toast("Ошибка соединения"));
+      } else {
+        makeCall("glz-" + cleanCode, newStream);
+      }
     } catch (err) {
       console.error(err);
       toast("Не удалось захватить видео");
+    }
+  }
+
+  function makeCall(target, stream) {
+    if (state.call) {
+      state.call.close();
+    }
+
+    state.call = state.peer.call(target, stream);
+
+    if (state.call && state.call.peerConnection) {
+      const pc = state.call.peerConnection;
+      pc.getSenders().forEach(sender => {
+        if (sender.track && sender.track.kind === 'video') {
+          const params = sender.getParameters();
+          if (!params.encodings || params.encodings.length === 0) {
+            params.encodings = [{}];
+          }
+          params.degradationPreference = 'maintain-resolution';
+          params.encodings[0].maxBitrate = 30000000;
+          sender.setParameters(params).catch(() => {});
+        }
+      });
+    }
+
+    $("camera-connect").style.display = "none";
+    $("camera-view").style.display = "flex";
+  }
+
+  /* СМЕНА КАМЕРЫ (ПЕРЕВОРОТ) */
+  async function flipCamera() {
+    state.facingMode = state.facingMode === "user" ? "environment" : "user";
+    
+    try {
+      const newStream = await getCameraStream();
+      const newTrack = newStream.getVideoTracks()[0];
+
+      if (state.call && state.call.peerConnection) {
+        const sender = state.call.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+        if (sender) {
+          // Мгновенно подменяем медиатрек внутри действующего P2P соединения
+          await sender.replaceTrack(newTrack);
+          toast("Камера переключена");
+          return;
+        }
+      }
+
+      // Пересоздание соединения, если подмена трека недоступна
+      const code = $("connection-code").value;
+      if (code) startCameraStream(code);
+
+    } catch (e) {
+      console.error(e);
+      toast("Ошибка переключения");
     }
   }
 
@@ -455,10 +529,7 @@
       if (act === "exit") setMode(null);
       if (act === "connect") startCameraStream($("connection-code").value);
       if (act === "torch") toggleTorch();
-      if (act === "flip") {
-        state.facingMode = state.facingMode === "user" ? "environment" : "user";
-        startCameraStream($("connection-code").value);
-      }
+      if (act === "flip") flipCamera();
     }
   });
 
