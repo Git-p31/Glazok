@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
   <meta name="theme-color" content="#050508">
-  <title>Glazok Studio Ultra HD</title>
+  <title>Glazok Studio Custom HD</title>
 
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg">
@@ -47,7 +47,7 @@
       font-family: var(--font-sans);
     }
 
-    button, input {
+    button, input, select {
       font: inherit;
       color: inherit;
       border: none;
@@ -164,7 +164,7 @@
       flex-direction: column;
       align-items: center;
       gap: 16px;
-      width: min(90%, 320px);
+      width: min(90%, 340px);
     }
 
     .code-input {
@@ -179,6 +179,29 @@
       letter-spacing: 0.2em;
       text-align: center;
       text-transform: uppercase;
+    }
+
+    .quality-settings {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+    }
+
+    .select-input {
+      flex: 1;
+      padding: 12px;
+      border: 1px solid var(--surface-border);
+      border-radius: var(--r-lg);
+      background: rgba(255, 255, 255, 0.08);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .select-input option {
+      background: #111;
+      color: #fff;
     }
 
     .btn {
@@ -209,6 +232,13 @@
     }
 
     .camera-ui > * { pointer-events: auto; }
+
+    .camera-top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+    }
 
     .camera-actions {
       display: flex;
@@ -275,17 +305,38 @@
   <section id="screen-camera" class="screen">
     <div class="camera-connect" id="camera-connect">
       <input class="code-input" id="connection-code" maxlength="6" placeholder="КОД" autocomplete="off">
-      <button class="btn" data-action="connect">Подключить (Max Quality)</button>
+      
+      <div class="quality-settings">
+        <select id="res-select" class="select-input">
+          <option value="480">480p</option>
+          <option value="720">720p HD</option>
+          <option value="1080" selected>1080p Full HD</option>
+          <option value="1440">1440p 2K</option>
+          <option value="2160">2160p 4K</option>
+        </select>
+
+        <select id="fps-select" class="select-input">
+          <option value="30">30 FPS</option>
+          <option value="60" selected>60 FPS</option>
+          <option value="120">120 FPS</option>
+          <option value="240">240 FPS</option>
+        </select>
+      </div>
+
+      <button class="btn" data-action="connect">Подключить камеру</button>
       <button class="btn-icon" data-action="exit" style="width:100%">← Назад</button>
     </div>
 
     <div class="screen" id="camera-view" style="display:none;">
       <video id="camera-video" class="main-video" autoplay playsinline muted style="object-fit:cover;"></video>
       <div class="camera-ui">
-        <div class="pill">
-          <span class="status-dot live"></span>
-          <span>В ЭФИРЕ (1 КАМЕРА)</span>
+        <div class="camera-top-bar">
+          <div class="pill">
+            <span class="status-dot live"></span>
+            <span id="live-quality-info">В ЭФИРЕ</span>
+          </div>
         </div>
+
         <div class="camera-actions">
           <button class="btn-icon" data-action="torch">💡 Вспышка</button>
           <button class="btn-icon" data-action="flip">🔄 Смена камеры</button>
@@ -311,6 +362,14 @@
     stream: null, 
     torchOn: false, 
     facingMode: "environment" 
+  };
+
+  const RESOLUTIONS = {
+    "480": { w: 854, h: 480 },
+    "720": { w: 1280, h: 720 },
+    "1080": { w: 1920, h: 1080 },
+    "1440": { w: 2560, h: 1440 },
+    "2160": { w: 3840, h: 2160 }
   };
 
   function toast(msg) {
@@ -353,9 +412,7 @@
 
   function stopMediaStream() {
     if (state.stream) {
-      state.stream.getTracks().forEach(track => {
-        track.stop();
-      });
+      state.stream.getTracks().forEach(track => track.stop());
       state.stream = null;
     }
     state.torchOn = false;
@@ -382,16 +439,12 @@
     });
 
     state.peer.on("call", call => {
-      // Закрываем предыдущий вызов, если он существовал
-      if (state.call) {
-        state.call.close();
-      }
+      if (state.call) state.call.close();
       state.call = call;
 
       call.answer();
       call.on("stream", stream => {
-        const vid = $("monitor-video");
-        vid.srcObject = stream;
+        $("monitor-video").srcObject = stream;
         $("monitor-status").textContent = "Трансляция активна";
         $("monitor-dot").className = "status-dot live";
       });
@@ -411,20 +464,26 @@
   }
 
   async function getCameraStream() {
-    stopMediaStream(); // Гарантированно гасим прошлый поток устройства перед запросом нового
+    stopMediaStream();
+
+    const selectedResKey = $("res-select").value;
+    const selectedFps = parseInt($("fps-select").value, 10);
+    const targetRes = RESOLUTIONS[selectedResKey] || RESOLUTIONS["1080"];
 
     const constraints = {
       audio: false,
       video: {
         facingMode: state.facingMode,
-        width: { ideal: 3840, min: 1280 },
-        height: { ideal: 2160, min: 720 },
-        frameRate: { ideal: 60, min: 24 }
+        width: { ideal: targetRes.w },
+        height: { ideal: targetRes.h },
+        frameRate: { ideal: selectedFps }
       }
     };
 
     state.stream = await navigator.mediaDevices.getUserMedia(constraints);
     $("camera-video").srcObject = state.stream;
+    
+    $("live-quality-info").textContent = `${selectedResKey}P @ ${selectedFps}FPS`;
     return state.stream;
   }
 
@@ -448,14 +507,12 @@
       }
     } catch (err) {
       console.error(err);
-      toast("Не удалось захватить видео");
+      toast("Камера не поддерживает выбранное качество");
     }
   }
 
   function makeCall(target, stream) {
-    if (state.call) {
-      state.call.close();
-    }
+    if (state.call) state.call.close();
 
     state.call = state.peer.call(target, stream);
 
@@ -468,7 +525,7 @@
             params.encodings = [{}];
           }
           params.degradationPreference = 'maintain-resolution';
-          params.encodings[0].maxBitrate = 30000000;
+          params.encodings[0].maxBitrate = 40000000;
           sender.setParameters(params).catch(() => {});
         }
       });
@@ -478,7 +535,7 @@
     $("camera-view").style.display = "flex";
   }
 
-  /* СМЕНА КАМЕРЫ (ПЕРЕВОРОТ) */
+  /* СМЕНА КАМЕРЫ */
   async function flipCamera() {
     state.facingMode = state.facingMode === "user" ? "environment" : "user";
     
@@ -489,14 +546,12 @@
       if (state.call && state.call.peerConnection) {
         const sender = state.call.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
         if (sender) {
-          // Мгновенно подменяем медиатрек внутри действующего P2P соединения
           await sender.replaceTrack(newTrack);
           toast("Камера переключена");
           return;
         }
       }
 
-      // Пересоздание соединения, если подмена трека недоступна
       const code = $("connection-code").value;
       if (code) startCameraStream(code);
 
