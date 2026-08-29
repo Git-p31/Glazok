@@ -96,9 +96,7 @@
       display: flex;
     }
 
-    /* =========================
-       START SCREEN
-    ========================= */
+    /* START SCREEN */
     #screen-select {
       align-items: center;
       justify-content: center;
@@ -206,9 +204,7 @@
       font-size: 13px;
     }
 
-    /* =========================
-       MONITOR / STUDIO
-    ========================= */
+    /* MONITOR / STUDIO */
     #screen-monitor {
       width: 100%;
       height: 100%;
@@ -369,9 +365,7 @@
       border: 1px solid rgba(255,255,255,0.1);
     }
 
-    /* =========================
-       RIGHT PANEL (DRAWER)
-    ========================= */
+    /* RIGHT PANEL (DRAWER) */
     .right-panel {
       z-index: 25;
       position: absolute;
@@ -425,9 +419,7 @@
       cursor: pointer;
     }
 
-    /* =========================
-       BUTTONS & MODALS
-    ========================= */
+    /* BUTTONS & MODALS */
     .btn {
       display: inline-flex;
       align-items: center;
@@ -497,9 +489,7 @@
       background: #fff;
     }
 
-    /* =========================
-       CAMERA SCREEN & LANDSCAPE
-    ========================= */
+    /* CAMERA SCREEN & LANDSCAPE */
     #screen-camera {
       position: relative;
       width: 100vw;
@@ -549,7 +539,7 @@
       inset: 0;
       width: 100%;
       height: 100%;
-      object-fit: cover; /* Заполняет весь экран без черных полей */
+      object-fit: cover;
     }
 
     .camera-ui {
@@ -594,31 +584,13 @@
       padding: 0 14px;
     }
 
-    /* ГОРИЗОНТАЛЬНЫЙ РЕЖИМ СМАРТФОНА */
     @media (orientation: landscape) {
-      .camera-ui {
-        flex-direction: row;
-      }
-
-      .camera-top {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-
-      .camera-bottom {
-        justify-content: flex-end;
-        width: 280px;
-      }
-
-      .camera-controls-pill {
-        flex-direction: column;
-        border-radius: var(--r-lg);
-      }
+      .camera-ui { flex-direction: row; }
+      .camera-top { flex-direction: column; align-items: flex-start; }
+      .camera-bottom { justify-content: flex-end; width: 280px; }
+      .camera-controls-pill { flex-direction: column; border-radius: var(--r-lg); }
     }
 
-    /* =========================
-       TOASTS & ZEN
-    ========================= */
     .toasts {
       position: fixed;
       top: 20px;
@@ -683,14 +655,6 @@
           <span>Использовать этот телефон</span>
         </div>
       </button>
-
-      <button class="mode-card" id="install-button" style="display:none">
-        <div class="mode-icon">↓</div>
-        <div class="mode-copy">
-          <strong>Установить PWA</strong>
-          <span>Быстрый доступ с экрана</span>
-        </div>
-      </button>
     </div>
   </section>
 
@@ -704,11 +668,7 @@
           <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><path d="M14 14h3v3h-3zM18 18h3v3h-3z"></path></svg>
         </button>
 
-        <button class="sb-btn" data-action="grid" title="Сетка">
-          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2"></rect><rect x="13" y="3" width="8" height="8" rx="2"></rect><rect x="3" y="13" width="8" height="8" rx="2"></rect><rect x="13" y="13" width="8" height="8" rx="2"></rect></svg>
-        </button>
-
-        <button class="sb-btn" id="panel-toggle" data-action="panel" title="Настройки">
+        <button class="sb-btn" data-action="panel" title="Настройки">
           <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
         </button>
 
@@ -726,10 +686,8 @@
             <span id="monitor-status">Подключение...</span>
           </div>
 
-          <div id="camera-buttons" style="display:flex; gap:8px;"></div>
-
-          <div class="pill net-info" id="network-info">
-            <span>RTT: <b id="latency">—</b>ms</span>
+          <div class="pill net-info">
+            <span>P2P WebRTC: <b id="latency">Активен</b></span>
           </div>
         </div>
 
@@ -760,9 +718,6 @@
           <div class="control-label">Насыщенность <b id="saturation-value">100</b></div>
           <input type="range" min="0" max="200" value="100" data-control="saturation">
         </div>
-
-        <div class="panel-title" style="margin-top: 12px;">Управление</div>
-        <button class="btn full" data-action="torch">💡 Вспышка</button>
       </aside>
     </div>
   </section>
@@ -786,17 +741,12 @@
             <span id="camera-status">Подключение...</span>
           </div>
 
-          <button class="btn" data-action="flip-camera">🔄</button>
+          <button class="btn" data-action="flip-camera">🔄 Повернуть</button>
         </div>
 
         <div class="camera-bottom">
           <div class="camera-controls-pill">
-            <select class="btn" id="quality-select">
-              <option value="1080p30">1080p 30 FPS</option>
-              <option value="720p30">720p 30 FPS</option>
-              <option value="480p30">480p 30 FPS</option>
-            </select>
-
+            <button class="btn" data-action="torch">💡 Вспышка</button>
             <button class="btn danger" data-action="stop">⏹ Стоп</button>
           </div>
         </div>
@@ -818,9 +768,8 @@
     peer: null,
     room: null,
     stream: null,
+    torchOn: false,
     connections: new Map(),
-    activeCamera: null,
-    viewMode: "auto",
     zen: false,
     facingMode: "environment",
     image: { brightness: 100, contrast: 100, saturation: 100 }
@@ -831,18 +780,25 @@
     el.className = `toast ${type}`;
     el.textContent = message;
     $("toasts").appendChild(el);
-    setTimeout(() => el.remove(), 3000);
+    setTimeout(() => el.remove(), 4000);
   }
 
   function randomCode(length = 6) {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
     let res = "";
     for (let i = 0; i < length; i++) res += chars[Math.floor(Math.random() * chars.length)];
     return res;
   }
 
+  // Расширенная STUN-конфигурация для NAT Traversal
   const PEER_CONFIG = {
-    config: { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] }
+    config: {
+      iceServers: [
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+        { urls: "stun:stun2.l.google.com:19302" }
+      ]
+    }
   };
 
   function setMode(mode) {
@@ -862,17 +818,21 @@
   }
 
   function teardown() {
-    if (state.peer) state.peer.destroy();
-    if (state.stream) state.stream.getTracks().forEach(t => t.stop());
-    state.peer = null;
-    state.stream = null;
+    if (state.peer) {
+      state.peer.destroy();
+      state.peer = null;
+    }
+    if (state.stream) {
+      state.stream.getTracks().forEach(t => t.stop());
+      state.stream = null;
+    }
     state.connections.clear();
     $("video-grid").innerHTML = "";
   }
 
   /* MONITOR LOGIC */
   function initMonitor() {
-    state.room = randomCode(6).toLowerCase();
+    state.room = randomCode(6);
     state.peer = new Peer("glz-" + state.room, PEER_CONFIG);
 
     state.peer.on("open", () => {
@@ -881,6 +841,11 @@
       $("room-code").textContent = state.room.toUpperCase();
       renderQR();
       $("qr-modal").classList.add("visible");
+    });
+
+    state.peer.on("error", err => {
+      console.error("Monitor Peer Error:", err);
+      toast("Ошибка подключения: " + err.type, "danger");
     });
 
     state.peer.on("connection", conn => {
@@ -937,7 +902,8 @@
   function renderQR() {
     const box = $("qr-box");
     box.innerHTML = "";
-    const url = `${location.origin}${location.pathname}?m=camera&room=${state.room}`;
+    const baseUrl = location.origin + location.pathname;
+    const url = `${baseUrl}?m=camera&room=${state.room}`;
     if (window.QRCode) new QRCode(box, { text: url, width: 140, height: 140 });
   }
 
@@ -948,11 +914,14 @@
   }
 
   async function connectAsCamera(code) {
+    const cleanCode = code.trim().toLowerCase();
+    if (!cleanCode) return toast("Введите код!", "danger");
+
     teardown();
     state.peer = new Peer(PEER_CONFIG);
 
     state.peer.on("open", () => {
-      const target = "glz-" + code;
+      const target = "glz-" + cleanCode;
       const conn = state.peer.connect(target);
 
       conn.on("open", async () => {
@@ -965,14 +934,41 @@
           $("camera-video").srcObject = stream;
           $("camera-connect").style.display = "none";
           $("camera-view").classList.add("visible");
+          
           state.peer.call(target, stream);
           $("camera-status").textContent = "В эфире";
           $("camera-dot").className = "status-dot live";
-        } catch {
-          toast("Ошибка доступа к камере", "error");
+          toast("Камера подключена!");
+        } catch (err) {
+          console.error(err);
+          toast("Нет доступа к камере!", "danger");
         }
       });
     });
+
+    state.peer.on("error", err => {
+      console.error("Camera Peer Error:", err);
+      toast("Комната не найдена: " + cleanCode.toUpperCase(), "danger");
+    });
+  }
+
+  /* TOGGLE TORCH / FLASHLIGHT */
+  async function toggleTorch() {
+    if (!state.stream) return;
+    const track = state.stream.getVideoTracks()[0];
+    if (!track) return;
+
+    try {
+      const capabilities = track.getCapabilities();
+      if (!capabilities.torch) {
+        return toast("Вспышка не поддерживается устройством", "danger");
+      }
+      state.torchOn = !state.torchOn;
+      await track.applyConstraints({ advanced: [{ torch: state.torchOn }] });
+      toast(state.torchOn ? "Вспышка включена" : "Вспышка выключена");
+    } catch (e) {
+      toast("Не удалось переключить вспышку", "danger");
+    }
   }
 
   /* EVENT LISTENERS */
@@ -992,13 +988,14 @@
       }
       if (act === "exit" || act === "back" || act === "stop") setMode(null);
       if (act === "connect") {
-        const code = $("connection-code").value.trim().toLowerCase();
-        if (code) connectAsCamera(code);
+        connectAsCamera($("connection-code").value);
       }
       if (act === "flip-camera") {
         state.facingMode = state.facingMode === "user" ? "environment" : "user";
-        const code = $("connection-code").value.trim().toLowerCase();
-        if (code) connectAsCamera(code);
+        connectAsCamera($("connection-code").value);
+      }
+      if (act === "torch") {
+        toggleTorch();
       }
     }
   });
@@ -1014,12 +1011,24 @@
       });
     });
   });
-</script>
-<script>
+
+  /* АВТОМАТИЧЕСКИЙ ВХОД ПО QR-КОДУ */
+  window.addEventListener("DOMContentLoaded", () => {
+    const params = new URLSearchParams(window.location.search);
+    const mode = params.get("m");
+    const room = params.get("room");
+
+    if (mode === "camera" && room) {
+      setMode("camera");
+      $("connection-code").value = room.toUpperCase();
+      connectAsCamera(room);
+    }
+  });
+
+  /* SERVICE WORKER REGISTRATION */
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
-        .catch(err => console.error('SW registration failed:', err));
+      navigator.serviceWorker.register('./sw.js').catch(console.error);
     });
   }
 </script>
