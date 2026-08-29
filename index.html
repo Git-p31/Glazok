@@ -73,6 +73,12 @@
     input,
     select {
       font: inherit;
+      color: inherit;
+    }
+
+    select option {
+      background: #17171d;
+      color: #fff;
     }
 
     button {
@@ -492,9 +498,6 @@
       transition: transform .3s ease;
     }
 
-    /* Панель всплывает по кнопке и никогда не отнимает место у видео —
-       .stage остаётся flex:1 на всю ширину независимо от того,
-       открыта панель или нет и как повёрнут телефон-камера. */
     .right-panel.open {
       transform: translateX(0);
     }
@@ -684,9 +687,13 @@
     ========================= */
 
     #screen-camera {
+      position: relative;
+      width: 100vw;
+      height: 100dvh;
       align-items: center;
       justify-content: center;
       background: #000;
+      overflow: hidden;
     }
 
     .camera-connect {
@@ -695,6 +702,7 @@
       align-items: center;
       width: min(90vw, 380px);
       padding: 24px;
+      z-index: 10;
 
       border: 1px solid var(--border);
       border-radius: var(--radius-xl);
@@ -745,6 +753,8 @@
       inset: 0;
       display: none;
       background: #000;
+      width: 100%;
+      height: 100%;
     }
 
     .camera-view.visible {
@@ -752,13 +762,15 @@
     }
 
     .camera-video {
+      position: absolute;
+      top: 0;
+      left: 0;
       width: 100%;
       height: 100%;
-      object-fit: cover;
-      transform-origin: center;
+      object-fit: cover; /* Занимает весь экран без черных полос */
       opacity: 0;
       transition: opacity .3s ease;
-      background: #050505;
+      background: #000;
     }
 
     .camera-video.loaded {
@@ -768,6 +780,7 @@
     .camera-ui {
       position: absolute;
       inset: 0;
+      z-index: 10;
 
       display: flex;
       flex-direction: column;
@@ -775,8 +788,9 @@
 
       padding:
         max(16px, env(safe-area-inset-top))
-        16px
-        max(16px, env(safe-area-inset-bottom));
+        max(16px, env(safe-area-inset-right))
+        max(16px, env(safe-area-inset-bottom))
+        max(16px, env(safe-area-inset-left));
 
       pointer-events: none;
     }
@@ -826,7 +840,7 @@
     .camera-row .btn,
     .camera-row select {
       flex: 1;
-      min-width: 120px;
+      min-width: 110px;
     }
 
     .camera-setting {
@@ -851,6 +865,42 @@
       width: 40px;
       color: #fff;
       text-align: right;
+    }
+
+    /* =========================
+       LANDSCAPE MODE (ГОРИЗОНТАЛЬНЫЙ РЕЖИМ КАМЕРЫ)
+    ========================= */
+    @media (orientation: landscape) and (max-height: 500px) {
+      .camera-video {
+        object-fit: cover; /* 100% заполнение всего экрана */
+      }
+
+      .camera-ui {
+        flex-direction: row;
+        align-items: stretch;
+      }
+
+      .camera-top {
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: space-between;
+        width: auto;
+      }
+
+      .camera-top-actions {
+        flex-direction: column;
+      }
+
+      .camera-bottom {
+        justify-content: flex-end;
+        max-width: 320px;
+        width: 100%;
+      }
+
+      .camera-controls {
+        padding: 10px;
+        gap: 8px;
+      }
     }
 
     /* =========================
@@ -904,10 +954,6 @@
       pointer-events: none;
     }
 
-    /* В обычном режиме панели просто гаснут, но сохраняют место в layout —
-       для десктоп-браузера это ок. А для OBS Browser Source нужен честный
-       full-bleed кадр без невидимых полей по краям, поэтому схлопываем их
-       по ширине и убираем анимацию, чтобы OBS сразу видел чистую картинку. */
     .studio.zen .sidebar {
       width: 0;
       min-width: 0;
@@ -960,10 +1006,6 @@
 
 <div class="app">
 
-  <!-- =========================
-       START
-  ========================= -->
-
   <section id="screen-select" class="screen active">
 
     <div class="logo">
@@ -1015,10 +1057,6 @@
 
   </section>
 
-
-  <!-- =========================
-       MONITOR
-  ========================= -->
 
   <section id="screen-monitor" class="screen">
 
@@ -1232,14 +1270,9 @@
   </section>
 
 
-  <!-- =========================
-       CAMERA
-  ========================= -->
-
   <section id="screen-camera" class="screen">
 
     <div class="camera-connect" id="camera-connect">
-
       <button class="btn" data-action="back" style="margin-bottom:18px">
         ← Назад
       </button>
@@ -1263,7 +1296,6 @@
       <button class="btn primary full" data-action="connect">
         Подключить камеру
       </button>
-
     </div>
 
 
@@ -1280,14 +1312,12 @@
       <div class="camera-ui">
 
         <div class="camera-top">
-
           <div class="stage-status">
             <span class="status-dot warn" id="camera-dot"></span>
             <span id="camera-status">Подключение...</span>
           </div>
 
           <div class="camera-top-actions">
-
             <button
               class="btn"
               id="torch-button"
@@ -1305,9 +1335,7 @@
             >
               🔄
             </button>
-
           </div>
-
         </div>
 
 
@@ -1321,7 +1349,6 @@
               style="display:none"
             >
               <label>Zoom</label>
-
               <input
                 type="range"
                 id="camera-zoom"
@@ -1330,10 +1357,8 @@
                 step=".1"
                 value="1"
               >
-
               <b id="camera-zoom-value">1.0</b>
             </div>
-
 
             <div
               class="camera-setting"
@@ -1341,7 +1366,6 @@
               style="display:none"
             >
               <label>Exp</label>
-
               <input
                 type="range"
                 id="camera-exposure"
@@ -1350,7 +1374,6 @@
                 step=".1"
                 value="0"
               >
-
               <b id="camera-exposure-value">0.0</b>
             </div>
 
@@ -1388,3001 +1411,939 @@
 
 </div>
 
-
 <div class="toasts" id="toasts"></div>
 
-
 <script>
-"use strict";
-
-/* =========================================================
-   GLAZOK STUDIO PWA
-   ========================================================= */
-
-const $ = id => document.getElementById(id);
-
-const state = {
-  mode: null,
-
-  peer: null,
-  room: null,
-
-  stream: null,
-  call: null,
-  data: null,
-
-  connections: new Map(),
-
-  activeCamera: null,
-  viewMode: "auto",
-
-  zen: false,
-  torch: false,
-
-  wakeLock: null,
-
-  reconnectTimer: null,
-  reconnectAttempts: 0,
-  currentBitrate: null,
-  cameraDevices: null,
-
-  monitorPingTimer: null,
-
-  image: {
-    brightness: 100,
-    contrast: 100,
-    saturation: 100
-  },
-
-  fps: {
-    value: 0,
-    frames: 0,
-    lastTime: performance.now()
-  }
-};
-
-
-/* =========================================================
-   TOAST
-   ========================================================= */
-
-function toast(message, type = "ok") {
-  const el = document.createElement("div");
-
-  el.className = `toast ${type}`;
-  el.textContent = message;
-
-  $("toasts").appendChild(el);
-
-  setTimeout(() => {
-    el.remove();
-  }, 3200);
-}
-
-
-/* =========================================================
-   RANDOM ROOM
-   ========================================================= */
-
-function randomCode(length = 6) {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-
-  let result = "";
-
-  for (let i = 0; i < length; i++) {
-    result += chars[Math.floor(Math.random() * chars.length)];
-  }
-
-  return result;
-}
-
-
-/* =========================================================
-   PEER CONFIG
-   ========================================================= */
-
-// Если STUN не пробивает NAT (частый случай, когда телефон в мобильной сети
-// или разные провайдеры/сети у камеры и монитора), WebRTC не сможет найти
-// прямой путь и звонок просто не установится. TURN-сервер решает это —
-// трафик идёт через релей. Ниже — публичный бесплатный TURN (Open Relay).
-// Он общий и может быть перегружен, поэтому для стабильной ежедневной
-// работы лучше завести свой бесплатный TURN на https://www.metered.ca/tools/openrelay/
-// (там дают персональные логин/пароль, до 20 ГБ/мес бесплатно) и подставить
-// их сюда вместо/вместе с публичными.
-const PEER_CONFIG = {
-  config: {
-    iceServers: [
-      { urls: "stun:stun.l.google.com:19302" },
-      { urls: "stun:stun1.l.google.com:19302" },
-      {
-        urls: "turn:openrelay.metered.ca:80",
-        username: "openrelayproject",
-        credential: "openrelayproject"
-      },
-      {
-        urls: "turn:openrelay.metered.ca:443",
-        username: "openrelayproject",
-        credential: "openrelayproject"
-      },
-      {
-        urls: "turn:openrelay.metered.ca:443?transport=tcp",
-        username: "openrelayproject",
-        credential: "openrelayproject"
-      }
-    ],
-    // "all" — сначала пробует прямое соединение (быстрее, выше качество),
-    // и только если не получилось — падает на TURN-релей.
-    iceTransportPolicy: "all"
-  }
-};
-
-
-/* =========================================================
-   NAVIGATION
-   ========================================================= */
-
-function setMode(mode) {
-
-  teardown();
-
-  state.mode = mode;
-
-  document.querySelectorAll(".screen").forEach(screen => {
-    screen.classList.remove("active");
-  });
-
-  if (mode === "monitor") {
-
-    $("screen-monitor").classList.add("active");
-
-    initMonitor();
-
-  } else if (mode === "camera") {
-
-    $("screen-camera").classList.add("active");
-
-    initCamera();
-
-  } else {
-
-    $("screen-select").classList.add("active");
-
-  }
-}
-
-
-function exitApp() {
-  setMode(null);
-}
-
-
-/* =========================================================
-   CLEANUP
-   ========================================================= */
-
-function teardown() {
-
-  clearTimeout(state.reconnectTimer);
-
-  if (state.monitorPingTimer) {
-    clearInterval(state.monitorPingTimer);
-    state.monitorPingTimer = null;
-  }
-
-  if (state.peer) {
-    try {
-      state.peer.destroy();
-    } catch {}
-  }
-
-  state.peer = null;
-
-  if (state.stream) {
-    state.stream.getTracks().forEach(track => {
-      try {
-        track.stop();
-      } catch {}
-    });
-  }
-
-  state.stream = null;
-
-  state.call = null;
-  state.data = null;
-
-  state.connections.clear();
-
-  if (state.wakeLock) {
-    try {
-      state.wakeLock.release();
-    } catch {}
-
-    state.wakeLock = null;
-  }
-
-  $("video-grid").innerHTML = "";
-
-  state.activeCamera = null;
-  state.reconnectAttempts = 0;
-}
-
-
-/* =========================================================
-   MONITOR
-   ========================================================= */
-
-function initMonitor() {
-
-  state.room = randomCode(6).toLowerCase();
-
-  const peerId = "glz-" + state.room;
-
-  setMonitorStatus("Создание студии...", "warn");
-
-  const peer = new Peer(peerId, PEER_CONFIG);
-
-  state.peer = peer;
-
-
-  peer.on("open", () => {
-
-    setMonitorStatus("Готов к подключению", "ok");
-
-    $("room-code").textContent = state.room.toUpperCase();
-
-    renderQR();
-
-    updateGrid();
-
-    showQR(true);
-
-    toast(
-      "Студия готова. Код: " +
-      state.room.toUpperCase()
-    );
-
-  });
-
-
-  peer.on("connection", connection => {
-
-    connection.on("open", () => {
-
-      if (state.connections.size >= 4) {
-
-        connection.send({
-          type: "ERROR",
-          message: "MAX_CAMERAS"
-        });
-
-        setTimeout(() => {
-          try {
-            connection.close();
-          } catch {}
-        }, 300);
-
-        toast("Максимум 4 камеры", "warn");
-
-        return;
-      }
-
-
-      let entry =
-        state.connections.get(connection.peer) || {};
-
-      entry.conn = connection;
-
-      state.connections.set(
-        connection.peer,
-        entry
-      );
-
-
-      connection.on("data", data => {
-
-        handleMonitorData(
-          connection.peer,
-          data
-        );
-
-      });
-
-
-      connection.on("close", () => {
-
-        removeCamera(connection.peer);
-
-      });
-
-
-      connection.on("error", () => {
-
-        removeCamera(connection.peer);
-
-      });
-
-
-      connection.send({
-        type: "WELCOME",
-        room: state.room
-      });
-
-      broadcastAir();
-
-    });
-
-  });
-
-
-  peer.on("call", call => {
-
-    call.answer();
-
-    call.on("stream", stream => {
-
-      let entry =
-        state.connections.get(call.peer) || {};
-
-      entry.call = call;
-      entry.stream = stream;
-
-      state.connections.set(
-        call.peer,
-        entry
-      );
-
-      showQR(false);
-
-      updateGrid();
-
-      toast("Камера подключена");
-
-    });
-
-
-    call.on("close", () => {
-
-      removeCamera(call.peer);
-
-    });
-
-
-    call.on("error", error => {
-
-      console.error("Call error:", error);
-
-      removeCamera(call.peer);
-
-    });
-
-  });
-
-
-  peer.on("error", error => {
-
-    console.error("Peer error:", error);
-
-    if (error.type === "unavailable-id") {
-
-      toast(
-        "ID комнаты занят. Создаём новую...",
-        "warn"
-      );
-
-      setTimeout(() => {
-
-        if (state.mode === "monitor") {
-          initMonitor();
-        }
-
-      }, 800);
-
-      return;
+  "use strict";
+
+  /* =========================================================
+     GLAZOK STUDIO PWA
+     ========================================================= */
+
+  const $ = id => document.getElementById(id);
+
+  const state = {
+    mode: null,
+    peer: null,
+    room: null,
+    stream: null,
+    call: null,
+    data: null,
+    connections: new Map(),
+    activeCamera: null,
+    viewMode: "auto",
+    zen: false,
+    torch: false,
+    wakeLock: null,
+    reconnectTimer: null,
+    reconnectAttempts: 0,
+    currentBitrate: null,
+    cameraDevices: null,
+    monitorPingTimer: null,
+    facingMode: "environment",
+    image: {
+      brightness: 100,
+      contrast: 100,
+      saturation: 100
+    },
+    fps: {
+      value: 0,
+      frames: 0,
+      lastTime: performance.now()
     }
-
-    toast(
-      "Ошибка P2P: " + error.type,
-      "error"
-    );
-
-  });
-
-
-  peer.on("disconnected", () => {
-
-    setMonitorStatus(
-      "Соединение с сервером потеряно",
-      "warn"
-    );
-
-    try {
-      peer.reconnect();
-    } catch {}
-
-  });
-
-}
-
-
-/* =========================================================
-   MONITOR DATA
-   ========================================================= */
-
-function handleMonitorData(peerId, data) {
-
-  if (!data || typeof data !== "object") {
-    return;
-  }
-
-
-  if (data.type === "PONG") {
-
-    const rtt =
-      Date.now() - Number(data.t || Date.now());
-
-    updateLatency(rtt);
-
-    return;
-  }
-
-
-  if (data.type === "FPS") {
-
-    updateFPS(Number(data.fps) || 0);
-
-    return;
-  }
-
-}
-
-
-/* =========================================================
-   REMOVE CAMERA
-   ========================================================= */
-
-function removeCamera(peerId) {
-
-  if (!state.connections.has(peerId)) {
-    return;
-  }
-
-  state.connections.delete(peerId);
-
-  if (state.activeCamera === peerId) {
-    state.activeCamera = null;
-  }
-
-  updateGrid();
-
-  toast("Камера отключена", "warn");
-
-}
-
-
-/* =========================================================
-   GRID
-   ========================================================= */
-
-function updateGrid() {
-
-  const grid = $("video-grid");
-  const bar = $("camera-buttons");
-
-  grid.innerHTML = "";
-  bar.innerHTML = "";
-
-  const cameras = [
-    ...state.connections.entries()
-  ].filter(([, item]) => item.stream);
-
-
-  if (!cameras.length) {
-
-    grid.className = "video-grid v1";
-
-    const empty = document.createElement("div");
-
-    empty.className = "video-box";
-
-    empty.innerHTML = `
-      <div class="empty">
-        Ожидание камер...
-      </div>
-    `;
-
-    grid.appendChild(empty);
-
-    $("live-badge").classList.remove("visible");
-
-    setMonitorStatus(
-      "Ожидание устройств...",
-      "warn"
-    );
-
-    showQR(true);
-
-    return;
-  }
-
-
-  $("live-badge").classList.add("visible");
-
-  setMonitorStatus(
-    `В эфире: ${cameras.length}/4`,
-    "live"
-  );
-
-
-  const keys = cameras.map(([key]) => key);
-
-
-  if (
-    !state.activeCamera ||
-    !keys.includes(state.activeCamera)
-  ) {
-    state.activeCamera = keys[0];
-  }
-
-
-  cameras.forEach(([peerId], index) => {
-
-    const button =
-      document.createElement("button");
-
-    button.className =
-      "btn" +
-      (
-        state.activeCamera === peerId &&
-        state.viewMode === "single"
-          ? " active"
-          : ""
-      );
-
-    button.textContent =
-      "📱 К" + (index + 1);
-
-    button.onclick = () => {
-
-      state.activeCamera = peerId;
-      state.viewMode = "single";
-
-      updateGrid();
-      broadcastAir();
-
-    };
-
-    bar.appendChild(button);
-
-  });
-
-
-  if (cameras.length > 1) {
-
-    const gridButton =
-      document.createElement("button");
-
-    gridButton.className =
-      "btn" +
-      (
-        state.viewMode === "grid"
-          ? " active"
-          : ""
-      );
-
-    gridButton.textContent = "▦ Сетка";
-
-    gridButton.onclick = () => {
-
-      state.viewMode =
-        state.viewMode === "grid"
-          ? "single"
-          : "grid";
-
-      updateGrid();
-      broadcastAir();
-
-    };
-
-    bar.appendChild(gridButton);
-
-  }
-
-
-  const showGrid =
-    state.viewMode === "grid" ||
-    (
-      state.viewMode === "auto" &&
-      cameras.length > 1
-    );
-
-
-  const visible =
-    showGrid
-      ? cameras.slice(0, 4)
-      : cameras.filter(
-          ([peerId]) =>
-            peerId === state.activeCamera
-        );
-
-
-  grid.className =
-    "video-grid v" +
-    Math.max(1, Math.min(4, visible.length));
-
-
-  visible.forEach(([peerId, item], index) => {
-
-    const box =
-      document.createElement("div");
-
-    box.className = "video-box";
-
-
-    const video =
-      document.createElement("video");
-
-    video.autoplay = true;
-    video.playsInline = true;
-    video.muted = true;
-    video.srcObject = item.stream;
-
-
-    video.onloadeddata = () => {
-
-      video.classList.add("loaded");
-
-      applyImageFilters(video);
-
-    };
-
-
-    const label =
-      document.createElement("div");
-
-    label.className = "video-label";
-
-    label.textContent =
-      "CAM " + (keys.indexOf(peerId) + 1);
-
-
-    box.appendChild(video);
-    box.appendChild(label);
-
-    grid.appendChild(box);
-
-  });
-
-}
-
-
-/* =========================================================
-   AIR
-   ========================================================= */
-
-function broadcastAir() {
-
-  const cameras =
-    [...state.connections.entries()]
-      .filter(([, item]) => item.stream);
-
-
-  const grid =
-    state.viewMode === "grid" ||
-    (
-      state.viewMode === "auto" &&
-      cameras.length > 1
-    );
-
-
-  state.connections.forEach((item, peerId) => {
-
-    if (!item.conn?.open) {
-      return;
-    }
-
-
-    try {
-
-      item.conn.send({
-        type: "AIR",
-        onAir:
-          grid ||
-          peerId === state.activeCamera
-      });
-
-    } catch {}
-
-  });
-
-}
-
-
-/* =========================================================
-   CONTROLS
-   ========================================================= */
-
-let controlTimer = null;
-
-function sendControl(param, value) {
-
-  clearTimeout(controlTimer);
-
-  controlTimer = setTimeout(() => {
-
-    state.connections.forEach(item => {
-
-      if (!item.conn?.open) {
-        return;
-      }
-
-      try {
-
-        item.conn.send({
-          type: "CTRL",
-          param,
-          value: Number(value)
-        });
-
-      } catch {}
-
-    });
-
-  }, 30);
-
-}
-
-
-/* =========================================================
-   QR
-   ========================================================= */
-
-function renderQR() {
-
-  const box = $("qr-box");
-
-  box.innerHTML = "";
-
-  if (
-    typeof QRCode === "undefined"
-  ) {
-
-    box.textContent =
-      "QR library unavailable";
-
-    return;
-  }
-
-
-  const url =
-    location.origin +
-    location.pathname +
-    "?m=camera&room=" +
-    encodeURIComponent(state.room);
-
-
-  new QRCode(box, {
-    text: url,
-    width: 170,
-    height: 170,
-    colorDark: "#0b0b0e",
-    colorLight: "#ffffff"
-  });
-
-}
-
-
-function showQR(show) {
-
-  $("qr-modal")
-    .classList.toggle("visible", show);
-
-}
-
-
-/* =========================================================
-   CAMERA
-   ========================================================= */
-
-async function initCamera() {
-
-  await requestWakeLock();
-
-  const params =
-    new URLSearchParams(location.search);
-
-  const room =
-    params.get("room");
-
-
-  if (room) {
-
-    $("camera-connect").style.display =
-      "none";
-
-    await startPhone(
-      "glz-" + room.toLowerCase()
-    );
-
-    return;
-  }
-
-
-  $("camera-connect").style.display =
-    "flex";
-
-}
-
-
-/* =========================================================
-   VIDEO PRESETS
-   ========================================================= */
-
-function getVideoPreset(name) {
-
-  const presets = {
-
-    "2160p30": {
-      width: { ideal: 3840 },
-      height: { ideal: 2160 },
-      frameRate: { ideal: 30 }
-    },
-
-    "1440p30": {
-      width: { ideal: 2560 },
-      height: { ideal: 1440 },
-      frameRate: { ideal: 30 }
-    },
-
-    "1080p60": {
-      width: { ideal: 1920 },
-      height: { ideal: 1080 },
-      frameRate: { ideal: 60 }
-    },
-
-    "1080p30": {
-      width: { ideal: 1920 },
-      height: { ideal: 1080 },
-      frameRate: { ideal: 30 }
-    },
-
-    "720p30": {
-      width: { ideal: 1280 },
-      height: { ideal: 720 },
-      frameRate: { ideal: 30 }
-    },
-
-    "480p30": {
-      width: { ideal: 854 },
-      height: { ideal: 480 },
-      frameRate: { ideal: 30 }
-    }
-
   };
 
 
-  // Битрейт по умолчанию в WebRTC не зависит от разрешения (обычно
-  // ограничен ~2.5 Мбит/с), поэтому 4K/2K без явного maxBitrate выглядит
-  // почти как 720p, только тяжелее для процессора. Задаём вручную.
-  const bitrates = {
-    "2160p30": 20_000_000,
-    "1440p30": 12_000_000,
-    "1080p60": 10_000_000,
-    "1080p30": 6_000_000,
-    "720p30": 3_000_000,
-    "480p30": 1_200_000
-  };
+  /* =========================================================
+     TOAST
+     ========================================================= */
 
-  const preset = presets[name] || presets["1080p30"];
-  preset.maxBitrate = bitrates[name] || bitrates["1080p30"];
+  function toast(message, type = "ok") {
+    const el = document.createElement("div");
+    el.className = `toast ${type}`;
+    el.textContent = message;
+    $("toasts").appendChild(el);
 
-  return preset;
-
-}
-
-
-/* =========================================================
-   ENCODING (BITRATE / QUALITY PRIORITY)
-   ========================================================= */
-
-// Заставляет WebRTC реально использовать высокий битрейт и при нехватке
-// канала жертвовать частотой кадров, а не резать разрешение в мыло —
-// это и есть разница между "как Camo Studio" и "просто WebRTC по умолчанию".
-async function applyEncoding(peerConnection, maxBitrate) {
-
-  if (!peerConnection) {
-    return;
+    setTimeout(() => {
+      el.remove();
+    }, 3200);
   }
 
-  try {
 
-    const sender = peerConnection
-      .getSenders()
-      .find(s => s.track?.kind === "video");
+  /* =========================================================
+     RANDOM ROOM
+     ========================================================= */
 
-    if (!sender) {
-      return;
+  function randomCode(length = 6) {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let result = "";
+
+    for (let i = 0; i < length; i++) {
+      result += chars[Math.floor(Math.random() * chars.length)];
     }
 
-    const params = sender.getParameters();
-
-    if (!params.encodings || !params.encodings.length) {
-      params.encodings = [{}];
-    }
-
-    params.encodings[0].maxBitrate = maxBitrate;
-    params.encodings[0].scaleResolutionDownBy = 1;
-    params.degradationPreference = "maintain-resolution";
-
-    await sender.setParameters(params);
-
-  } catch (error) {
-
-    console.warn("Encoding params:", error);
-
-  }
-
-}
-
-
-/* =========================================================
-   START PHONE
-   ========================================================= */
-
-async function startPhone(targetId) {
-
-  if (state.peer) {
-    return;
+    return result;
   }
 
 
-  try {
+  /* =========================================================
+     PEER CONFIG
+     ========================================================= */
 
-    setCameraStatus(
-      "Запрашиваем камеру...",
-      "warn"
-    );
-
-
-    const preset =
-      getVideoPreset(
-        $("quality-select").value
-      );
-
-    state.currentBitrate =
-      preset.maxBitrate;
-
-
-    state.stream =
-      await navigator.mediaDevices.getUserMedia({
-        video: {
-          ...preset,
-          facingMode: {
-            ideal: "environment"
-          }
+  const PEER_CONFIG = {
+    config: {
+      iceServers: [
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+        {
+          urls: "turn:openrelay.metered.ca:80",
+          username: "openrelayproject",
+          credential: "openrelayproject"
         },
-        audio: false
+        {
+          urls: "turn:openrelay.metered.ca:443",
+          username: "openrelayproject",
+          credential: "openrelayproject"
+        },
+        {
+          urls: "turn:openrelay.metered.ca:443?transport=tcp",
+          username: "openrelayproject",
+          credential: "openrelayproject"
+        }
+      ],
+      iceTransportPolicy: "all"
+    }
+  };
+
+
+  /* =========================================================
+     NAVIGATION
+     ========================================================= */
+
+  function setMode(mode) {
+    teardown();
+
+    state.mode = mode;
+
+    document.querySelectorAll(".screen").forEach(screen => {
+      screen.classList.remove("active");
+    });
+
+    if (mode === "monitor") {
+      $("screen-monitor").classList.add("active");
+      initMonitor();
+    } else if (mode === "camera") {
+      $("screen-camera").classList.add("active");
+      initCamera();
+    } else {
+      $("screen-select").classList.add("active");
+    }
+  }
+
+
+  function exitApp() {
+    setMode(null);
+  }
+
+
+  /* =========================================================
+     CLEANUP
+     ========================================================= */
+
+  function teardown() {
+    clearTimeout(state.reconnectTimer);
+
+    if (state.monitorPingTimer) {
+      clearInterval(state.monitorPingTimer);
+      state.monitorPingTimer = null;
+    }
+
+    if (state.peer) {
+      try {
+        state.peer.destroy();
+      } catch {}
+    }
+
+    state.peer = null;
+
+    if (state.stream) {
+      state.stream.getTracks().forEach(track => {
+        try {
+          track.stop();
+        } catch {}
       });
+    }
+
+    state.stream = null;
+    state.call = null;
+    state.data = null;
+    state.connections.clear();
+
+    if (state.wakeLock) {
+      try {
+        state.wakeLock.release();
+      } catch {}
+      state.wakeLock = null;
+    }
+
+    $("video-grid").innerHTML = "";
+    state.activeCamera = null;
+    state.reconnectAttempts = 0;
+  }
 
 
-    $("camera-video").srcObject =
-      state.stream;
+  /* =========================================================
+     MONITOR
+     ========================================================= */
 
-    $("camera-video").classList.remove("loaded");
+  function initMonitor() {
+    state.room = randomCode(6).toLowerCase();
 
-    $("camera-video").onloadeddata = () => {
+    const peerId = "glz-" + state.room;
 
-      $("camera-video")
-        .classList.add("loaded");
+    setMonitorStatus("Создание студии...", "warn");
 
-    };
-
-
-    $("camera-view")
-      .classList.add("visible");
-
-
-    $("camera-connect")
-      .style.display = "none";
-
-
-    await listCameras();
-
-    detectCameraCapabilities();
-
-    startVideoFPS();
-
-
-    const peer =
-      new Peer(
-        "cam-" +
-        randomCode(8).toLowerCase(),
-        PEER_CONFIG
-      );
-
-
+    const peer = new Peer(peerId, PEER_CONFIG);
     state.peer = peer;
 
-
     peer.on("open", () => {
+      setMonitorStatus("Готов к подключению", "ok");
 
-      setCameraStatus(
-        "Подключение к ПК...",
-        "warn"
-      );
+      $("room-code").textContent = state.room.toUpperCase();
+
+      renderQR();
+      updateGrid();
+      showQR(true);
+
+      toast("Студия готова. Код: " + state.room.toUpperCase());
+    });
 
 
-      connectToMonitor(targetId);
+    peer.on("connection", connection => {
+
+      connection.on("open", () => {
+
+        if (state.connections.size >= 4) {
+
+          connection.send({
+            type: "ERROR",
+            message: "MAX_CAMERAS"
+          });
+
+          setTimeout(() => {
+            try {
+              connection.close();
+            } catch {}
+          }, 300);
+
+          toast("Максимум 4 камеры", "warn");
+          return;
+
+        }
+
+        let entry = state.connections.get(connection.peer) || {};
+        entry.conn = connection;
+
+        state.connections.set(connection.peer, entry);
+
+        connection.on("data", data => {
+          handleMonitorData(connection.peer, data);
+        });
+
+        connection.on("close", () => {
+          removeCamera(connection.peer);
+        });
+
+        connection.on("error", () => {
+          removeCamera(connection.peer);
+        });
+
+        connection.send({
+          type: "WELCOME",
+          room: state.room
+        });
+
+        broadcastAir();
+
+      });
 
     });
 
 
-    peer.on("disconnected", () => {
+    peer.on("call", call => {
 
-      setCameraStatus(
-        "Соединение потеряно",
-        "warn"
-      );
+      call.answer();
 
-      scheduleReconnect(targetId);
+      call.on("stream", stream => {
+
+        let entry = state.connections.get(call.peer) || {};
+        entry.call = call;
+        entry.stream = stream;
+
+        state.connections.set(call.peer, entry);
+
+        showQR(false);
+        updateGrid();
+
+        toast("Камера подключена");
+
+      });
+
+      call.on("close", () => {
+        removeCamera(call.peer);
+      });
+
+      call.on("error", error => {
+        console.error("Call error:", error);
+        removeCamera(call.peer);
+      });
 
     });
 
 
     peer.on("error", error => {
 
-      console.error(
-        "Camera Peer error:",
-        error
-      );
+      console.error("Peer error:", error);
 
+      if (error.type === "unavailable-id") {
 
-      if (
-        error.type === "peer-unavailable"
-      ) {
+        toast("ID комнаты занят. Создаём новую...", "warn");
 
-        setCameraStatus(
-          "ПК не найден",
-          "error"
-        );
-
-        toast(
-          "Студия не найдена. Проверьте код.",
-          "error"
-        );
-
-        // Раньше state.peer оставался "занятым", и повторное нажатие
-        // "Подключить камеру" молча ничего не делало — приходилось лезть
-        // жать "Стоп" вручную. Теперь сбрасываем всё и сразу возвращаем
-        // на экран ввода кода, чтобы можно было тут же попробовать снова.
-        stopCamera();
+        setTimeout(() => {
+          if (state.mode === "monitor") {
+            initMonitor();
+          }
+        }, 800);
 
         return;
+
       }
 
-
-      toast(
-        "Ошибка соединения: " +
-        error.type,
-        "error"
-      );
-
-      stopCamera();
+      toast("Ошибка P2P: " + error.type, "error");
 
     });
 
 
-  } catch (error) {
+    peer.on("disconnected", () => {
+      setMonitorStatus("Соединение с сервером потеряно", "warn");
 
-    console.error(
-      "Camera error:",
-      error
-    );
+      try {
+        peer.reconnect();
+      } catch {}
+    });
+
+  }
 
 
-    let message =
-      "Не удалось получить камеру";
+  /* =========================================================
+     MONITOR DATA
+     ========================================================= */
 
+  function handleMonitorData(peerId, data) {
 
-    if (error.name === "NotAllowedError") {
-      message =
-        "Разрешите доступ к камере в браузере";
+    if (!data || typeof data !== "object") {
+      return;
     }
 
-    if (error.name === "NotFoundError") {
-      message =
-        "Камера не найдена";
+    if (data.type === "PONG") {
+      const rtt = Date.now() - Number(data.t || Date.now());
+      updateLatency(rtt);
+      return;
     }
 
-    if (error.name === "NotReadableError") {
-      message =
-        "Камера уже используется другим приложением";
-    }
-
-    toast(message, "error");
-
-    setCameraStatus(
-      message,
-      "error"
-    );
-
-  }
-
-}
-
-
-/* =========================================================
-   CONNECT MONITOR
-   ========================================================= */
-
-function connectToMonitor(targetId) {
-
-  if (!state.peer) {
-    return;
-  }
-
-
-  try {
-
-    state.data =
-      state.peer.connect(targetId, {
-        reliable: true
-      });
-
-
-    state.data.on("open", () => {
-
-      setCameraStatus(
-        "Подключено",
-        "ok"
-      );
-
-      state.reconnectAttempts = 0;
-
-      toast("Телефон подключён к студии");
-
-      startPing();
-
-    });
-
-
-    state.data.on("data", data => {
-
-      handleCameraData(data);
-
-    });
-
-
-    state.data.on("close", () => {
-
-      setCameraStatus(
-        "Соединение закрыто",
-        "warn"
-      );
-
-      scheduleReconnect(targetId);
-
-    });
-
-
-    state.data.on("error", error => {
-
-      console.error(
-        "Data channel:",
-        error
-      );
-
-    });
-
-
-    state.call =
-      state.peer.call(
-        targetId,
-        state.stream
-      );
-
-
-    applyEncoding(
-      state.call.peerConnection,
-      state.currentBitrate
-    );
-
-
-    state.call.on("close", () => {
-
-      setCameraStatus(
-        "Видеосвязь закрыта",
-        "warn"
-      );
-
-      scheduleReconnect(targetId);
-
-    });
-
-
-  } catch (error) {
-
-    console.error(error);
-
-    scheduleReconnect(targetId);
-
-  }
-
-}
-
-
-/* =========================================================
-   CAMERA DATA
-   ========================================================= */
-
-function handleCameraData(data) {
-
-  if (!data || typeof data !== "object") {
-    return;
-  }
-
-
-  if (data.type === "AIR") {
-
-    updateAirStatus(
-      Boolean(data.onAir)
-    );
-
-  }
-
-
-  if (data.type === "CTRL") {
-
-    applyCameraConstraint(
-      data.param,
-      data.value
-    );
-
-  }
-
-
-  if (data.type === "PONG") {
-
-    const rtt =
-      Date.now() -
-      Number(data.t || Date.now());
-
-  }
-
-
-  if (data.type === "ERROR") {
-
-    if (
-      data.message === "MAX_CAMERAS"
-    ) {
-
-      toast(
-        "На студии уже 4 камеры",
-        "error"
-      );
-
-      stopCamera();
-
+    if (data.type === "FPS") {
+      updateFPS(Number(data.fps) || 0);
+      return;
     }
 
   }
 
-}
+
+  /* =========================================================
+     REMOVE CAMERA
+     ========================================================= */
+
+  function removeCamera(peerId) {
+
+    if (!state.connections.has(peerId)) {
+      return;
+    }
+
+    state.connections.delete(peerId);
+
+    if (state.activeCamera === peerId) {
+      state.activeCamera = null;
+    }
+
+    updateGrid();
+
+    toast("Камера отключена", "warn");
+
+  }
 
 
-/* =========================================================
-   RECONNECT
-   ========================================================= */
+  /* =========================================================
+     GRID
+     ========================================================= */
 
-function scheduleReconnect(targetId) {
+  function updateGrid() {
 
-  clearTimeout(
-    state.reconnectTimer
-  );
+    const grid = $("video-grid");
+    const bar = $("camera-buttons");
 
+    grid.innerHTML = "";
+    bar.innerHTML = "";
 
-  state.reconnectAttempts++;
-
-  // Экспоненциальная задержка растёт до 10 сек и дальше не увеличивается —
-  // но попытки не заканчиваются никогда (как в Camo Studio: моргнул Wi-Fi,
-  // через пару секунд картинка сама вернулась, руками ничего перезапускать
-  // не нужно). Пользователь всегда может нажать "Стоп" сам.
-  const delay =
-    Math.min(
-      1000 *
-      Math.pow(2, Math.min(state.reconnectAttempts - 1, 4)),
-      10000
+    const cameras = [...state.connections.entries()].filter(
+      ([, item]) => item.stream
     );
 
 
-  setCameraStatus(
-    state.reconnectAttempts <= 5
-      ? `Переподключение ${state.reconnectAttempts}...`
-      : "Переподключение... (проверьте сеть)",
-    "warn"
-  );
+    if (!cameras.length) {
+
+      grid.className = "video-grid v1";
+
+      const empty = document.createElement("div");
+      empty.className = "video-box";
+      empty.innerHTML = `
+        <div class="empty">
+          Ожидание камер...
+        </div>
+      `;
+
+      grid.appendChild(empty);
+
+      $("live-badge").classList.remove("visible");
+
+      setMonitorStatus("Ожидание устройств...", "warn");
+      showQR(true);
+
+      return;
+
+    }
 
 
-  state.reconnectTimer =
-    setTimeout(() => {
+    $("live-badge").classList.add("visible");
+    setMonitorStatus(`В эфире: ${cameras.length}/4`, "live");
 
-      if (!state.peer) {
+    const keys = cameras.map(([key]) => key);
+
+    if (!state.activeCamera || !keys.includes(state.activeCamera)) {
+      state.activeCamera = keys[0];
+    }
+
+
+    cameras.forEach(([peerId], index) => {
+
+      const button = document.createElement("button");
+
+      button.className =
+        "btn" +
+        (state.activeCamera === peerId && state.viewMode === "single"
+          ? " active"
+          : "");
+
+      button.textContent = "📱 К" + (index + 1);
+
+      button.onclick = () => {
+        state.activeCamera = peerId;
+        state.viewMode = "single";
+        updateGrid();
+        broadcastAir();
+      };
+
+      bar.appendChild(button);
+
+    });
+
+
+    if (cameras.length > 1) {
+
+      const gridButton = document.createElement("button");
+
+      gridButton.className =
+        "btn" + (state.viewMode === "grid" ? " active" : "");
+
+      gridButton.textContent = "▦ Сетка";
+
+      gridButton.onclick = () => {
+        state.viewMode =
+          state.viewMode === "grid" ? "single" : "grid";
+
+        updateGrid();
+        broadcastAir();
+      };
+
+      bar.appendChild(gridButton);
+
+    }
+
+
+    const showGrid =
+      state.viewMode === "grid" ||
+      (state.viewMode === "auto" && cameras.length > 1);
+
+    const visible = showGrid
+      ? cameras.slice(0, 4)
+      : cameras.filter(([peerId]) => peerId === state.activeCamera);
+
+
+    grid.className = "video-grid v" + Math.max(1, Math.min(4, visible.length));
+
+
+    visible.forEach(([peerId, item]) => {
+
+      const box = document.createElement("div");
+      box.className = "video-box";
+
+      const video = document.createElement("video");
+      video.autoplay = true;
+      video.playsInline = true;
+      video.muted = true;
+      video.srcObject = item.stream;
+
+      video.onloadeddata = () => {
+        video.classList.add("loaded");
+        applyImageFilters(video);
+      };
+
+      const label = document.createElement("div");
+      label.className = "video-label";
+      label.textContent = "CAM " + (keys.indexOf(peerId) + 1);
+
+      box.appendChild(video);
+      box.appendChild(label);
+
+      grid.appendChild(box);
+
+    });
+
+  }
+
+
+  /* =========================================================
+     AIR
+     ========================================================= */
+
+  function broadcastAir() {
+
+    const cameras = [...state.connections.entries()].filter(
+      ([, item]) => item.stream
+    );
+
+    const grid =
+      state.viewMode === "grid" ||
+      (state.viewMode === "auto" && cameras.length > 1);
+
+    state.connections.forEach((item, peerId) => {
+
+      if (!item.conn?.open) {
         return;
       }
 
       try {
-        state.peer.reconnect();
+        item.conn.send({
+          type: "AIR",
+          onAir: grid || peerId === state.activeCamera
+        });
       } catch {}
 
-      connectToMonitor(targetId);
-
-    }, delay);
-
-}
-
-
-/* =========================================================
-   CAMERA CAPABILITIES
-   ========================================================= */
-
-function detectCameraCapabilities() {
-
-  if (!state.stream) {
-    return;
-  }
-
-
-  const track =
-    state.stream.getVideoTracks()[0];
-
-
-  if (!track) {
-    return;
-  }
-
-
-  if (!track.getCapabilities) {
-    return;
-  }
-
-
-  const caps =
-    track.getCapabilities();
-
-
-  if (caps.zoom) {
-
-    $("zoom-row").style.display =
-      "flex";
-
-    $("camera-zoom").min =
-      caps.zoom.min ?? 1;
-
-    $("camera-zoom").max =
-      caps.zoom.max ?? 5;
-
-    $("camera-zoom").step =
-      caps.zoom.step ?? .1;
-
-  }
-
-
-  if (caps.exposureCompensation) {
-
-    $("exposure-row").style.display =
-      "flex";
-
-    $("camera-exposure").min =
-      caps.exposureCompensation.min ?? -2;
-
-    $("camera-exposure").max =
-      caps.exposureCompensation.max ?? 2;
-
-    $("camera-exposure").step =
-      caps.exposureCompensation.step ?? .1;
-
-  }
-
-
-  if (caps.torch) {
-
-    $("torch-button").style.display =
-      "inline-flex";
-
-  }
-
-
-  if (
-    caps.focusMode &&
-    caps.focusMode.includes("continuous")
-  ) {
-
-    track.applyConstraints({
-      advanced: [
-        {
-          focusMode: "continuous"
-        }
-      ]
-    }).catch(() => {});
-
-  }
-
-}
-
-
-/* =========================================================
-   APPLY CAMERA CONTROL
-   ========================================================= */
-
-async function applyCameraConstraint(
-  parameter,
-  value
-) {
-
-  if (!state.stream) {
-    return;
-  }
-
-
-  const track =
-    state.stream.getVideoTracks()[0];
-
-
-  if (!track) {
-    return;
-  }
-
-
-  let key =
-    parameter === "exposure"
-      ? "exposureCompensation"
-      : parameter;
-
-
-  try {
-
-    await track.applyConstraints({
-      advanced: [
-        {
-          [key]: Number(value)
-        }
-      ]
     });
 
-
-    if (parameter === "zoom") {
-
-      $("camera-zoom").value =
-        value;
-
-      $("camera-zoom-value").textContent =
-        Number(value).toFixed(1);
-
-    }
-
-
-    if (parameter === "exposure") {
-
-      $("camera-exposure").value =
-        value;
-
-      $("camera-exposure-value").textContent =
-        Number(value).toFixed(1);
-
-    }
-
-  } catch (error) {
-
-    console.debug(
-      "Unsupported camera control:",
-      parameter,
-      error
-    );
-
-  }
-
-}
-
-
-/* =========================================================
-   TORCH
-   ========================================================= */
-
-async function toggleTorch() {
-
-  if (!state.stream) {
-    return;
   }
 
 
-  const track =
-    state.stream.getVideoTracks()[0];
+  /* =========================================================
+     CONTROLS
+     ========================================================= */
 
+  let controlTimer = null;
 
-  if (!track?.getCapabilities) {
-    toast(
-      "Вспышка не поддерживается",
-      "warn"
-    );
+  function sendControl(param, value) {
 
-    return;
-  }
+    clearTimeout(controlTimer);
 
+    controlTimer = setTimeout(() => {
 
-  const caps =
-    track.getCapabilities();
+      state.connections.forEach(item => {
 
-
-  if (!caps.torch) {
-
-    toast(
-      "Вспышка не поддерживается",
-      "warn"
-    );
-
-    return;
-  }
-
-
-  state.torch =
-    !state.torch;
-
-
-  try {
-
-    await track.applyConstraints({
-      advanced: [
-        {
-          torch: state.torch
+        if (!item.conn?.open) {
+          return;
         }
-      ]
+
+        try {
+          item.conn.send({
+            type: "CTRL",
+            param,
+            value
+          });
+        } catch {}
+
+      });
+
+    }, 50);
+
+  }
+
+
+  /* =========================================================
+     IMAGE FILTERS
+     ========================================================= */
+
+  function applyImageFilters(videoTarget) {
+
+    const css = `
+      brightness(${state.image.brightness}%)
+      contrast(${state.image.contrast}%)
+      saturate(${state.image.saturation}%)
+    `;
+
+    if (videoTarget) {
+      videoTarget.style.filter = css;
+      return;
+    }
+
+    document.querySelectorAll(".video-box video").forEach(video => {
+      video.style.filter = css;
     });
 
-
-    $("torch-button")
-      .classList.toggle(
-        "active",
-        state.torch
-      );
-
-  } catch {
-
-    state.torch =
-      !state.torch;
-
-    toast(
-      "Не удалось изменить вспышку",
-      "error"
-    );
-
   }
 
-}
+
+  /* =========================================================
+     STATUS HELPER
+     ========================================================= */
+
+  function setMonitorStatus(text, type = "muted") {
+    $("monitor-status").textContent = text;
+    $("monitor-dot").className = "status-dot " + type;
+  }
+
+  function setCameraStatus(text, type = "muted") {
+    $("camera-status").textContent = text;
+    $("camera-dot").className = "status-dot " + type;
+  }
+
+  function updateLatency(ms) {
+    $("latency").textContent = ms;
+    const info = $("network-info");
+
+    if (ms < 100) {
+      info.className = "net-info good";
+    } else {
+      info.className = "net-info bad";
+    }
+  }
+
+  function updateFPS(val) {
+    $("fps").textContent = val;
+  }
 
 
-/* =========================================================
-   CAMERA LIST
-   ========================================================= */
+  /* =========================================================
+     QR MODAL
+     ========================================================= */
 
-async function listCameras() {
+  function renderQR() {
+    const box = $("qr-box");
+    box.innerHTML = "";
 
-  try {
+    const url = `${location.origin}${location.pathname}?m=camera&room=${state.room}`;
 
-    const devices =
-      await navigator.mediaDevices.enumerateDevices();
+    if (window.QRCode) {
+      new QRCode(box, {
+        text: url,
+        width: 160,
+        height: 160,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    }
+  }
+
+  function showQR(visible) {
+    if (visible) {
+      $("qr-modal").classList.add("visible");
+    } else {
+      $("qr-modal").classList.remove("visible");
+    }
+  }
 
 
-    const cameras =
-      devices.filter(
-        device =>
-          device.kind === "videoinput"
-      );
+  /* =========================================================
+     CAMERA MODE
+     ========================================================= */
+
+  function initCamera() {
+    $("camera-connect").style.display = "flex";
+    $("camera-view").classList.remove("visible");
+
+    const code = new URLSearchParams(location.search).get("room");
+
+    if (code) {
+      $("connection-code").value = code.toUpperCase();
+      connectAsCamera(code.toLowerCase());
+    }
+  }
 
 
-    state.cameraDevices = cameras;
+  function connectAsCamera(roomCode) {
 
+    teardown();
 
-    const select =
-      $("camera-select");
+    setCameraStatus("Подключение к P2P...", "warn");
 
+    const peer = new Peer(PEER_CONFIG);
+    state.peer = peer;
 
-    select.innerHTML = "";
+    peer.on("open", id => {
 
+      const targetPeer = "glz-" + roomCode;
+      const conn = peer.connect(targetPeer);
+      state.data = conn;
 
-    cameras.forEach((device, index) => {
+      conn.on("open", () => {
+        setCameraStatus("Получение видео...", "warn");
+        startCameraStream(targetPeer);
+      });
 
-      const option =
-        document.createElement("option");
+      conn.on("data", data => {
+        handleCameraData(data);
+      });
 
-      option.value =
-        device.deviceId;
+      conn.on("close", () => {
+        toast("Студия отключилась", "warn");
+        setCameraStatus("Отключено", "warn");
+      });
 
-      option.textContent =
-        friendlyCameraLabel(
-          device.label,
-          index
-        );
-
-      select.appendChild(option);
+      conn.on("error", () => {
+        toast("Ошибка соединения", "error");
+      });
 
     });
 
-
-    const current =
-      state.stream
-        ?.getVideoTracks()[0]
-        ?.getSettings()
-        .deviceId;
-
-    if (current) {
-      select.value = current;
-    }
-
-
-    // Плашка с выбором конкретного объектива нужна только если камер
-    // реально больше двух (несколько линз сзади). В обычном случае
-    // (перед + зад) достаточно одной кнопки 🔄 — так меньше лишнего
-    // на экране и понятнее, что нажимать.
-    $("camera-select").style.display =
-      cameras.length > 2 ? "" : "none";
-
-  } catch (error) {
-
-    console.debug(
-      "enumerateDevices:",
-      error
-    );
+    peer.on("error", err => {
+      toast("Ошибка P2P: " + err.type, "error");
+      setCameraStatus("Ошибка", "warn");
+    });
 
   }
 
-}
 
+  async function startCameraStream(targetPeer) {
 
-// Сырые системные названия камер часто выглядят как "camera2 0, facing
-// back" — переводим в понятные людям подписи.
-function friendlyCameraLabel(label, index) {
+    try {
 
-  const raw = (label || "").toLowerCase();
-
-  if (/front|user|selfie|face/.test(raw)) {
-    return "🤳 Фронтальная";
-  }
-
-  if (/back|rear|environment/.test(raw)) {
-
-    if (/ultra|wide angle|0\.5/.test(raw)) {
-      return "🎥 Задняя (сверхширокая)";
-    }
-
-    if (/tele|zoom/.test(raw)) {
-      return "🎥 Задняя (телефото)";
-    }
-
-    return "🎥 Задняя (основная)";
-  }
-
-  return label || `Камера ${index + 1}`;
-
-}
-
-
-/* =========================================================
-   FLIP CAMERA (быстрое переключение перед/зад одной кнопкой)
-   ========================================================= */
-
-async function flipCamera() {
-
-  const cameras = state.cameraDevices || [];
-
-  if (cameras.length < 2) {
-
-    toast(
-      "Доступна только одна камера",
-      "warn"
-    );
-
-    return;
-  }
-
-
-  const currentId =
-    state.stream
-      ?.getVideoTracks()[0]
-      ?.getSettings()
-      .deviceId;
-
-
-  const currentIsFront =
-    /front|user|selfie|face/i.test(
-      cameras.find(c => c.deviceId === currentId)?.label || ""
-    );
-
-
-  // Если текущая камера фронтальная — ищем первую заднюю, и наоборот.
-  // Если по названиям не разобрать (бывает до выдачи разрешения на
-  // некоторых браузерах) — просто берём следующую по списку.
-  let next =
-    cameras.find(c =>
-      c.deviceId !== currentId &&
-      (currentIsFront
-        ? /back|rear|environment/i.test(c.label)
-        : /front|user|selfie|face/i.test(c.label))
-    );
-
-  if (!next) {
-
-    const currentIndex =
-      cameras.findIndex(c => c.deviceId === currentId);
-
-    next =
-      cameras[(currentIndex + 1) % cameras.length];
-
-  }
-
-  if (next) {
-    await switchCamera(next.deviceId);
-  }
-
-}
-
-
-/* =========================================================
-   SWITCH CAMERA
-   ========================================================= */
-
-async function switchCamera(deviceId) {
-
-  if (!deviceId) {
-    return;
-  }
-
-
-  try {
-
-    const preset =
-      getVideoPreset(
-        $("quality-select").value
-      );
-
-
-    const newStream =
-      await navigator.mediaDevices.getUserMedia({
+      const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          ...preset,
-          deviceId: {
-            exact: deviceId
-          }
+          facingMode: state.facingMode,
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
         },
         audio: false
       });
 
+      state.stream = stream;
 
-    const newTrack =
-      newStream.getVideoTracks()[0];
+      const video = $("camera-video");
+      video.srcObject = stream;
 
+      video.onloadedmetadata = () => {
+        video.classList.add("loaded");
+      };
 
-    const oldTrack =
-      state.stream?.getVideoTracks()[0];
+      $("camera-connect").style.display = "none";
+      $("camera-view").classList.add("visible");
 
+      const call = state.peer.call(targetPeer, stream);
+      state.call = call;
 
-    if (
-      state.call?.peerConnection &&
-      newTrack
-    ) {
+      setCameraStatus("В эфире", "live");
+      requestWakeLock();
 
-      const sender =
-        state.call.peerConnection
-          .getSenders()
-          .find(
-            s =>
-              s.track?.kind === "video"
-          );
+    } catch (e) {
 
-
-      if (sender) {
-
-        await sender.replaceTrack(
-          newTrack
-        );
-
-        await applyEncoding(
-          state.call.peerConnection,
-          state.currentBitrate
-        );
-
-      }
+      console.error(e);
+      toast("Ошибка доступа к камере", "error");
+      setCameraStatus("Нет доступа", "warn");
 
     }
 
+  }
 
-    if (oldTrack) {
-      oldTrack.stop();
+
+  function handleCameraData(data) {
+
+    if (!data || typeof data !== "object") return;
+
+    if (data.type === "WELCOME") {
+      toast("Успешно подключено");
     }
 
-
-    state.stream =
-      newStream;
-
-
-    $("camera-video")
-      .classList.remove("loaded");
-
-    $("camera-video").srcObject =
-      newStream;
-
-
-    detectCameraCapabilities();
-
-
-    listCameras();
-
-
-    toast("Камера переключена");
-
-  } catch (error) {
-
-    console.error(error);
-
-    toast(
-      "Не удалось переключить камеру",
-      "error"
-    );
-
-  }
-
-}
-
-
-/* =========================================================
-   QUALITY
-   ========================================================= */
-
-async function changeQuality() {
-
-  if (!state.stream) {
-    return;
-  }
-
-
-  const track =
-    state.stream.getVideoTracks()[0];
-
-
-  const preset =
-    getVideoPreset(
-      $("quality-select").value
-    );
-
-
-  try {
-
-    await track.applyConstraints(
-      preset
-    );
-
-    state.currentBitrate =
-      preset.maxBitrate;
-
-    if (state.call?.peerConnection) {
-
-      await applyEncoding(
-        state.call.peerConnection,
-        state.currentBitrate
-      );
-
-    }
-
-  } catch (error) {
-
-    console.warn(
-      "Quality:",
-      error
-    );
-
-    toast(
-      "Камера не поддерживает это качество",
-      "warn"
-    );
-
-  }
-
-}
-
-
-/* =========================================================
-   AIR STATUS
-   ========================================================= */
-
-function updateAirStatus(onAir) {
-
-  const dot =
-    $("camera-dot");
-
-  const status =
-    $("camera-status");
-
-
-  if (onAir) {
-
-    dot.className =
-      "status-dot live";
-
-    status.textContent =
-      "🔴 В ЭФИРЕ";
-
-  } else {
-
-    dot.className =
-      "status-dot warn";
-
-    status.textContent =
-      "⏸ ОЖИДАНИЕ";
-
-  }
-
-}
-
-
-/* =========================================================
-   STATUS
-   ========================================================= */
-
-function setMonitorStatus(
-  text,
-  type = "normal"
-) {
-
-  $("monitor-status").textContent =
-    text;
-
-
-  const dot =
-    $("monitor-dot");
-
-
-  dot.className =
-    "status-dot " +
-    (
-      type === "ok"
-        ? "ok"
-        : type === "live"
-          ? "live"
-          : type === "warn"
-            ? "warn"
-            : ""
-    );
-
-}
-
-
-function setCameraStatus(
-  text,
-  type = "normal"
-) {
-
-  $("camera-status").textContent =
-    text;
-
-
-  const dot =
-    $("camera-dot");
-
-
-  dot.className =
-    "status-dot " +
-    (
-      type === "ok"
-        ? "ok"
-        : type === "error"
-          ? "live"
-          : "warn"
-    );
-
-}
-
-
-/* =========================================================
-   PING / RTT
-   ========================================================= */
-
-function startPing() {
-
-  if (state.monitorPingTimer) {
-    clearInterval(
-      state.monitorPingTimer
-    );
-  }
-
-
-  state.monitorPingTimer =
-    setInterval(() => {
-
-      if (!state.data?.open) {
-        return;
-      }
-
-
-      try {
-
-        state.data.send({
-          type: "PING",
-          t: Date.now()
-        });
-
-      } catch {}
-
-    }, 2000);
-
-}
-
-
-/* =========================================================
-   FPS
-   ========================================================= */
-
-function startVideoFPS() {
-
-  if (!state.stream) {
-    return;
-  }
-
-
-  const video =
-    $("camera-video");
-
-
-  if (
-    "requestVideoFrameCallback" in video
-  ) {
-
-    let frames = 0;
-    let last = performance.now();
-
-
-    const callback = now => {
-
-      frames++;
-
-
-      if (now - last >= 1000) {
-
-        const fps =
-          Math.round(
-            frames /
-            ((now - last) / 1000)
-          );
-
-
-        state.fps.value =
-          fps;
-
-        frames = 0;
-        last = now;
-
-
-        if (state.data?.open) {
-
-          try {
-
-            state.data.send({
-              type: "FPS",
-              fps
-            });
-
-          } catch {}
-
-        }
-
-      }
-
-
-      if (state.mode === "camera") {
-
-        video.requestVideoFrameCallback(
-          callback
-        );
-
-      }
-
-    };
-
-
-    video.requestVideoFrameCallback(
-      callback
-    );
-
-    return;
-  }
-
-
-  let frames = 0;
-  let last = performance.now();
-
-
-  function raf(now) {
-
-    frames++;
-
-
-    if (now - last >= 1000) {
-
-      state.fps.value =
-        frames;
-
-      frames = 0;
-      last = now;
-
-
-      if (state.data?.open) {
-
-        try {
-
-          state.data.send({
-            type: "FPS",
-            fps: state.fps.value
-          });
-
-        } catch {}
-
-      }
-
-    }
-
-
-    if (state.mode === "camera") {
-      requestAnimationFrame(raf);
-    }
-
-  }
-
-
-  requestAnimationFrame(raf);
-
-}
-
-
-function updateFPS(value) {
-
-  $("fps").textContent =
-    value || "—";
-
-}
-
-
-/* =========================================================
-   LATENCY
-   ========================================================= */
-
-function updateLatency(value) {
-
-  $("latency").textContent =
-    value;
-
-  const box =
-    $("network-info");
-
-
-  box.classList.toggle(
-    "good",
-    value < 80
-  );
-
-
-  box.classList.toggle(
-    "bad",
-    value > 250
-  );
-
-}
-
-
-/* =========================================================
-   IMAGE FILTERS
-   ========================================================= */
-
-function applyImageFilters(video) {
-
-  video.style.setProperty(
-    "--brightness",
-    state.image.brightness / 100
-  );
-
-  video.style.setProperty(
-    "--contrast",
-    state.image.contrast + "%"
-  );
-
-  video.style.setProperty(
-    "--saturation",
-    state.image.saturation + "%"
-  );
-
-}
-
-
-function applyAllImageFilters() {
-
-  document
-    .querySelectorAll("#video-grid video")
-    .forEach(
-      applyImageFilters
-    );
-
-}
-
-
-/* =========================================================
-   SNAPSHOT
-   ========================================================= */
-
-function snapshot() {
-
-  const video =
-    document.querySelector(
-      "#video-grid video"
-    );
-
-
-  if (
-    !video ||
-    !video.videoWidth
-  ) {
-
-    toast(
-      "Нет активного видео",
-      "warn"
-    );
-
-    return;
-  }
-
-
-  const canvas =
-    document.createElement("canvas");
-
-
-  canvas.width =
-    video.videoWidth;
-
-  canvas.height =
-    video.videoHeight;
-
-
-  const context =
-    canvas.getContext("2d");
-
-
-  context.filter =
-    `brightness(${state.image.brightness}%)
-     contrast(${state.image.contrast}%)
-     saturate(${state.image.saturation}%)`;
-
-
-  context.drawImage(
-    video,
-    0,
-    0,
-    canvas.width,
-    canvas.height
-  );
-
-
-  const link =
-    document.createElement("a");
-
-
-  link.download =
-    `glazok-${Date.now()}.png`;
-
-
-  link.href =
-    canvas.toDataURL(
-      "image/png"
-    );
-
-
-  link.click();
-
-
-  toast("Снимок сохранён");
-
-}
-
-
-/* =========================================================
-   WAKE LOCK
-   ========================================================= */
-
-async function requestWakeLock() {
-
-  if (
-    !("wakeLock" in navigator)
-  ) {
-    return;
-  }
-
-
-  try {
-
-    state.wakeLock =
-      await navigator.wakeLock.request(
-        "screen"
-      );
-
-  } catch (error) {
-
-    console.debug(
-      "WakeLock:",
-      error
-    );
-
-  }
-
-}
-
-
-document.addEventListener(
-  "visibilitychange",
-  async () => {
-
-    if (
-      document.visibilityState ===
-      "visible" &&
-      state.mode === "camera"
-    ) {
-
-      await requestWakeLock();
-
-    }
-
-  }
-);
-
-
-/* =========================================================
-   STOP CAMERA
-   ========================================================= */
-
-function stopCamera() {
-
-  if (state.stream) {
-
-    state.stream
-      .getTracks()
-      .forEach(
-        track => track.stop()
-      );
-
-  }
-
-
-  if (state.peer) {
-
-    try {
-      state.peer.destroy();
-    } catch {}
-
-  }
-
-
-  state.stream = null;
-  state.peer = null;
-  state.call = null;
-  state.data = null;
-
-
-  $("camera-video").srcObject =
-    null;
-
-  $("camera-video")
-    .classList.remove("loaded");
-
-
-  $("camera-view")
-    .classList.remove("visible");
-
-
-  $("camera-connect").style.display =
-    "flex";
-
-}
-
-
-/* =========================================================
-   EVENT HANDLERS
-   ========================================================= */
-
-document.addEventListener(
-  "click",
-  event => {
-
-    const target =
-      event.target.closest(
-        "[data-mode],[data-action]"
-      );
-
-
-    if (!target) {
-      return;
-    }
-
-
-    if (target.dataset.mode) {
-
-      setMode(
-        target.dataset.mode
-      );
-
-      return;
-    }
-
-
-    const action =
-      target.dataset.action;
-
-
-    switch (action) {
-
-      case "back":
-      case "exit":
-        exitApp();
-        break;
-
-
-      case "connect": {
-
-        const code =
-          $("connection-code")
-            .value
-            .trim()
-            .toLowerCase();
-
-
-        if (!/^[a-z0-9]{4,6}$/.test(code)) {
-
-          toast(
-            "Введите корректный код",
-            "error"
-          );
-
-          return;
-        }
-
-
-        startPhone(
-          "glz-" + code
-        );
-
-        break;
-      }
-
-
-      case "stop":
-        stopCamera();
-        break;
-
-
-      case "flip-camera":
-        flipCamera();
-        break;
-
-
-      case "qr":
-        showQR(true);
-        break;
-
-
-      case "close-qr":
-        showQR(false);
-        break;
-
-
-      case "grid":
-
-        state.viewMode =
-          state.viewMode === "grid"
-            ? "single"
-            : "grid";
-
-        updateGrid();
-        broadcastAir();
-
-        break;
-
-
-      case "panel":
-
-        $("right-panel-el")
-          .classList.toggle("open");
-
-        break;
-
-
-      case "fullscreen":
-
-        if (!document.fullscreenElement) {
-
-          document.documentElement
-            .requestFullscreen?.();
-
-        } else {
-
-          document
-            .exitFullscreen?.();
-
-        }
-
-        break;
-
-
-      case "zen":
-
-        state.zen =
-          !state.zen;
-
-        $("studio")
-          .classList.toggle(
-            "zen",
-            state.zen
-          );
-
-        if (state.zen) {
-
-          $("right-panel-el")
-            .classList.remove("open");
-
-        }
-
-        break;
-
-
-      case "torch":
+    if (data.type === "CTRL") {
+      if (data.param === "torch") {
         toggleTorch();
-        break;
-
-
-      case "snapshot":
-        snapshot();
-        break;
-
+      }
     }
 
   }
-);
 
 
-/* =========================================================
-   INPUT
-   ========================================================= */
+  function toggleTorch() {
 
-document.addEventListener(
-  "input",
-  event => {
+    if (!state.stream) return;
 
-    const control =
-      event.target.dataset.control;
+    const track = state.stream.getVideoTracks()[0];
+
+    if (!track) return;
+
+    const caps = track.getCapabilities ? track.getCapabilities() : {};
+
+    if (caps.torch) {
+      state.torch = !state.torch;
+
+      track.applyConstraints({
+        advanced: [{ torch: state.torch }]
+      }).catch(() => {});
+
+      toast(state.torch ? "Вспышка вкл" : "Вспышка выкл");
+    } else {
+      toast("Вспышка не поддерживается", "warn");
+    }
+
+  }
 
 
-    if (!control) {
+  async function requestWakeLock() {
+    try {
+      if ('wakeLock' in navigator) {
+        state.wakeLock = await navigator.wakeLock.request('screen');
+      }
+    } catch {}
+  }
+
+
+  /* =========================================================
+     GLOBAL EVENT LISTENERS
+     ========================================================= */
+
+  document.addEventListener("click", e => {
+
+    const card = e.target.closest("[data-mode]");
+    if (card) {
+      setMode(card.dataset.mode);
       return;
     }
 
-
-    const value =
-      Number(event.target.value);
-
-
-    if (control === "zoom") {
-
-      $("zoom-value")
-        .textContent =
-        value.toFixed(1);
-
-      sendControl(
-        "zoom",
-        value
-      );
-
-    }
-
-
-    if (control === "exposure") {
-
-      $("exposure-value")
-        .textContent =
-        value.toFixed(1);
-
-      sendControl(
-        "exposure",
-        value
-      );
-
-    }
-
-
-    if (control === "brightness") {
-
-      state.image.brightness =
-        value;
-
-      $("brightness-value")
-        .textContent =
-        value;
-
-      applyAllImageFilters();
-
-    }
-
-
-    if (control === "contrast") {
-
-      state.image.contrast =
-        value;
-
-      $("contrast-value")
-        .textContent =
-        value;
-
-      applyAllImageFilters();
-
-    }
-
-
-    if (control === "saturation") {
-
-      state.image.saturation =
-        value;
-
-      $("saturation-value")
-        .textContent =
-        value;
-
-      applyAllImageFilters();
-
-    }
-
-  }
-);
-
-
-/* =========================================================
-   CAMERA CONTROLS
-   ========================================================= */
-
-$("camera-zoom")
-  .addEventListener(
-    "input",
-    event => {
-
-      const value =
-        Number(event.target.value);
-
-
-      $("camera-zoom-value")
-        .textContent =
-        value.toFixed(1);
-
-
-      applyCameraConstraint(
-        "zoom",
-        value
-      );
-
-    }
-  );
-
-
-$("camera-exposure")
-  .addEventListener(
-    "input",
-    event => {
-
-      const value =
-        Number(event.target.value);
-
-
-      $("camera-exposure-value")
-        .textContent =
-        value.toFixed(1);
-
-
-      applyCameraConstraint(
-        "exposure",
-        value
-      );
-
-    }
-  );
-
-
-$("quality-select")
-  .addEventListener(
-    "change",
-    changeQuality
-  );
-
-
-$("camera-select")
-  .addEventListener(
-    "change",
-    event => {
-
-      switchCamera(
-        event.target.value
-      );
-
-    }
-  );
-
-
-/* =========================================================
-   COPY ROOM
-   ========================================================= */
-
-$("room-code")
-  .addEventListener(
-    "click",
-    async () => {
-
-      const code =
-        $("room-code")
-          .textContent
-          .trim();
-
-
-      try {
-
-        await navigator.clipboard
-          .writeText(code);
-
-        toast("Код скопирован");
-
-      } catch {
-
-        toast(
-          "Не удалось скопировать",
-          "warn"
-        );
-
+    const actionBtn = e.target.closest("[data-action]");
+    if (actionBtn) {
+
+      const action = actionBtn.dataset.action;
+
+      if (action === "qr") {
+        showQR(true);
+      }
+
+      if (action === "close-qr") {
+        showQR(false);
+      }
+
+      if (action === "panel") {
+        $("right-panel-el").classList.toggle("open");
+      }
+
+      if (action === "fullscreen") {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+      }
+
+      if (action === "zen") {
+        state.zen = !state.zen;
+        $("studio").classList.toggle("zen", state.zen);
+      }
+
+      if (action === "exit" || action === "back" || action === "stop") {
+        setMode(null);
+      }
+
+      if (action === "connect") {
+        const code = $("connection-code").value.trim().toLowerCase();
+        if (code.length === 6) {
+          connectAsCamera(code);
+        } else {
+          toast("Введите 6-значный код", "warn");
+        }
+      }
+
+      if (action === "torch") {
+        if (state.mode === "camera") {
+          toggleTorch();
+        } else {
+          sendControl("torch", true);
+        }
+      }
+
+      if (action === "flip-camera") {
+        state.facingMode = state.facingMode === "user" ? "environment" : "user";
+        if (state.mode === "camera" && state.data) {
+          const roomCode = $("connection-code").value.trim().toLowerCase();
+          connectAsCamera(roomCode);
+        }
       }
 
     }
-  );
+
+  });
 
 
-/* =========================================================
-   KEYBOARD
-   ========================================================= */
+  document.querySelectorAll("[data-control]").forEach(input => {
 
-window.addEventListener(
-  "keydown",
-  event => {
+    input.addEventListener("input", e => {
 
-    if (
-      state.mode !== "monitor"
-    ) {
-      return;
-    }
+      const target = e.target.dataset.control;
+      const val = parseFloat(e.target.value);
 
-
-    if (
-      event.key === "h" ||
-      event.key === "H" ||
-      event.key === "р" ||
-      event.key === "Р"
-    ) {
-
-      state.zen =
-        !state.zen;
-
-      $("studio")
-        .classList.toggle(
-          "zen",
-          state.zen
-        );
-
-    }
-
-
-    if (
-      event.key === "k" ||
-      event.key === "K" ||
-      event.key === "л" ||
-      event.key === "Л"
-    ) {
-
-      showQR(
-        !$("qr-modal")
-          .classList.contains(
-            "visible"
-          )
-      );
-
-    }
-
-
-    if (event.key === "Escape") {
-
-      showQR(false);
-
-    }
-
-  }
-);
-
-
-/* =========================================================
-   STAGE ZEN CLICK
-   ========================================================= */
-
-$("stage")
-  .addEventListener(
-    "click",
-    event => {
-
-      if (
-        event.target.closest(
-          ".qr-modal,.btn,.stage-top"
-        )
-      ) {
-        return;
+      if (target === "brightness" || target === "contrast" || target === "saturation") {
+        state.image[target] = val;
+        $(`${target}-value`).textContent = val;
+        applyImageFilters();
+      } else {
+        $(`${target}-value`).textContent = val.toFixed(1);
+        sendControl(target, val);
       }
 
+    });
 
-      state.zen =
-        !state.zen;
-
-
-      $("studio")
-        .classList.toggle(
-          "zen",
-          state.zen
-        );
-
-    }
-  );
+  });
 
 
-/* =========================================================
-   PWA INSTALL
-   ========================================================= */
+  /* =========================================================
+     SERVICE WORKER & STARTUP
+     ========================================================= */
 
-let deferredInstallPrompt = null;
-
-
-window.addEventListener(
-  "beforeinstallprompt",
-  event => {
-
-    event.preventDefault();
-
-    deferredInstallPrompt =
-      event;
-
-
-    $("install-button")
-      .style.display =
-      "flex";
-
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./sw.js").catch(() => {});
+    });
   }
-);
 
+  const startupParams = new URLSearchParams(location.search);
+  const startupMode = startupParams.get("m");
 
-$("install-button")
-  .addEventListener(
-    "click",
-    async () => {
-
-      if (!deferredInstallPrompt) {
-        return;
-      }
-
-
-      deferredInstallPrompt.prompt();
-
-      await deferredInstallPrompt
-        .userChoice;
-
-
-      deferredInstallPrompt = null;
-
-      $("install-button")
-        .style.display =
-        "none";
-
-    }
-  );
-
-
-/* =========================================================
-   SERVICE WORKER
-   ========================================================= */
-
-if (
-  "serviceWorker" in navigator
-) {
-
-  window.addEventListener(
-    "load",
-    () => {
-
-      navigator.serviceWorker
-        .register("./sw.js")
-        .then(() => {
-
-          console.log(
-            "[Glazok] Service Worker registered"
-          );
-
-        })
-        .catch(error => {
-
-          console.warn(
-            "[Glazok] Service Worker:",
-            error
-          );
-
-        });
-
-    }
-  );
-
-}
-
-
-/* =========================================================
-   URL SHORTCUT
-   ========================================================= */
-
-const startupParams =
-  new URLSearchParams(
-    location.search
-  );
-
-const startupMode =
-  startupParams.get("m");
-
-
-if (
-  startupMode === "monitor" ||
-  startupMode === "camera"
-) {
-
-  setTimeout(
-    () => {
-
+  if (startupMode === "monitor" || startupMode === "camera") {
+    setTimeout(() => {
       setMode(startupMode);
 
-      // Для OBS Browser Source: .../?m=monitor&zen=1 —
-      // сразу чистая картинка без интерфейса, ничего нажимать не нужно.
-      if (
-        startupMode === "monitor" &&
-        startupParams.get("zen") === "1"
-      ) {
-
+      if (startupMode === "monitor" && startupParams.get("zen") === "1") {
         state.zen = true;
-
-        $("studio")
-          .classList.add("zen");
-
+        $("studio").classList.add("zen");
       }
-
-    },
-    50
-  );
-
-}
-
-
-/* =========================================================
-   INIT
-   ========================================================= */
-
-updateGrid();
-
-console.log(
-  "%cGLAZOK STUDIO",
-  "color:#ff6b4a;font-size:20px;font-weight:bold"
-);
+    }, 100);
+  }
 
 </script>
 
