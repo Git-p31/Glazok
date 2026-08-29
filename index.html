@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
-  <meta name="theme-color" content="#0b0b0e">
+  <meta name="theme-color" content="#050508">
   <meta name="description" content="Glazok Studio — P2P камера для смартфона">
 
   <link rel="manifest" href="./manifest.webmanifest">
@@ -14,41 +14,35 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap"
-    rel="stylesheet"
-  >
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
   <style>
     :root {
-      --bg: #0b0b0e;
-      --panel: rgba(24, 24, 30, .78);
-      --panel-solid: #17171d;
-      --border: rgba(255, 255, 255, .08);
-      --hover: rgba(255, 255, 255, .12);
+      --bg: #050508;
+      --surface: rgba(255, 255, 255, 0.04);
+      --surface-border: rgba(255, 255, 255, 0.08);
+      --surface-hover: rgba(255, 255, 255, 0.08);
 
-      --accent: #ff6b4a;
-      --accent-dim: rgba(255, 107, 74, .15);
-      --accent-glow: rgba(255, 107, 74, .35);
+      --accent: #6366f1;
+      --accent-glow: rgba(99, 102, 241, 0.35);
 
-      --danger: #ff4b4b;
-      --ok: #34d399;
-      --warning: #fbbf24;
+      --danger: #ef4444;
+      --ok: #10b981;
+      --warning: #f59e0b;
 
-      --text: #f5f5f7;
-      --muted: #8e8e98;
+      --text: #f8fafc;
+      --muted: #64748b;
 
-      --display: "Space Grotesk", sans-serif;
-      --body: "Inter", sans-serif;
-      --mono: "IBM Plex Mono", monospace;
+      --font-sans: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
 
-      --radius-sm: 8px;
-      --radius-md: 12px;
-      --radius-lg: 16px;
-      --radius-xl: 20px;
+      --r-pill: 9999px;
+      --r-xl: 28px;
+      --r-lg: 18px;
+      --r-md: 12px;
     }
 
     * {
@@ -58,33 +52,31 @@
       -webkit-tap-highlight-color: transparent;
     }
 
-    html,
-    body {
+    html, body {
       width: 100%;
       height: 100%;
       overflow: hidden;
       background: var(--bg);
       color: var(--text);
-      font-family: var(--body);
+      font-family: var(--font-sans);
       -webkit-font-smoothing: antialiased;
     }
 
-    button,
-    input,
-    select {
+    button, input, select {
       font: inherit;
       color: inherit;
+      border: none;
+      outline: none;
     }
 
     select option {
-      background: #17171d;
+      background: #0f0f15;
       color: #fff;
     }
 
     button {
       cursor: pointer;
-      border: 0;
-      color: inherit;
+      user-select: none;
     }
 
     .app {
@@ -105,17 +97,15 @@
     }
 
     /* =========================
-       START
+       START SCREEN
     ========================= */
-
     #screen-select {
       align-items: center;
       justify-content: center;
       flex-direction: column;
       padding: 24px;
-      overflow-y: auto;
-      background:
-        radial-gradient(circle at 50% 30%, rgba(255,107,74,.08), transparent 35%),
+      background: 
+        radial-gradient(800px circle at 50% -20%, rgba(99, 102, 241, 0.15), transparent 80%),
         var(--bg);
     }
 
@@ -123,96 +113,102 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-bottom: 12px;
-      font-family: var(--display);
+      margin-bottom: 24px;
       font-weight: 700;
-      font-size: 22px;
-      letter-spacing: .04em;
+      font-size: 15px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
     }
 
     .logo-dot {
-      width: 12px;
-      height: 12px;
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
       background: var(--accent);
-      box-shadow: 0 0 20px var(--accent-glow);
-      animation: pulse 2s infinite;
+      box-shadow: 0 0 12px var(--accent-glow);
     }
 
     h1 {
-      margin-bottom: 10px;
+      margin-bottom: 12px;
       text-align: center;
-      font-family: var(--display);
-      font-size: clamp(26px, 5vw, 38px);
-      background: linear-gradient(135deg, #fff, var(--accent));
+      font-size: clamp(32px, 6vw, 56px);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      background: linear-gradient(180deg, #ffffff 30%, rgba(255,255,255,0.6));
       -webkit-background-clip: text;
       background-clip: text;
       color: transparent;
     }
 
     .lead {
-      max-width: 500px;
-      margin-bottom: 30px;
+      max-width: 440px;
+      margin-bottom: 40px;
       color: var(--muted);
-      font-size: 14px;
-      line-height: 1.5;
+      font-size: 15px;
+      line-height: 1.6;
       text-align: center;
     }
 
     .modes {
       display: flex;
       flex-direction: column;
-      width: min(100%, 420px);
+      width: min(100%, 380px);
       gap: 12px;
     }
 
     .mode-card {
       display: flex;
       align-items: center;
-      gap: 16px;
-      width: 100%;
-      padding: 18px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      background: var(--panel-solid);
+      gap: 18px;
+      padding: 18px 22px;
+      border: 1px solid var(--surface-border);
+      border-radius: var(--r-lg);
+      background: var(--surface);
+      backdrop-filter: blur(20px);
       text-align: left;
-      transition: .2s ease;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     .mode-card:hover {
-      border-color: var(--accent);
+      border-color: rgba(255, 255, 255, 0.2);
+      background: var(--surface-hover);
       transform: translateY(-2px);
     }
 
-    .mode-letter {
-      flex: 0 0 40px;
-      font-family: var(--mono);
-      font-size: 24px;
-      font-weight: 700;
+    .mode-card:active {
+      transform: translateY(0);
+    }
+
+    .mode-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      border-radius: var(--r-md);
+      background: rgba(255, 255, 255, 0.05);
+      font-family: var(--font-mono);
+      font-size: 18px;
+      font-weight: 600;
       color: var(--accent);
-      text-align: center;
     }
 
     .mode-copy strong {
       display: block;
-      margin-bottom: 4px;
-      font-family: var(--display);
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 2px;
     }
 
     .mode-copy span {
       color: var(--muted);
-      font-size: 12px;
-    }
-
-    .install {
-      border-color: var(--accent-dim);
-      background: linear-gradient(135deg, rgba(255,107,74,.08), transparent);
+      font-size: 13px;
     }
 
     /* =========================
-       STUDIO
+       MONITOR / STUDIO
     ========================= */
-
     #screen-monitor {
       width: 100%;
       height: 100%;
@@ -222,6 +218,7 @@
       display: flex;
       width: 100%;
       height: 100%;
+      background: #000;
     }
 
     .sidebar {
@@ -229,49 +226,37 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      width: 68px;
-      padding: 16px 0;
-      gap: 10px;
-      border-right: 1px solid var(--border);
-      background: #0f0f13;
-      transition: opacity .25s ease;
-    }
-
-    .sidebar-logo {
-      width: 14px;
-      height: 14px;
-      margin-bottom: 16px;
-      border-radius: 50%;
-      background: var(--accent);
-      box-shadow: 0 0 16px var(--accent-glow);
+      width: 72px;
+      padding: 24px 0;
+      gap: 12px;
+      background: var(--bg);
+      border-right: 1px solid var(--surface-border);
+      transition: transform 0.3s ease;
     }
 
     .sb-btn {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 46px;
-      height: 46px;
-      border-radius: var(--radius-md);
+      width: 44px;
+      height: 44px;
+      border-radius: var(--r-md);
       background: transparent;
-      color: var(--accent);
-      transition: .2s ease;
+      color: var(--muted);
+      transition: all 0.2s ease;
     }
 
     .sb-btn:hover {
-      background: #1a1a21;
-    }
-
-    .sb-btn:active {
-      transform: scale(.94);
+      background: var(--surface);
+      color: var(--text);
     }
 
     .sb-btn svg {
-      width: 22px;
-      height: 22px;
+      width: 20px;
+      height: 20px;
       fill: none;
       stroke: currentColor;
-      stroke-width: 1.8;
+      stroke-width: 2;
       stroke-linecap: round;
       stroke-linejoin: round;
     }
@@ -284,150 +269,81 @@
     .stage {
       position: relative;
       flex: 1;
-      min-width: 0;
+      height: 100%;
       background: #000;
       overflow: hidden;
     }
 
     .stage-top {
-      z-index: 10;
       position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-
+      top: 20px;
+      left: 20px;
+      right: 20px;
+      z-index: 10;
       display: flex;
       align-items: center;
-      gap: 8px;
-
-      padding: 14px 16px;
+      gap: 12px;
       pointer-events: none;
-
-      transition: opacity .25s ease;
     }
 
     .stage-top > * {
       pointer-events: auto;
     }
 
-    .stage-status {
-      display: flex;
+    .pill {
+      display: inline-flex;
       align-items: center;
-      gap: 8px;
-      padding: 7px 12px;
-
-      border: 1px solid var(--border);
-      border-radius: 24px;
-      background: var(--panel);
-      backdrop-filter: blur(14px);
-
-      font-family: var(--mono);
-      font-size: 11px;
+      gap: 10px;
+      padding: 8px 16px;
+      border: 1px solid var(--surface-border);
+      border-radius: var(--r-pill);
+      background: rgba(10, 10, 15, 0.75);
+      backdrop-filter: blur(24px);
+      font-size: 13px;
+      font-weight: 500;
     }
 
     .status-dot {
-      width: 8px;
-      height: 8px;
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
       background: var(--muted);
     }
 
-    .status-dot.ok {
-      background: var(--ok);
-      box-shadow: 0 0 8px var(--ok);
-    }
-
-    .status-dot.live {
-      background: var(--danger);
-      box-shadow: 0 0 8px var(--danger);
-      animation: pulse 1.4s infinite;
-    }
-
-    .status-dot.warn {
-      background: var(--warning);
-      box-shadow: 0 0 8px var(--warning);
-    }
-
-    .cam-bar {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
+    .status-dot.ok { background: var(--ok); box-shadow: 0 0 10px var(--ok); }
+    .status-dot.live { background: var(--danger); box-shadow: 0 0 10px var(--danger); animation: pulse 1.5s infinite; }
+    .status-dot.warn { background: var(--warning); box-shadow: 0 0 10px var(--warning); }
 
     .net-info {
-      display: flex;
-      gap: 12px;
       margin-left: auto;
-      padding: 7px 12px;
-
-      border: 1px solid var(--border);
-      border-radius: 24px;
-      background: var(--panel);
-      backdrop-filter: blur(14px);
-
-      color: var(--muted);
-      font-family: var(--mono);
-      font-size: 10px;
-    }
-
-    .net-info b {
-      color: var(--text);
-      font-weight: 500;
-    }
-
-    .net-info.good b {
-      color: var(--ok);
-    }
-
-    .net-info.bad b {
-      color: var(--danger);
-    }
-
-    .live-badge {
-      display: none;
-      color: var(--ok);
-      font-family: var(--mono);
+      font-family: var(--font-mono);
       font-size: 11px;
-      font-weight: 600;
+      color: var(--muted);
     }
 
-    .live-badge.visible {
-      display: block;
-    }
+    .net-info b { color: var(--text); }
 
     .video-grid {
       display: grid;
       width: 100%;
       height: 100%;
-      gap: 2px;
+      gap: 4px;
       background: #000;
+      padding: 4px;
     }
 
-    .video-grid.v1 {
-      grid-template-columns: 1fr;
-      grid-template-rows: 1fr;
-    }
-
-    .video-grid.v2 {
-      grid-template-columns: repeat(2, 1fr);
-      grid-template-rows: 1fr;
-    }
-
-    .video-grid.v3,
-    .video-grid.v4 {
-      grid-template-columns: repeat(2, 1fr);
-      grid-template-rows: repeat(2, 1fr);
-    }
+    .video-grid.v1 { grid-template-columns: 1fr; }
+    .video-grid.v2 { grid-template-columns: 1fr 1fr; }
+    .video-grid.v3, .video-grid.v4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
 
     .video-box {
       position: relative;
+      border-radius: var(--r-md);
+      overflow: hidden;
+      background: #09090d;
       display: flex;
       align-items: center;
       justify-content: center;
-      min-width: 0;
-      min-height: 0;
-      overflow: hidden;
-      background: #050505;
     }
 
     .video-box video {
@@ -435,569 +351,304 @@
       height: 100%;
       object-fit: contain;
       opacity: 0;
-      transition: opacity .25s ease;
-      filter:
-        brightness(var(--brightness, 1))
-        contrast(var(--contrast, 100%))
-        saturate(var(--saturation, 100%));
+      transition: opacity 0.3s ease;
     }
 
-    .video-box video.loaded {
-      opacity: 1;
-    }
+    .video-box video.loaded { opacity: 1; }
 
     .video-label {
       position: absolute;
-      left: 10px;
-      bottom: 10px;
-
-      padding: 5px 9px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-
-      background: rgba(0,0,0,.55);
-      backdrop-filter: blur(10px);
-
-      color: #fff;
-      font-family: var(--mono);
-      font-size: 10px;
-    }
-
-    .empty {
-      color: var(--muted);
-      font-family: var(--mono);
-      font-size: 12px;
+      left: 14px;
+      bottom: 14px;
+      padding: 6px 12px;
+      border-radius: var(--r-pill);
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(12px);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      border: 1px solid rgba(255,255,255,0.1);
     }
 
     /* =========================
-       RIGHT PANEL
+       RIGHT PANEL (DRAWER)
     ========================= */
-
     .right-panel {
       z-index: 25;
       position: absolute;
-      top: 12px;
-      right: 12px;
-      bottom: 12px;
-
+      top: 16px;
+      right: 16px;
+      bottom: 16px;
+      width: 300px;
+      padding: 24px;
+      border: 1px solid var(--surface-border);
+      border-radius: var(--r-xl);
+      background: rgba(10, 10, 15, 0.85);
+      backdrop-filter: blur(30px);
       display: flex;
       flex-direction: column;
-      width: 280px;
-      max-width: calc(100% - 24px);
-      gap: 18px;
-      padding: 20px 18px;
-
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg, 16px);
-      background: rgba(17,17,22,.94);
-      backdrop-filter: blur(20px);
-      box-shadow: 0 20px 50px rgba(0,0,0,.45);
-
-      overflow-y: auto;
-      transform: translateX(calc(100% + 24px));
-      transition: transform .3s ease;
+      gap: 20px;
+      transform: translateX(calc(100% + 32px));
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    .right-panel.open {
-      transform: translateX(0);
-    }
+    .right-panel.open { transform: translateX(0); }
 
-    .right-panel h3 {
-      margin-bottom: 4px;
-      color: var(--muted);
-      font-family: var(--display);
-      font-size: 11px;
-      font-weight: 500;
-      letter-spacing: .1em;
+    .panel-title {
+      font-size: 12px;
+      font-weight: 700;
       text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
     }
 
-    .control {
+    .control-group {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 8px;
     }
 
-    .control label {
+    .control-label {
       display: flex;
       justify-content: space-between;
+      font-size: 13px;
       color: var(--muted);
-      font-family: var(--mono);
-      font-size: 11px;
     }
 
-    .control label b {
-      color: var(--text);
-      font-weight: 500;
-    }
+    .control-label b { color: var(--text); font-family: var(--font-mono); }
 
     input[type="range"] {
       width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--surface-border);
       accent-color: var(--accent);
-    }
-
-    .divider {
-      height: 1px;
-      margin: 2px 0;
-      background: var(--border);
+      cursor: pointer;
     }
 
     /* =========================
-       BUTTONS
+       BUTTONS & MODALS
     ========================= */
-
     .btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
-
-      padding: 9px 14px;
-
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-
-      background: var(--panel);
+      gap: 8px;
+      padding: 10px 18px;
+      border: 1px solid var(--surface-border);
+      border-radius: var(--r-pill);
+      background: var(--surface);
+      backdrop-filter: blur(12px);
       color: var(--text);
-
-      font-size: 12px;
-      font-weight: 500;
-
-      backdrop-filter: blur(14px);
-      transition: .2s ease;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s ease;
     }
 
     .btn:hover {
-      border-color: var(--accent);
-      background: #202028;
+      background: var(--surface-hover);
+      border-color: rgba(255,255,255,0.2);
     }
 
-    .btn.active,
-    .btn.primary {
-      border-color: var(--accent);
-      background: var(--accent);
-      color: #2a0e06;
-      font-weight: 600;
+    .btn.active, .btn.primary {
+      background: #fff;
+      color: #000;
+      border-color: #fff;
     }
 
     .btn.danger {
-      border-color: rgba(255,75,75,.3);
+      background: rgba(239, 68, 68, 0.1);
+      border-color: rgba(239, 68, 68, 0.2);
       color: var(--danger);
     }
 
-    .btn.full {
-      width: 100%;
-    }
-
-    /* =========================
-       QR
-    ========================= */
+    .btn.full { width: 100%; }
 
     .qr-modal {
       position: absolute;
-      z-index: 50;
       top: 50%;
       left: 50%;
-
+      transform: translate(-50%, -50%);
+      z-index: 50;
       display: none;
       flex-direction: column;
       align-items: center;
-      gap: 14px;
-
-      width: min(90vw, 340px);
-      padding: 24px;
-
-      transform: translate(-50%, -50%);
-
-      border: 1px solid var(--border);
-      border-radius: var(--radius-xl);
-
-      background: rgba(20,20,26,.96);
-      box-shadow: 0 24px 80px rgba(0,0,0,.8);
-      backdrop-filter: blur(24px);
+      gap: 16px;
+      padding: 28px;
+      width: min(90vw, 320px);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--r-xl);
+      background: rgba(10, 10, 15, 0.9);
+      backdrop-filter: blur(30px);
     }
 
-    .qr-modal.visible {
-      display: flex;
-    }
-
-    .qr-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      width: 100%;
-    }
-
-    .qr-head span {
-      color: var(--muted);
-      font-family: var(--mono);
-      font-size: 10px;
-      letter-spacing: .1em;
-    }
-
-    .qr-close {
-      padding: 4px 8px;
-      border-radius: 6px;
-      background: transparent;
-      color: var(--muted);
-      font-size: 18px;
-    }
-
-    .qr-close:hover {
-      background: var(--hover);
-      color: #fff;
-    }
+    .qr-modal.visible { display: flex; }
 
     .qr-code-text {
-      width: 100%;
-      padding: 12px;
-
-      border: 1px dashed var(--border);
-      border-radius: 12px;
-
-      background: #0d0d11;
-
-      color: var(--accent);
-      font-family: var(--mono);
-      font-size: 24px;
+      font-family: var(--font-mono);
+      font-size: 28px;
       font-weight: 700;
-      letter-spacing: .15em;
-      text-align: center;
-
-      cursor: pointer;
-      user-select: all;
+      letter-spacing: 0.15em;
+      color: var(--accent);
     }
 
     .qr-box {
-      display: flex;
       padding: 12px;
-      border-radius: 12px;
-      background: white;
-    }
-
-    .qr-hint {
-      color: var(--muted);
-      font-size: 11px;
-      line-height: 1.5;
-      text-align: center;
+      border-radius: var(--r-lg);
+      background: #fff;
     }
 
     /* =========================
-       CAMERA
+       CAMERA SCREEN & LANDSCAPE
     ========================= */
-
     #screen-camera {
       position: relative;
       width: 100vw;
       height: 100dvh;
-      align-items: center;
-      justify-content: center;
       background: #000;
-      overflow: hidden;
     }
 
     .camera-connect {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
       display: flex;
       flex-direction: column;
       align-items: center;
-      width: min(90vw, 380px);
+      justify-content: center;
       padding: 24px;
-      z-index: 10;
-
-      border: 1px solid var(--border);
-      border-radius: var(--radius-xl);
-
-      background: var(--panel-solid);
-      box-shadow: 0 24px 80px rgba(0,0,0,.7);
-    }
-
-    .camera-connect h2 {
-      margin-bottom: 8px;
-      font-family: var(--display);
-      font-size: 20px;
-    }
-
-    .camera-connect p {
-      margin-bottom: 20px;
-      color: var(--muted);
-      font-size: 12px;
-      text-align: center;
+      background: var(--bg);
     }
 
     .code-input {
-      width: 100%;
-      margin-bottom: 10px;
-      padding: 13px;
-
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      outline: none;
-
-      background: #0d0d11;
+      width: min(100%, 280px);
+      margin: 20px 0 12px;
+      padding: 16px;
+      border: 1px solid var(--surface-border);
+      border-radius: var(--r-lg);
+      background: var(--surface);
       color: #fff;
-
-      font-family: var(--mono);
-      font-size: 20px;
-      letter-spacing: .15em;
+      font-family: var(--font-mono);
+      font-size: 24px;
+      letter-spacing: 0.2em;
       text-align: center;
       text-transform: uppercase;
-    }
-
-    .code-input:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-dim);
     }
 
     .camera-view {
       position: absolute;
       inset: 0;
       display: none;
-      background: #000;
       width: 100%;
       height: 100%;
     }
 
-    .camera-view.visible {
-      display: block;
-    }
+    .camera-view.visible { display: block; }
 
     .camera-video {
       position: absolute;
-      top: 0;
-      left: 0;
+      inset: 0;
       width: 100%;
       height: 100%;
-      object-fit: cover; /* Занимает весь экран без черных полос */
-      opacity: 0;
-      transition: opacity .3s ease;
-      background: #000;
-    }
-
-    .camera-video.loaded {
-      opacity: 1;
+      object-fit: cover; /* Заполняет весь экран без черных полей */
     }
 
     .camera-ui {
       position: absolute;
       inset: 0;
       z-index: 10;
-
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-
-      padding:
-        max(16px, env(safe-area-inset-top))
-        max(16px, env(safe-area-inset-right))
-        max(16px, env(safe-area-inset-bottom))
-        max(16px, env(safe-area-inset-left));
-
+      padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
       pointer-events: none;
     }
 
-    .camera-ui > * {
-      pointer-events: auto;
-    }
+    .camera-ui > * { pointer-events: auto; }
 
     .camera-top {
       display: flex;
-      align-items: center;
       justify-content: space-between;
-      gap: 8px;
-    }
-
-    .camera-top-actions {
-      display: flex;
-      gap: 8px;
+      align-items: center;
     }
 
     .camera-bottom {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 12px;
     }
 
-    .camera-controls {
+    .camera-controls-pill {
       display: flex;
-      flex-direction: column;
-      gap: 10px;
-
-      padding: 14px;
-
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-
-      background: var(--panel);
-      backdrop-filter: blur(18px);
+      gap: 8px;
+      padding: 8px;
+      border-radius: var(--r-pill);
+      background: rgba(10, 10, 15, 0.75);
+      backdrop-filter: blur(24px);
+      border: 1px solid var(--surface-border);
     }
 
-    .camera-row {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-
-    .camera-row .btn,
-    .camera-row select {
+    .camera-controls-pill select, .camera-controls-pill button {
       flex: 1;
-      min-width: 110px;
+      height: 40px;
+      border-radius: var(--r-pill);
+      padding: 0 14px;
     }
 
-    .camera-setting {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-
-      color: var(--muted);
-      font-family: var(--mono);
-      font-size: 11px;
-    }
-
-    .camera-setting label {
-      width: 55px;
-    }
-
-    .camera-setting input {
-      flex: 1;
-    }
-
-    .camera-setting b {
-      width: 40px;
-      color: #fff;
-      text-align: right;
-    }
-
-    /* =========================
-       LANDSCAPE MODE (ГОРИЗОНТАЛЬНЫЙ РЕЖИМ КАМЕРЫ)
-    ========================= */
-    @media (orientation: landscape) and (max-height: 500px) {
-      .camera-video {
-        object-fit: cover; /* 100% заполнение всего экрана */
-      }
-
+    /* ГОРИЗОНТАЛЬНЫЙ РЕЖИМ СМАРТФОНА */
+    @media (orientation: landscape) {
       .camera-ui {
         flex-direction: row;
-        align-items: stretch;
       }
 
       .camera-top {
         flex-direction: column;
         align-items: flex-start;
-        justify-content: space-between;
-        width: auto;
-      }
-
-      .camera-top-actions {
-        flex-direction: column;
       }
 
       .camera-bottom {
         justify-content: flex-end;
-        max-width: 320px;
-        width: 100%;
+        width: 280px;
       }
 
-      .camera-controls {
-        padding: 10px;
-        gap: 8px;
+      .camera-controls-pill {
+        flex-direction: column;
+        border-radius: var(--r-lg);
       }
     }
 
     /* =========================
-       TOAST
+       TOASTS & ZEN
     ========================= */
-
     .toasts {
       position: fixed;
+      top: 20px;
+      right: 20px;
       z-index: 1000;
-      top: 18px;
-      right: 18px;
-
       display: flex;
       flex-direction: column;
       gap: 8px;
-
       pointer-events: none;
     }
 
     .toast {
-      max-width: 320px;
-      padding: 12px 16px;
-
-      border: 1px solid var(--border);
-      border-radius: 12px;
-
-      background: var(--panel-solid);
-      box-shadow: 0 10px 30px rgba(0,0,0,.5);
-
+      padding: 12px 18px;
+      border-radius: var(--r-pill);
+      background: rgba(15, 15, 20, 0.9);
+      border: 1px solid var(--surface-border);
+      backdrop-filter: blur(20px);
       font-size: 13px;
+      color: var(--text);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }
 
-    .toast.ok {
-      border-color: var(--ok);
-    }
-
-    .toast.error {
-      border-color: var(--danger);
-    }
-
-    .toast.warn {
-      border-color: var(--warning);
-    }
-
-    /* =========================
-       ZEN
-    ========================= */
-
-    .studio.zen .stage-top {
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .studio.zen .sidebar {
-      width: 0;
-      min-width: 0;
-      padding: 0;
-      border: 0;
-      overflow: hidden;
+    .studio.zen .sidebar, .studio.zen .stage-top {
       opacity: 0;
       pointer-events: none;
     }
 
     @keyframes pulse {
       0%, 100% { opacity: 1; }
-      50% { opacity: .45; }
-    }
-
-    /* =========================
-       MOBILE
-    ========================= */
-
-    @media (max-width: 820px) {
-      .sidebar,
-      .right-panel {
-        display: none;
-      }
-
-      .stage-top {
-        padding: 10px;
-      }
-
-      .net-info {
-        display: none;
-      }
-
-      .cam-bar {
-        max-width: 70%;
-      }
-
-      .mode-card {
-        padding: 15px;
-      }
-
-      .camera-connect {
-        box-shadow: none;
-      }
+      50% { opacity: 0.3; }
     }
   </style>
 </head>
@@ -1006,407 +657,151 @@
 
 <div class="app">
 
+  <!-- START -->
   <section id="screen-select" class="screen active">
-
     <div class="logo">
       <span class="logo-dot"></span>
-      GLAZOK STUDIO
+      Glazok Studio
     </div>
 
-    <h1>P2P Web Camera</h1>
-
-    <p class="lead">
-      Превратите смартфон в беспроводную камеру.
-      Подключайте до 4 устройств к одной студии через P2P.
-    </p>
+    <h1>Камера без проводов.</h1>
+    <p class="lead">Превратите ваш смартфон в профессиональную беспроводную веб-камеру за секунду.</p>
 
     <div class="modes">
-
       <button class="mode-card" data-mode="monitor">
-        <span class="mode-letter">M</span>
-
-        <span class="mode-copy">
-          <strong>Монитор — ПК</strong>
-          <span>Студия управления смартфонами</span>
-        </span>
+        <div class="mode-icon">M</div>
+        <div class="mode-copy">
+          <strong>Монитор Studio</strong>
+          <span>Для компьютера или планшета</span>
+        </div>
       </button>
 
       <button class="mode-card" data-mode="camera">
-        <span class="mode-letter">C</span>
-
-        <span class="mode-copy">
-          <strong>Камера — телефон</strong>
-          <span>Использовать смартфон как камеру</span>
-        </span>
+        <div class="mode-icon">C</div>
+        <div class="mode-copy">
+          <strong>Камера</strong>
+          <span>Использовать этот телефон</span>
+        </div>
       </button>
 
-      <button
-        class="mode-card install"
-        id="install-button"
-        style="display:none"
-      >
-        <span class="mode-letter">↓</span>
-
-        <span class="mode-copy">
-          <strong>Установить Glazok</strong>
-          <span>Добавить приложение на устройство</span>
-        </span>
+      <button class="mode-card" id="install-button" style="display:none">
+        <div class="mode-icon">↓</div>
+        <div class="mode-copy">
+          <strong>Установить PWA</strong>
+          <span>Быстрый доступ с экрана</span>
+        </div>
       </button>
-
     </div>
-
   </section>
 
-
+  <!-- MONITOR -->
   <section id="screen-monitor" class="screen">
-
     <div class="studio" id="studio">
-
       <aside class="sidebar">
+        <div class="logo-dot" style="margin-bottom: 12px;"></div>
 
-        <div class="sidebar-logo"></div>
-
-        <button class="sb-btn" data-action="qr" title="Подключить камеру">
-          <svg viewBox="0 0 24 24">
-            <rect x="3" y="3" width="7" height="7" rx="1"></rect>
-            <rect x="14" y="3" width="7" height="7" rx="1"></rect>
-            <rect x="3" y="14" width="7" height="7" rx="1"></rect>
-            <path d="M14 14h3v3h-3zM20 14h1M14 20h1M18 18h3v3h-3z"></path>
-          </svg>
+        <button class="sb-btn" data-action="qr" title="QR Код">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><path d="M14 14h3v3h-3zM18 18h3v3h-3z"></path></svg>
         </button>
 
         <button class="sb-btn" data-action="grid" title="Сетка">
-          <svg viewBox="0 0 24 24">
-            <rect x="3" y="3" width="8" height="8" rx="2"></rect>
-            <rect x="13" y="3" width="8" height="8" rx="2"></rect>
-            <rect x="3" y="13" width="8" height="8" rx="2"></rect>
-            <rect x="13" y="13" width="8" height="8" rx="2"></rect>
-          </svg>
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2"></rect><rect x="13" y="3" width="8" height="8" rx="2"></rect><rect x="3" y="13" width="8" height="8" rx="2"></rect><rect x="13" y="13" width="8" height="8" rx="2"></rect></svg>
         </button>
 
-        <button class="sb-btn" id="panel-toggle" data-action="panel" title="Настройки камеры">
-          <svg viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="3"></circle>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-          </svg>
-        </button>
-
-        <button class="sb-btn" data-action="fullscreen" title="Fullscreen">
-          <svg viewBox="0 0 24 24">
-            <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"></path>
-          </svg>
+        <button class="sb-btn" id="panel-toggle" data-action="panel" title="Настройки">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
         </button>
 
         <button class="sb-btn" data-action="zen" title="Скрыть интерфейс">
-          <svg viewBox="0 0 24 24">
-            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path>
-            <circle cx="12" cy="12" r="3"></circle>
-          </svg>
+          <svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path><circle cx="12" cy="12" r="3"></circle></svg>
         </button>
 
-        <button class="sb-btn danger" data-action="exit" title="Выход">
-          ←
-        </button>
-
+        <button class="sb-btn danger" data-action="exit" title="Выход">✕</button>
       </aside>
 
-
-      <main class="stage" id="stage">
-
+      <main class="stage">
         <div class="stage-top">
-
-          <div class="stage-status">
+          <div class="pill">
             <span class="status-dot" id="monitor-dot"></span>
-            <span id="monitor-status">Запуск студии...</span>
+            <span id="monitor-status">Подключение...</span>
           </div>
 
-          <div class="cam-bar" id="camera-buttons"></div>
+          <div id="camera-buttons" style="display:flex; gap:8px;"></div>
 
-          <div class="net-info" id="network-info">
-            <span>RTT: <b id="latency">—</b> ms</span>
-            <span>FPS: <b id="fps">—</b></span>
+          <div class="pill net-info" id="network-info">
+            <span>RTT: <b id="latency">—</b>ms</span>
           </div>
-
-          <div class="live-badge" id="live-badge">
-            ● LIVE
-          </div>
-
         </div>
-
 
         <div class="video-grid v1" id="video-grid"></div>
 
-
         <div class="qr-modal" id="qr-modal">
-
-          <div class="qr-head">
-            <span>ПОДКЛЮЧЕНИЕ КАМЕРЫ</span>
-            <button class="qr-close" data-action="close-qr">×</button>
-          </div>
-
-          <div
-            class="qr-code-text"
-            id="room-code"
-            title="Нажмите для копирования"
-          >
-            ------
-          </div>
-
+          <span style="font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: 0.1em;">КОД ПОДКЛЮЧЕНИЯ</span>
+          <div class="qr-code-text" id="room-code">------</div>
           <div class="qr-box" id="qr-box"></div>
-
-          <div class="qr-hint">
-            Отсканируйте QR-код смартфоном<br>
-            или введите код вручную.
-          </div>
-
+          <button class="btn full" data-action="close-qr">Закрыть</button>
         </div>
-
       </main>
 
-
       <aside class="right-panel" id="right-panel-el">
+        <div class="panel-title">Коррекция картинки</div>
 
-        <h3>Камера</h3>
-
-        <div class="control">
-          <label>
-            Zoom
-            <b id="zoom-value">1.0</b>
-          </label>
-
-          <input
-            type="range"
-            min="1"
-            max="5"
-            step=".1"
-            value="1"
-            data-control="zoom"
-          >
+        <div class="control-group">
+          <div class="control-label">Яркость <b id="brightness-value">100</b></div>
+          <input type="range" min="50" max="150" value="100" data-control="brightness">
         </div>
 
-        <div class="control">
-          <label>
-            Exposure
-            <b id="exposure-value">0.0</b>
-          </label>
-
-          <input
-            type="range"
-            min="-2"
-            max="2"
-            step=".1"
-            value="0"
-            data-control="exposure"
-          >
+        <div class="control-group">
+          <div class="control-label">Контраст <b id="contrast-value">100</b></div>
+          <input type="range" min="50" max="150" value="100" data-control="contrast">
         </div>
 
-
-        <div class="divider"></div>
-
-        <h3>Изображение</h3>
-
-        <div class="control">
-          <label>
-            Brightness
-            <b id="brightness-value">100</b>
-          </label>
-
-          <input
-            type="range"
-            min="50"
-            max="150"
-            value="100"
-            data-control="brightness"
-          >
+        <div class="control-group">
+          <div class="control-label">Насыщенность <b id="saturation-value">100</b></div>
+          <input type="range" min="0" max="200" value="100" data-control="saturation">
         </div>
 
-        <div class="control">
-          <label>
-            Contrast
-            <b id="contrast-value">100</b>
-          </label>
-
-          <input
-            type="range"
-            min="50"
-            max="150"
-            value="100"
-            data-control="contrast"
-          >
-        </div>
-
-        <div class="control">
-          <label>
-            Saturation
-            <b id="saturation-value">100</b>
-          </label>
-
-          <input
-            type="range"
-            min="0"
-            max="200"
-            value="100"
-            data-control="saturation"
-          >
-        </div>
-
-
-        <div class="divider"></div>
-
-        <h3>Быстрые действия</h3>
-
-        <button class="btn full" data-action="torch">
-          💡 Вспышка
-        </button>
-
-        <button class="btn full" data-action="snapshot">
-          📸 Снимок
-        </button>
-
+        <div class="panel-title" style="margin-top: 12px;">Управление</div>
+        <button class="btn full" data-action="torch">💡 Вспышка</button>
       </aside>
-
     </div>
-
   </section>
 
-
+  <!-- CAMERA -->
   <section id="screen-camera" class="screen">
-
     <div class="camera-connect" id="camera-connect">
-      <button class="btn" data-action="back" style="margin-bottom:18px">
-        ← Назад
-      </button>
-
-      <h2>Подключение</h2>
-
-      <p>
-        Введите код, который показывает Glazok Studio на компьютере.
-      </p>
-
-      <input
-        class="code-input"
-        id="connection-code"
-        maxlength="6"
-        autocomplete="off"
-        autocapitalize="characters"
-        spellcheck="false"
-        placeholder="A1B2C3"
-      >
-
-      <button class="btn primary full" data-action="connect">
-        Подключить камеру
-      </button>
+      <button class="btn" data-action="back" style="position: absolute; top: 20px; left: 20px;">← Назад</button>
+      <h2 style="font-size: 24px; font-weight: 700;">Ввод кода</h2>
+      <input class="code-input" id="connection-code" maxlength="6" placeholder="A1B2C3" autocomplete="off">
+      <button class="btn primary full" style="max-width: 280px;" data-action="connect">Подключиться</button>
     </div>
 
-
     <div class="camera-view" id="camera-view">
-
-      <video
-        id="camera-video"
-        class="camera-video"
-        autoplay
-        playsinline
-        muted
-      ></video>
+      <video id="camera-video" class="camera-video" autoplay playsinline muted></video>
 
       <div class="camera-ui">
-
         <div class="camera-top">
-          <div class="stage-status">
+          <div class="pill">
             <span class="status-dot warn" id="camera-dot"></span>
             <span id="camera-status">Подключение...</span>
           </div>
 
-          <div class="camera-top-actions">
-            <button
-              class="btn"
-              id="torch-button"
-              data-action="torch"
-              style="display:none"
-            >
-              💡
-            </button>
-
-            <button
-              class="btn"
-              id="flip-button"
-              data-action="flip-camera"
-              title="Сменить камеру"
-            >
-              🔄
-            </button>
-          </div>
+          <button class="btn" data-action="flip-camera">🔄</button>
         </div>
-
 
         <div class="camera-bottom">
+          <div class="camera-controls-pill">
+            <select class="btn" id="quality-select">
+              <option value="1080p30">1080p 30 FPS</option>
+              <option value="720p30">720p 30 FPS</option>
+              <option value="480p30">480p 30 FPS</option>
+            </select>
 
-          <div class="camera-controls">
-
-            <div
-              class="camera-setting"
-              id="zoom-row"
-              style="display:none"
-            >
-              <label>Zoom</label>
-              <input
-                type="range"
-                id="camera-zoom"
-                min="1"
-                max="5"
-                step=".1"
-                value="1"
-              >
-              <b id="camera-zoom-value">1.0</b>
-            </div>
-
-            <div
-              class="camera-setting"
-              id="exposure-row"
-              style="display:none"
-            >
-              <label>Exp</label>
-              <input
-                type="range"
-                id="camera-exposure"
-                min="-2"
-                max="2"
-                step=".1"
-                value="0"
-              >
-              <b id="camera-exposure-value">0.0</b>
-            </div>
-
-
-            <div class="camera-row">
-
-              <select class="btn" id="quality-select">
-                <option value="1080p30">1080p 30 FPS</option>
-                <option value="1080p60">1080p 60 FPS</option>
-                <option value="1440p30">2K 30 FPS</option>
-                <option value="2160p30">4K 30 FPS</option>
-                <option value="720p30">720p 30 FPS</option>
-                <option value="480p30">480p 30 FPS</option>
-              </select>
-
-              <select class="btn" id="camera-select">
-                <option value="">Камера...</option>
-              </select>
-
-              <button class="btn danger" data-action="stop">
-                ⏹ Стоп
-              </button>
-
-            </div>
-
+            <button class="btn danger" data-action="stop">⏹ Стоп</button>
           </div>
-
         </div>
-
       </div>
-
     </div>
-
   </section>
 
 </div>
@@ -1416,10 +811,6 @@
 <script>
   "use strict";
 
-  /* =========================================================
-     GLAZOK STUDIO PWA
-     ========================================================= */
-
   const $ = id => document.getElementById(id);
 
   const state = {
@@ -1427,107 +818,37 @@
     peer: null,
     room: null,
     stream: null,
-    call: null,
-    data: null,
     connections: new Map(),
     activeCamera: null,
     viewMode: "auto",
     zen: false,
-    torch: false,
-    wakeLock: null,
-    reconnectTimer: null,
-    reconnectAttempts: 0,
-    currentBitrate: null,
-    cameraDevices: null,
-    monitorPingTimer: null,
     facingMode: "environment",
-    image: {
-      brightness: 100,
-      contrast: 100,
-      saturation: 100
-    },
-    fps: {
-      value: 0,
-      frames: 0,
-      lastTime: performance.now()
-    }
+    image: { brightness: 100, contrast: 100, saturation: 100 }
   };
-
-
-  /* =========================================================
-     TOAST
-     ========================================================= */
 
   function toast(message, type = "ok") {
     const el = document.createElement("div");
     el.className = `toast ${type}`;
     el.textContent = message;
     $("toasts").appendChild(el);
-
-    setTimeout(() => {
-      el.remove();
-    }, 3200);
+    setTimeout(() => el.remove(), 3000);
   }
-
-
-  /* =========================================================
-     RANDOM ROOM
-     ========================================================= */
 
   function randomCode(length = 6) {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    let result = "";
-
-    for (let i = 0; i < length; i++) {
-      result += chars[Math.floor(Math.random() * chars.length)];
-    }
-
-    return result;
+    let res = "";
+    for (let i = 0; i < length; i++) res += chars[Math.floor(Math.random() * chars.length)];
+    return res;
   }
 
-
-  /* =========================================================
-     PEER CONFIG
-     ========================================================= */
-
   const PEER_CONFIG = {
-    config: {
-      iceServers: [
-        { urls: "stun:stun.l.google.com:19302" },
-        { urls: "stun:stun1.l.google.com:19302" },
-        {
-          urls: "turn:openrelay.metered.ca:80",
-          username: "openrelayproject",
-          credential: "openrelayproject"
-        },
-        {
-          urls: "turn:openrelay.metered.ca:443",
-          username: "openrelayproject",
-          credential: "openrelayproject"
-        },
-        {
-          urls: "turn:openrelay.metered.ca:443?transport=tcp",
-          username: "openrelayproject",
-          credential: "openrelayproject"
-        }
-      ],
-      iceTransportPolicy: "all"
-    }
+    config: { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] }
   };
-
-
-  /* =========================================================
-     NAVIGATION
-     ========================================================= */
 
   function setMode(mode) {
     teardown();
-
     state.mode = mode;
-
-    document.querySelectorAll(".screen").forEach(screen => {
-      screen.classList.remove("active");
-    });
+    document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
 
     if (mode === "monitor") {
       $("screen-monitor").classList.add("active");
@@ -1540,811 +861,167 @@
     }
   }
 
-
-  function exitApp() {
-    setMode(null);
-  }
-
-
-  /* =========================================================
-     CLEANUP
-     ========================================================= */
-
   function teardown() {
-    clearTimeout(state.reconnectTimer);
-
-    if (state.monitorPingTimer) {
-      clearInterval(state.monitorPingTimer);
-      state.monitorPingTimer = null;
-    }
-
-    if (state.peer) {
-      try {
-        state.peer.destroy();
-      } catch {}
-    }
-
+    if (state.peer) state.peer.destroy();
+    if (state.stream) state.stream.getTracks().forEach(t => t.stop());
     state.peer = null;
-
-    if (state.stream) {
-      state.stream.getTracks().forEach(track => {
-        try {
-          track.stop();
-        } catch {}
-      });
-    }
-
     state.stream = null;
-    state.call = null;
-    state.data = null;
     state.connections.clear();
-
-    if (state.wakeLock) {
-      try {
-        state.wakeLock.release();
-      } catch {}
-      state.wakeLock = null;
-    }
-
     $("video-grid").innerHTML = "";
-    state.activeCamera = null;
-    state.reconnectAttempts = 0;
   }
 
-
-  /* =========================================================
-     MONITOR
-     ========================================================= */
-
+  /* MONITOR LOGIC */
   function initMonitor() {
     state.room = randomCode(6).toLowerCase();
+    state.peer = new Peer("glz-" + state.room, PEER_CONFIG);
 
-    const peerId = "glz-" + state.room;
-
-    setMonitorStatus("Создание студии...", "warn");
-
-    const peer = new Peer(peerId, PEER_CONFIG);
-    state.peer = peer;
-
-    peer.on("open", () => {
-      setMonitorStatus("Готов к подключению", "ok");
-
+    state.peer.on("open", () => {
+      $("monitor-status").textContent = "Готов";
+      $("monitor-dot").className = "status-dot ok";
       $("room-code").textContent = state.room.toUpperCase();
-
       renderQR();
-      updateGrid();
-      showQR(true);
-
-      toast("Студия готова. Код: " + state.room.toUpperCase());
+      $("qr-modal").classList.add("visible");
     });
 
-
-    peer.on("connection", connection => {
-
-      connection.on("open", () => {
-
-        if (state.connections.size >= 4) {
-
-          connection.send({
-            type: "ERROR",
-            message: "MAX_CAMERAS"
-          });
-
-          setTimeout(() => {
-            try {
-              connection.close();
-            } catch {}
-          }, 300);
-
-          toast("Максимум 4 камеры", "warn");
-          return;
-
-        }
-
-        let entry = state.connections.get(connection.peer) || {};
-        entry.conn = connection;
-
-        state.connections.set(connection.peer, entry);
-
-        connection.on("data", data => {
-          handleMonitorData(connection.peer, data);
-        });
-
-        connection.on("close", () => {
-          removeCamera(connection.peer);
-        });
-
-        connection.on("error", () => {
-          removeCamera(connection.peer);
-        });
-
-        connection.send({
-          type: "WELCOME",
-          room: state.room
-        });
-
-        broadcastAir();
-
-      });
-
-    });
-
-
-    peer.on("call", call => {
-
-      call.answer();
-
-      call.on("stream", stream => {
-
-        let entry = state.connections.get(call.peer) || {};
-        entry.call = call;
-        entry.stream = stream;
-
-        state.connections.set(call.peer, entry);
-
-        showQR(false);
+    state.peer.on("connection", conn => {
+      conn.on("open", () => {
+        state.connections.set(conn.peer, { conn });
         updateGrid();
-
-        toast("Камера подключена");
-
       });
-
-      call.on("close", () => {
-        removeCamera(call.peer);
-      });
-
-      call.on("error", error => {
-        console.error("Call error:", error);
-        removeCamera(call.peer);
-      });
-
     });
 
-
-    peer.on("error", error => {
-
-      console.error("Peer error:", error);
-
-      if (error.type === "unavailable-id") {
-
-        toast("ID комнаты занят. Создаём новую...", "warn");
-
-        setTimeout(() => {
-          if (state.mode === "monitor") {
-            initMonitor();
-          }
-        }, 800);
-
-        return;
-
-      }
-
-      toast("Ошибка P2P: " + error.type, "error");
-
+    state.peer.on("call", call => {
+      call.answer();
+      call.on("stream", stream => {
+        let entry = state.connections.get(call.peer) || {};
+        entry.stream = stream;
+        state.connections.set(call.peer, entry);
+        $("qr-modal").classList.remove("visible");
+        updateGrid();
+      });
     });
-
-
-    peer.on("disconnected", () => {
-      setMonitorStatus("Соединение с сервером потеряно", "warn");
-
-      try {
-        peer.reconnect();
-      } catch {}
-    });
-
   }
-
-
-  /* =========================================================
-     MONITOR DATA
-     ========================================================= */
-
-  function handleMonitorData(peerId, data) {
-
-    if (!data || typeof data !== "object") {
-      return;
-    }
-
-    if (data.type === "PONG") {
-      const rtt = Date.now() - Number(data.t || Date.now());
-      updateLatency(rtt);
-      return;
-    }
-
-    if (data.type === "FPS") {
-      updateFPS(Number(data.fps) || 0);
-      return;
-    }
-
-  }
-
-
-  /* =========================================================
-     REMOVE CAMERA
-     ========================================================= */
-
-  function removeCamera(peerId) {
-
-    if (!state.connections.has(peerId)) {
-      return;
-    }
-
-    state.connections.delete(peerId);
-
-    if (state.activeCamera === peerId) {
-      state.activeCamera = null;
-    }
-
-    updateGrid();
-
-    toast("Камера отключена", "warn");
-
-  }
-
-
-  /* =========================================================
-     GRID
-     ========================================================= */
 
   function updateGrid() {
-
     const grid = $("video-grid");
-    const bar = $("camera-buttons");
-
     grid.innerHTML = "";
-    bar.innerHTML = "";
+    const cams = [...state.connections.entries()].filter(([, item]) => item.stream);
 
-    const cameras = [...state.connections.entries()].filter(
-      ([, item]) => item.stream
-    );
-
-
-    if (!cameras.length) {
-
+    if (!cams.length) {
       grid.className = "video-grid v1";
-
-      const empty = document.createElement("div");
-      empty.className = "video-box";
-      empty.innerHTML = `
-        <div class="empty">
-          Ожидание камер...
-        </div>
-      `;
-
-      grid.appendChild(empty);
-
-      $("live-badge").classList.remove("visible");
-
-      setMonitorStatus("Ожидание устройств...", "warn");
-      showQR(true);
-
+      grid.innerHTML = `<div class="video-box"><span style="color:var(--muted)">Ожидание подключения камеры...</span></div>`;
       return;
-
     }
 
-
-    $("live-badge").classList.add("visible");
-    setMonitorStatus(`В эфире: ${cameras.length}/4`, "live");
-
-    const keys = cameras.map(([key]) => key);
-
-    if (!state.activeCamera || !keys.includes(state.activeCamera)) {
-      state.activeCamera = keys[0];
-    }
-
-
-    cameras.forEach(([peerId], index) => {
-
-      const button = document.createElement("button");
-
-      button.className =
-        "btn" +
-        (state.activeCamera === peerId && state.viewMode === "single"
-          ? " active"
-          : "");
-
-      button.textContent = "📱 К" + (index + 1);
-
-      button.onclick = () => {
-        state.activeCamera = peerId;
-        state.viewMode = "single";
-        updateGrid();
-        broadcastAir();
-      };
-
-      bar.appendChild(button);
-
-    });
-
-
-    if (cameras.length > 1) {
-
-      const gridButton = document.createElement("button");
-
-      gridButton.className =
-        "btn" + (state.viewMode === "grid" ? " active" : "");
-
-      gridButton.textContent = "▦ Сетка";
-
-      gridButton.onclick = () => {
-        state.viewMode =
-          state.viewMode === "grid" ? "single" : "grid";
-
-        updateGrid();
-        broadcastAir();
-      };
-
-      bar.appendChild(gridButton);
-
-    }
-
-
-    const showGrid =
-      state.viewMode === "grid" ||
-      (state.viewMode === "auto" && cameras.length > 1);
-
-    const visible = showGrid
-      ? cameras.slice(0, 4)
-      : cameras.filter(([peerId]) => peerId === state.activeCamera);
-
-
-    grid.className = "video-grid v" + Math.max(1, Math.min(4, visible.length));
-
-
-    visible.forEach(([peerId, item]) => {
-
+    grid.className = "video-grid v" + Math.min(4, cams.length);
+    cams.forEach(([id, item], idx) => {
       const box = document.createElement("div");
       box.className = "video-box";
-
       const video = document.createElement("video");
       video.autoplay = true;
       video.playsInline = true;
       video.muted = true;
       video.srcObject = item.stream;
-
-      video.onloadeddata = () => {
-        video.classList.add("loaded");
-        applyImageFilters(video);
-      };
-
+      video.onloadeddata = () => video.classList.add("loaded");
+      
       const label = document.createElement("div");
       label.className = "video-label";
-      label.textContent = "CAM " + (keys.indexOf(peerId) + 1);
+      label.textContent = "Камера " + (idx + 1);
 
       box.appendChild(video);
       box.appendChild(label);
-
       grid.appendChild(box);
-
     });
-
   }
-
-
-  /* =========================================================
-     AIR
-     ========================================================= */
-
-  function broadcastAir() {
-
-    const cameras = [...state.connections.entries()].filter(
-      ([, item]) => item.stream
-    );
-
-    const grid =
-      state.viewMode === "grid" ||
-      (state.viewMode === "auto" && cameras.length > 1);
-
-    state.connections.forEach((item, peerId) => {
-
-      if (!item.conn?.open) {
-        return;
-      }
-
-      try {
-        item.conn.send({
-          type: "AIR",
-          onAir: grid || peerId === state.activeCamera
-        });
-      } catch {}
-
-    });
-
-  }
-
-
-  /* =========================================================
-     CONTROLS
-     ========================================================= */
-
-  let controlTimer = null;
-
-  function sendControl(param, value) {
-
-    clearTimeout(controlTimer);
-
-    controlTimer = setTimeout(() => {
-
-      state.connections.forEach(item => {
-
-        if (!item.conn?.open) {
-          return;
-        }
-
-        try {
-          item.conn.send({
-            type: "CTRL",
-            param,
-            value
-          });
-        } catch {}
-
-      });
-
-    }, 50);
-
-  }
-
-
-  /* =========================================================
-     IMAGE FILTERS
-     ========================================================= */
-
-  function applyImageFilters(videoTarget) {
-
-    const css = `
-      brightness(${state.image.brightness}%)
-      contrast(${state.image.contrast}%)
-      saturate(${state.image.saturation}%)
-    `;
-
-    if (videoTarget) {
-      videoTarget.style.filter = css;
-      return;
-    }
-
-    document.querySelectorAll(".video-box video").forEach(video => {
-      video.style.filter = css;
-    });
-
-  }
-
-
-  /* =========================================================
-     STATUS HELPER
-     ========================================================= */
-
-  function setMonitorStatus(text, type = "muted") {
-    $("monitor-status").textContent = text;
-    $("monitor-dot").className = "status-dot " + type;
-  }
-
-  function setCameraStatus(text, type = "muted") {
-    $("camera-status").textContent = text;
-    $("camera-dot").className = "status-dot " + type;
-  }
-
-  function updateLatency(ms) {
-    $("latency").textContent = ms;
-    const info = $("network-info");
-
-    if (ms < 100) {
-      info.className = "net-info good";
-    } else {
-      info.className = "net-info bad";
-    }
-  }
-
-  function updateFPS(val) {
-    $("fps").textContent = val;
-  }
-
-
-  /* =========================================================
-     QR MODAL
-     ========================================================= */
 
   function renderQR() {
     const box = $("qr-box");
     box.innerHTML = "";
-
     const url = `${location.origin}${location.pathname}?m=camera&room=${state.room}`;
-
-    if (window.QRCode) {
-      new QRCode(box, {
-        text: url,
-        width: 160,
-        height: 160,
-        colorDark: "#000000",
-        colorLight: "#ffffff",
-        correctLevel: QRCode.CorrectLevel.M
-      });
-    }
+    if (window.QRCode) new QRCode(box, { text: url, width: 140, height: 140 });
   }
 
-  function showQR(visible) {
-    if (visible) {
-      $("qr-modal").classList.add("visible");
-    } else {
-      $("qr-modal").classList.remove("visible");
-    }
-  }
-
-
-  /* =========================================================
-     CAMERA MODE
-     ========================================================= */
-
+  /* CAMERA LOGIC */
   function initCamera() {
     $("camera-connect").style.display = "flex";
     $("camera-view").classList.remove("visible");
-
-    const code = new URLSearchParams(location.search).get("room");
-
-    if (code) {
-      $("connection-code").value = code.toUpperCase();
-      connectAsCamera(code.toLowerCase());
-    }
   }
 
-
-  function connectAsCamera(roomCode) {
-
+  async function connectAsCamera(code) {
     teardown();
+    state.peer = new Peer(PEER_CONFIG);
 
-    setCameraStatus("Подключение к P2P...", "warn");
+    state.peer.on("open", () => {
+      const target = "glz-" + code;
+      const conn = state.peer.connect(target);
 
-    const peer = new Peer(PEER_CONFIG);
-    state.peer = peer;
-
-    peer.on("open", id => {
-
-      const targetPeer = "glz-" + roomCode;
-      const conn = peer.connect(targetPeer);
-      state.data = conn;
-
-      conn.on("open", () => {
-        setCameraStatus("Получение видео...", "warn");
-        startCameraStream(targetPeer);
+      conn.on("open", async () => {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: state.facingMode, width: { ideal: 1920 } },
+            audio: false
+          });
+          state.stream = stream;
+          $("camera-video").srcObject = stream;
+          $("camera-connect").style.display = "none";
+          $("camera-view").classList.add("visible");
+          state.peer.call(target, stream);
+          $("camera-status").textContent = "В эфире";
+          $("camera-dot").className = "status-dot live";
+        } catch {
+          toast("Ошибка доступа к камере", "error");
+        }
       });
-
-      conn.on("data", data => {
-        handleCameraData(data);
-      });
-
-      conn.on("close", () => {
-        toast("Студия отключилась", "warn");
-        setCameraStatus("Отключено", "warn");
-      });
-
-      conn.on("error", () => {
-        toast("Ошибка соединения", "error");
-      });
-
     });
-
-    peer.on("error", err => {
-      toast("Ошибка P2P: " + err.type, "error");
-      setCameraStatus("Ошибка", "warn");
-    });
-
   }
 
-
-  async function startCameraStream(targetPeer) {
-
-    try {
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: state.facingMode,
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
-        },
-        audio: false
-      });
-
-      state.stream = stream;
-
-      const video = $("camera-video");
-      video.srcObject = stream;
-
-      video.onloadedmetadata = () => {
-        video.classList.add("loaded");
-      };
-
-      $("camera-connect").style.display = "none";
-      $("camera-view").classList.add("visible");
-
-      const call = state.peer.call(targetPeer, stream);
-      state.call = call;
-
-      setCameraStatus("В эфире", "live");
-      requestWakeLock();
-
-    } catch (e) {
-
-      console.error(e);
-      toast("Ошибка доступа к камере", "error");
-      setCameraStatus("Нет доступа", "warn");
-
-    }
-
-  }
-
-
-  function handleCameraData(data) {
-
-    if (!data || typeof data !== "object") return;
-
-    if (data.type === "WELCOME") {
-      toast("Успешно подключено");
-    }
-
-    if (data.type === "CTRL") {
-      if (data.param === "torch") {
-        toggleTorch();
-      }
-    }
-
-  }
-
-
-  function toggleTorch() {
-
-    if (!state.stream) return;
-
-    const track = state.stream.getVideoTracks()[0];
-
-    if (!track) return;
-
-    const caps = track.getCapabilities ? track.getCapabilities() : {};
-
-    if (caps.torch) {
-      state.torch = !state.torch;
-
-      track.applyConstraints({
-        advanced: [{ torch: state.torch }]
-      }).catch(() => {});
-
-      toast(state.torch ? "Вспышка вкл" : "Вспышка выкл");
-    } else {
-      toast("Вспышка не поддерживается", "warn");
-    }
-
-  }
-
-
-  async function requestWakeLock() {
-    try {
-      if ('wakeLock' in navigator) {
-        state.wakeLock = await navigator.wakeLock.request('screen');
-      }
-    } catch {}
-  }
-
-
-  /* =========================================================
-     GLOBAL EVENT LISTENERS
-     ========================================================= */
-
+  /* EVENT LISTENERS */
   document.addEventListener("click", e => {
-
     const card = e.target.closest("[data-mode]");
-    if (card) {
-      setMode(card.dataset.mode);
-      return;
-    }
+    if (card) return setMode(card.dataset.mode);
 
     const actionBtn = e.target.closest("[data-action]");
     if (actionBtn) {
-
-      const action = actionBtn.dataset.action;
-
-      if (action === "qr") {
-        showQR(true);
-      }
-
-      if (action === "close-qr") {
-        showQR(false);
-      }
-
-      if (action === "panel") {
-        $("right-panel-el").classList.toggle("open");
-      }
-
-      if (action === "fullscreen") {
-        if (!document.fullscreenElement) {
-          document.documentElement.requestFullscreen().catch(() => {});
-        } else {
-          document.exitFullscreen().catch(() => {});
-        }
-      }
-
-      if (action === "zen") {
+      const act = actionBtn.dataset.action;
+      if (act === "qr") $("qr-modal").classList.add("visible");
+      if (act === "close-qr") $("qr-modal").classList.remove("visible");
+      if (act === "panel") $("right-panel-el").classList.toggle("open");
+      if (act === "zen") {
         state.zen = !state.zen;
         $("studio").classList.toggle("zen", state.zen);
       }
-
-      if (action === "exit" || action === "back" || action === "stop") {
-        setMode(null);
-      }
-
-      if (action === "connect") {
+      if (act === "exit" || act === "back" || act === "stop") setMode(null);
+      if (act === "connect") {
         const code = $("connection-code").value.trim().toLowerCase();
-        if (code.length === 6) {
-          connectAsCamera(code);
-        } else {
-          toast("Введите 6-значный код", "warn");
-        }
+        if (code) connectAsCamera(code);
       }
-
-      if (action === "torch") {
-        if (state.mode === "camera") {
-          toggleTorch();
-        } else {
-          sendControl("torch", true);
-        }
-      }
-
-      if (action === "flip-camera") {
+      if (act === "flip-camera") {
         state.facingMode = state.facingMode === "user" ? "environment" : "user";
-        if (state.mode === "camera" && state.data) {
-          const roomCode = $("connection-code").value.trim().toLowerCase();
-          connectAsCamera(roomCode);
-        }
+        const code = $("connection-code").value.trim().toLowerCase();
+        if (code) connectAsCamera(code);
       }
-
     }
-
   });
-
 
   document.querySelectorAll("[data-control]").forEach(input => {
-
     input.addEventListener("input", e => {
-
       const target = e.target.dataset.control;
       const val = parseFloat(e.target.value);
-
-      if (target === "brightness" || target === "contrast" || target === "saturation") {
-        state.image[target] = val;
-        $(`${target}-value`).textContent = val;
-        applyImageFilters();
-      } else {
-        $(`${target}-value`).textContent = val.toFixed(1);
-        sendControl(target, val);
-      }
-
+      state.image[target] = val;
+      $(`${target}-value`).textContent = val;
+      document.querySelectorAll(".video-box video").forEach(v => {
+        v.style.filter = `brightness(${state.image.brightness}%) contrast(${state.image.contrast}%) saturate(${state.image.saturation}%)`;
+      });
     });
-
   });
-
-
-  /* =========================================================
-     SERVICE WORKER & STARTUP
-     ========================================================= */
-
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js").catch(() => {});
+</script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .catch(err => console.error('SW registration failed:', err));
     });
   }
-
-  const startupParams = new URLSearchParams(location.search);
-  const startupMode = startupParams.get("m");
-
-  if (startupMode === "monitor" || startupMode === "camera") {
-    setTimeout(() => {
-      setMode(startupMode);
-
-      if (startupMode === "monitor" && startupParams.get("zen") === "1") {
-        state.zen = true;
-        $("studio").classList.add("zen");
-      }
-    }, 100);
-  }
-
 </script>
 
 </body>
