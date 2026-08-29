@@ -740,6 +740,13 @@
       height: 100%;
       object-fit: cover;
       transform-origin: center;
+      opacity: 0;
+      transition: opacity .3s ease;
+      background: #050505;
+    }
+
+    .camera-video.loaded {
+      opacity: 1;
     }
 
     .camera-ui {
@@ -766,6 +773,12 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 8px;
+    }
+
+    .camera-top-actions {
+      display: flex;
+      gap: 8px;
     }
 
     .camera-bottom {
@@ -1190,10 +1203,6 @@
           📸 Снимок
         </button>
 
-        <button class="btn full" data-action="qr">
-          ＋ Добавить камеру
-        </button>
-
       </aside>
 
     </div>
@@ -1255,14 +1264,27 @@
             <span id="camera-status">Подключение...</span>
           </div>
 
-          <button
-            class="btn"
-            id="torch-button"
-            data-action="torch"
-            style="display:none"
-          >
-            💡
-          </button>
+          <div class="camera-top-actions">
+
+            <button
+              class="btn"
+              id="torch-button"
+              data-action="torch"
+              style="display:none"
+            >
+              💡
+            </button>
+
+            <button
+              class="btn"
+              id="flip-button"
+              data-action="flip-camera"
+              title="Сменить камеру"
+            >
+              🔄
+            </button>
+
+          </div>
 
         </div>
 
@@ -1380,6 +1402,7 @@ const state = {
   reconnectTimer: null,
   reconnectAttempts: 0,
   currentBitrate: null,
+  cameraDevices: null,
 
   monitorPingTimer: null,
 
@@ -2322,6 +2345,15 @@ async function startPhone(targetId) {
     $("camera-video").srcObject =
       state.stream;
 
+    $("camera-video").classList.remove("loaded");
+
+    $("camera-video").onloadeddata = () => {
+
+      $("camera-video")
+        .classList.add("loaded");
+
+    };
+
 
     $("camera-view")
       .classList.add("visible");
@@ -2396,6 +2428,12 @@ async function startPhone(targetId) {
           "error"
         );
 
+        // Раньше state.peer оставался "занятым", и повторное нажатие
+        // "Подключить камеру" молча ничего не делало — приходилось лезть
+        // жать "Стоп" вручную. Теперь сбрасываем всё и сразу возвращаем
+        // на экран ввода кода, чтобы можно было тут же попробовать снова.
+        stopCamera();
+
         return;
       }
 
@@ -2405,6 +2443,8 @@ async function startPhone(targetId) {
         error.type,
         "error"
       );
+
+      stopCamera();
 
     });
 
@@ -2909,6 +2949,16 @@ async function listCameras() {
       await navigator.mediaDevices.enumerateDevices();
 
 
+    const cameras =
+      devices.filter(
+        device =>
+          device.kind === "videoinput"
+      );
+
+
+    state.cameraDevices = cameras;
+
+
     const select =
       $("camera-select");
 
@@ -2916,26 +2966,42 @@ async function listCameras() {
     select.innerHTML = "";
 
 
-    devices
-      .filter(
-        device =>
-          device.kind === "videoinput"
-      )
-      .forEach((device, index) => {
+    cameras.forEach((device, index) => {
 
-        const option =
-          document.createElement("option");
+      const option =
+        document.createElement("option");
 
-        option.value =
-          device.deviceId;
+      option.value =
+        device.deviceId;
 
-        option.textContent =
-          device.label ||
-          `Камера ${index + 1}`;
+      option.textContent =
+        friendlyCameraLabel(
+          device.label,
+          index
+        );
 
-        select.appendChild(option);
+      select.appendChild(option);
 
-      });
+    });
+
+
+    const current =
+      state.stream
+        ?.getVideoTracks()[0]
+        ?.getSettings()
+        .deviceId;
+
+    if (current) {
+      select.value = current;
+    }
+
+
+    // Плашка с выбором конкретного объектива нужна только если камер
+    // реально больше двух (несколько линз сзади). В обычном случае
+    // (перед + зад) достаточно одной кнопки 🔄 — так меньше лишнего
+    // на экране и понятнее, что нажимать.
+    $("camera-select").style.display =
+      cameras.length > 2 ? "" : "none";
 
   } catch (error) {
 
@@ -2944,6 +3010,94 @@ async function listCameras() {
       error
     );
 
+  }
+
+}
+
+
+// Сырые системные названия камер часто выглядят как "camera2 0, facing
+// back" — переводим в понятные людям подписи.
+function friendlyCameraLabel(label, index) {
+
+  const raw = (label || "").toLowerCase();
+
+  if (/front|user|selfie|face/.test(raw)) {
+    return "🤳 Фронтальная";
+  }
+
+  if (/back|rear|environment/.test(raw)) {
+
+    if (/ultra|wide angle|0\.5/.test(raw)) {
+      return "🎥 Задняя (сверхширокая)";
+    }
+
+    if (/tele|zoom/.test(raw)) {
+      return "🎥 Задняя (телефото)";
+    }
+
+    return "🎥 Задняя (основная)";
+  }
+
+  return label || `Камера ${index + 1}`;
+
+}
+
+
+/* =========================================================
+   FLIP CAMERA (быстрое переключение перед/зад одной кнопкой)
+   ========================================================= */
+
+async function flipCamera() {
+
+  const cameras = state.cameraDevices || [];
+
+  if (cameras.length < 2) {
+
+    toast(
+      "Доступна только одна камера",
+      "warn"
+    );
+
+    return;
+  }
+
+
+  const currentId =
+    state.stream
+      ?.getVideoTracks()[0]
+      ?.getSettings()
+      .deviceId;
+
+
+  const currentIsFront =
+    /front|user|selfie|face/i.test(
+      cameras.find(c => c.deviceId === currentId)?.label || ""
+    );
+
+
+  // Если текущая камера фронтальная — ищем первую заднюю, и наоборот.
+  // Если по названиям не разобрать (бывает до выдачи разрешения на
+  // некоторых браузерах) — просто берём следующую по списку.
+  let next =
+    cameras.find(c =>
+      c.deviceId !== currentId &&
+      (currentIsFront
+        ? /back|rear|environment/i.test(c.label)
+        : /front|user|selfie|face/i.test(c.label))
+    );
+
+  if (!next) {
+
+    const currentIndex =
+      cameras.findIndex(c => c.deviceId === currentId);
+
+    next =
+      cameras[(currentIndex + 1) % cameras.length];
+
+  }
+
+  if (next) {
+    await switchCamera(next.deviceId);
   }
 
 }
@@ -3027,11 +3181,17 @@ async function switchCamera(deviceId) {
       newStream;
 
 
+    $("camera-video")
+      .classList.remove("loaded");
+
     $("camera-video").srcObject =
       newStream;
 
 
     detectCameraCapabilities();
+
+
+    listCameras();
 
 
     toast("Камера переключена");
@@ -3591,6 +3751,9 @@ function stopCamera() {
   $("camera-video").srcObject =
     null;
 
+  $("camera-video")
+    .classList.remove("loaded");
+
 
   $("camera-view")
     .classList.remove("visible");
@@ -3673,6 +3836,11 @@ document.addEventListener(
 
       case "stop":
         stopCamera();
+        break;
+
+
+      case "flip-camera":
+        flipCamera();
         break;
 
 
