@@ -1,7 +1,7 @@
 {
   "name": "Glazok Studio",
   "short_name": "Glazok",
-  "description": "Беспроводная P2P камера и студия стриминга",
+  "description": "Беспроводная камера и студия видеостриминга",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -31,15 +31,15 @@
   ],
   "shortcuts": [
     {
-      "name": "Монитор Studio",
+      "name": "Glazok Monitor",
       "short_name": "Монитор",
-      "description": "Открыть панель управления и мониторинг",
+      "description": "Запустить монитор Glazok Studio",
       "url": "./?m=monitor"
     },
     {
-      "name": "Режим Камеры",
+      "name": "Glazok Camera",
       "short_name": "Камера",
-      "description": "Быстрый запуск передачи видео",
+      "description": "Запустить камеру Glazok Studio",
       "url": "./?m=camera"
     }
   ]

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width,
+                 initial-scale=1,
+                 viewport-fit=cover,
+                 user-scalable=no"
+    >
+
+    <meta name="theme-color" content="#000000">
+
+    <title>Glazok — Clean Output</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+
+    <style>
+        :root {
+            background: #000;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+
+            overflow: hidden;
+
+            background: #000;
+        }
+
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #video {
+            width: 100%;
+            height: 100%;
+
+            display: block;
+
+            background: #000;
+
+            object-fit: contain;
+        }
+
+        /*
+         * Никакого интерфейса.
+         *
+         * OBS/vMix получает только этот video.
+         */
+
+        #status {
+            position: fixed;
+
+            top: 50%;
+            left: 50%;
+
+            transform: translate(-50%, -50%);
+
+            color: #666;
+
+            font-family:
+                Arial,
+                sans-serif;
+
+            font-size: 14px;
+
+            pointer-events: none;
+
+            transition: opacity .2s ease;
+        }
+
+        #status.hidden {
+            opacity: 0;
+        }
+    </style>
+</head>
+
+<body>
+
+    <video
+        id="video"
+        autoplay
+        playsinline
+        muted
+    ></video>
+
+    <div id="status">
+        Подключение...
+    </div>
+
+    <script src="./view.js"></script>
+
+</body>
+</html>
