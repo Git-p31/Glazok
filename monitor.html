@@ -46,7 +46,7 @@
         .btn-primary { background: #fff; color: #000; }
         .btn-secondary { background: var(--panel); color: var(--text); border: 1px solid var(--border); }
         .video-container { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border-radius: var(--radius); background: #000; border: 1px solid var(--border); }
-        #video { width: 100%; height: 100%; display: block; object-fit: contain; background: #000; }
+        #video { width: 100%; height: 100%; display: block; object-fit: cover; background: #000; }
         .video-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; color: var(--muted); font-size: 14px; }
         .video-overlay.hidden { display: none; }
         .footer { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 12px; }
@@ -95,7 +95,7 @@
             <div class="stat">Качество: <strong id="quality">—</strong></div>
             <div class="stat">FPS: <strong id="fps">—</strong></div>
         </div>
-        <div>Glazok WebRTC</div>
+        <div>Glazok WebRTC (Ultra-Low Latency)</div>
     </footer>
 </div>
 
@@ -141,7 +141,8 @@ function createRoom() {
             iceServers: [
                 { urls: "stun:stun.l.google.com:19302" },
                 { urls: "stun:stun1.l.google.com:19302" }
-            ]
+            ],
+            sdpSemantics: 'unified-plan'
         }
     });
 
@@ -174,11 +175,19 @@ function createRoom() {
             activeStream = stream;
             video.srcObject = stream;
             video.muted = true;
-            video.play().catch(() => {});
+            
+            // Воспроизведение с нулевой задержкой
+            video.play().then(() => {
+                if (video.buffered.length > 0) {
+                    video.currentTime = video.buffered.end(0) - 0.05;
+                }
+            }).catch(() => {});
 
             overlay.classList.add("hidden");
             setConnection("Камера подключена", "live");
-            updateVideoInfo(stream);
+            
+            // Запрашиваем актуальные параметры потока
+            setTimeout(() => updateVideoInfo(stream), 1000);
 
             // Отправляем поток во все открытые Clean Output окна
             viewers.forEach(viewerId => {
@@ -192,6 +201,8 @@ function createRoom() {
             overlay.classList.remove("hidden");
             overlay.textContent = "Камера отключена";
             setConnection("Ожидание камеры", "ready");
+            quality.textContent = "—";
+            fps.textContent = "—";
         });
 
         cameraCall.on("error", error => {
@@ -214,9 +225,14 @@ function createRoom() {
 function updateVideoInfo(stream) {
     const track = stream.getVideoTracks()[0];
     if (!track) return;
-    const settings = track.getSettings();
-    if (settings.width) quality.textContent = `${settings.width}×${settings.height}`;
-    if (settings.frameRate) fps.textContent = Math.round(settings.frameRate);
+    
+    // Берем реальные размеры видео
+    const w = video.videoWidth || track.getSettings().width || 0;
+    const h = video.videoHeight || track.getSettings().height || 0;
+    const frameRate = track.getSettings().frameRate || 30;
+
+    if (w && h) quality.textContent = `${w}×${h}`;
+    if (frameRate) fps.textContent = Math.round(frameRate);
 }
 
 async function copyRoom() {

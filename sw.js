@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "glazok-studio-v4";
+const CACHE_NAME = "glazok-studio-v5";
 
 const STATIC_ASSETS = [
   "./",
@@ -39,41 +39,23 @@ self.addEventListener("fetch", event => {
 
   const url = new URL(event.request.url);
 
-  if (url.origin === location.origin) {
-    event.respondWith(
-      fetch(event.request)
-        .then(response => {
-          if (response && response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then(cache => {
-              cache.put(event.request, copy);
-            });
-          }
-          return response;
-        })
-        .catch(() => {
-          return caches.match(event.request)
-            .then(cached => cached || caches.match("./index.html"));
-        })
-    );
-    return;
-  }
+  // Для внешних CDN-ресурсов (например, PeerJS) не используем локальный кэш
+  if (url.origin !== location.origin) return;
 
   event.respondWith(
-    caches.match(event.request)
-      .then(cached => {
-        if (cached) return cached;
-        return fetch(event.request)
-          .then(response => {
-            if (response && (response.ok || response.type === "opaque")) {
-              const copy = response.clone();
-              caches.open(CACHE_NAME).then(cache => {
-                cache.put(event.request, copy);
-              });
-            }
-            return response;
+    fetch(event.request)
+      .then(response => {
+        if (response && response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then(cache => {
+            cache.put(event.request, copy);
           });
+        }
+        return response;
       })
-      .catch(() => caches.match(event.request));
+      .catch(() => {
+        return caches.match(event.request)
+          .then(cached => cached || caches.match("./index.html"));
+      })
   );
 });

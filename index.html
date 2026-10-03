@@ -2,3369 +2,960 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width,
-                 initial-scale=1,
-                 viewport-fit=cover,
-                 user-scalable=no"
-    >
-
-    <meta
-        name="theme-color"
-        content="#050508"
-    >
-
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+    <meta name="theme-color" content="#050508">
     <title>Glazok Studio</title>
-
-    <link
-        rel="manifest"
-        href="./manifest.webmanifest"
-    >
-
-    <link
-        rel="icon"
-        href="./icon.svg"
-    >
-
-    <script
-        src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js">
-    </script>
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" href="./icon.svg">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
 
     <style>
-
         :root {
             --bg: #050508;
             --surface: rgba(255,255,255,.055);
             --surface-strong: rgba(15,15,22,.92);
             --border: rgba(255,255,255,.10);
-
             --text: #f8fafc;
             --muted: #788195;
-
             --accent: #6366f1;
             --green: #10b981;
             --red: #ef4444;
             --yellow: #f59e0b;
-
             --radius: 18px;
             --pill: 999px;
         }
 
-
         * {
             box-sizing: border-box;
-
             margin: 0;
             padding: 0;
-
             -webkit-tap-highlight-color: transparent;
         }
 
-
-        html,
-        body {
-
+        html, body {
             width: 100%;
             height: 100%;
-
             overflow: hidden;
-
             background: var(--bg);
-
             color: var(--text);
-
-            font-family:
-                Arial,
-                sans-serif;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, Arial, sans-serif;
         }
 
-
-        button,
-        input,
-        select {
-
+        button, input, select {
             font: inherit;
-
             color: inherit;
-
             border: 0;
-
             outline: 0;
         }
 
-
-        button {
-            cursor: pointer;
-        }
-
-
-        /* =====================================================
-           SCREEN
-        ===================================================== */
+        button { cursor: pointer; }
 
         .screen {
-
             position: fixed;
-
             inset: 0;
-
             display: none;
-
             width: 100%;
             height: 100%;
-
             flex-direction: column;
-
             align-items: center;
-
             justify-content: center;
         }
 
+        .screen.active { display: flex; }
 
-        .screen.active {
-            display: flex;
-        }
-
-
-        /* =====================================================
-           START
-        ===================================================== */
-
+        /* START SCREEN */
         #screen-start {
-
-            padding:
-                max(24px, env(safe-area-inset-top))
-                24px
-                max(24px, env(safe-area-inset-bottom))
-                24px;
-
-            background:
-
-                radial-gradient(
-                    700px circle at 50% 10%,
-                    rgba(99,102,241,.18),
-                    transparent 70%
-                ),
-
-                var(--bg);
+            padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom)) 24px;
+            background: radial-gradient(700px circle at 50% 10%, rgba(99,102,241,.18), transparent 70%), var(--bg);
         }
-
 
         .logo {
-
             display: flex;
-
             align-items: center;
-
             gap: 10px;
-
             margin-bottom: 32px;
         }
 
-
         .logo-dot {
-
             width: 12px;
             height: 12px;
-
             border-radius: 50%;
-
             background: var(--accent);
-
-            box-shadow:
-                0 0 20px
-                rgba(99,102,241,.8);
+            box-shadow: 0 0 20px rgba(99,102,241,.8);
         }
 
-
         .logo-name {
-
             font-size: 28px;
-
             font-weight: 700;
         }
 
-
         .modes {
-
-            width: min(
-                100%,
-                360px
-            );
-
+            width: min(100%, 360px);
             display: flex;
-
             flex-direction: column;
-
             gap: 12px;
         }
 
-
         .mode {
-
             width: 100%;
-
             padding: 20px;
-
             display: flex;
-
             align-items: center;
-
             gap: 16px;
-
-            border-radius:
-                var(--radius);
-
-            border:
-                1px solid var(--border);
-
-            background:
-                var(--surface);
-
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            background: var(--surface);
             color: var(--text);
-
             text-align: left;
-
-            transition:
-                transform .15s ease,
-                background .15s ease,
-                border-color .15s ease;
+            transition: transform .15s ease, background .15s ease, border-color .15s ease;
         }
-
 
         .mode:hover {
-
-            background:
-                rgba(255,255,255,.08);
-
-            border-color:
-                rgba(255,255,255,.16);
+            background: rgba(255,255,255,.08);
+            border-color: rgba(255,255,255,.16);
         }
 
-
-        .mode:active {
-
-            transform:
-                scale(.98);
-        }
-
+        .mode:active { transform: scale(.98); }
 
         .mode-icon {
-
             width: 44px;
             height: 44px;
-
             flex: 0 0 44px;
-
             display: flex;
-
             align-items: center;
             justify-content: center;
-
             border-radius: 14px;
-
-            background:
-                rgba(99,102,241,.15);
-
+            background: rgba(99,102,241,.15);
             font-size: 21px;
         }
 
+        .mode-title { font-size: 15px; font-weight: 700; }
+        .mode-description { margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.4; }
 
-        .mode-title {
-
-            font-size: 15px;
-
-            font-weight: 700;
-        }
-
-
-        .mode-description {
-
-            margin-top: 4px;
-
-            color: var(--muted);
-
-            font-size: 12px;
-
-            line-height: 1.4;
-        }
-
-
-        /* =====================================================
-           CAMERA CONNECT
-        ===================================================== */
-
-        #screen-camera {
-
-            background: #000;
-        }
-
+        /* CAMERA CONNECT */
+        #screen-camera { background: #000; }
 
         #camera-connect {
-
-            width: min(
-                calc(100% - 40px),
-                390px
-            );
-
+            width: min(calc(100% - 40px), 390px);
             display: flex;
-
             flex-direction: column;
-
             gap: 14px;
         }
 
-
-        .connect-title {
-
-            margin-bottom: 4px;
-
-            font-size: 25px;
-
-            font-weight: 700;
-
-            text-align: center;
-        }
-
-
-        .connect-description {
-
-            margin-bottom: 12px;
-
-            color: var(--muted);
-
-            font-size: 13px;
-
-            line-height: 1.5;
-
-            text-align: center;
-        }
-
+        .connect-title { margin-bottom: 4px; font-size: 25px; font-weight: 700; text-align: center; }
+        .connect-description { margin-bottom: 12px; color: var(--muted); font-size: 13px; line-height: 1.5; text-align: center; }
 
         .code-input {
-
             width: 100%;
-
             height: 64px;
-
             padding: 0 20px;
-
-            border-radius:
-                var(--radius);
-
-            border:
-                1px solid var(--border);
-
-            background:
-                var(--surface);
-
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            background: var(--surface);
             color: #fff;
-
-            font-family:
-                monospace;
-
+            font-family: monospace;
             font-size: 26px;
-
             font-weight: 700;
-
             text-align: center;
-
             letter-spacing: .18em;
-
             text-transform: uppercase;
         }
 
+        .code-input::placeholder { color: #4b5563; }
 
-        .code-input::placeholder {
-            color: #4b5563;
-        }
-
-
-        .quality-row {
-
-            display: grid;
-
-            grid-template-columns:
-                1fr 1fr;
-
-            gap: 10px;
-        }
-
-
-        .field {
-
-            display: flex;
-
-            flex-direction: column;
-
-            gap: 7px;
-        }
-
-
-        .field-label {
-
-            padding-left: 4px;
-
-            color: var(--muted);
-
-            font-size: 11px;
-
-            font-weight: 700;
-
-            text-transform: uppercase;
-
-            letter-spacing: .08em;
-        }
-
+        .quality-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .field { display: flex; flex-direction: column; gap: 7px; }
+        .field-label { padding-left: 4px; color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
 
         .select {
-
             width: 100%;
-
             height: 50px;
-
             padding: 0 14px;
-
             border-radius: 14px;
-
-            border:
-                1px solid var(--border);
-
-            background:
-                var(--surface-strong);
-
+            border: 1px solid var(--border);
+            background: var(--surface-strong);
             color: var(--text);
-
             font-size: 14px;
-
             font-weight: 700;
         }
 
-
-        .select option {
-
-            background: #111;
-
-            color: #fff;
-        }
-
-
-        /* =====================================================
-           ADAPTIVE QUALITY
-        ===================================================== */
+        .select option { background: #111; color: #fff; }
 
         .adaptive-box {
-
             display: flex;
-
             align-items: center;
-
             justify-content: space-between;
-
             gap: 15px;
-
             padding: 14px 16px;
-
-            border:
-                1px solid
-                rgba(99,102,241,.25);
-
+            border: 1px solid rgba(99,102,241,.25);
             border-radius: 14px;
-
-            background:
-                rgba(99,102,241,.08);
+            background: rgba(99,102,241,.08);
         }
 
+        .adaptive-text strong { display: block; font-size: 13px; }
+        .adaptive-text span { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; line-height: 1.35; }
 
-        .adaptive-text {
-
-            min-width: 0;
-        }
-
-
-        .adaptive-text strong {
-
-            display: block;
-
-            font-size: 13px;
-        }
-
-
-        .adaptive-text span {
-
-            display: block;
-
-            margin-top: 3px;
-
-            color: var(--muted);
-
-            font-size: 11px;
-
-            line-height: 1.35;
-        }
-
-
-        .switch {
-
-            position: relative;
-
-            width: 44px;
-            height: 26px;
-
-            flex: 0 0 44px;
-        }
-
-
-        .switch input {
-
-            opacity: 0;
-
-            width: 0;
-            height: 0;
-        }
-
-
-        .slider {
-
-            position: absolute;
-
-            inset: 0;
-
-            border-radius: 999px;
-
-            background: #30303a;
-
-            transition: .2s;
-        }
-
-
-        .slider::before {
-
-            content: "";
-
-            position: absolute;
-
-            width: 20px;
-            height: 20px;
-
-            left: 3px;
-            top: 3px;
-
-            border-radius: 50%;
-
-            background: #fff;
-
-            transition: .2s;
-        }
-
-
-        .switch input:checked + .slider {
-
-            background:
-                var(--accent);
-        }
-
-
-        .switch input:checked + .slider::before {
-
-            transform:
-                translateX(18px);
-        }
-
-
-        /* =====================================================
-           BUTTONS
-        ===================================================== */
+        .switch { position: relative; width: 44px; height: 26px; flex: 0 0 44px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; inset: 0; border-radius: 999px; background: #30303a; transition: .2s; }
+        .slider::before { content: ""; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px; border-radius: 50%; background: #fff; transition: .2s; }
+        .switch input:checked + .slider { background: var(--accent); }
+        .switch input:checked + .slider::before { transform: translateX(18px); }
 
         .btn {
-
             width: 100%;
-
             min-height: 52px;
-
             padding: 0 20px;
-
-            border-radius:
-                var(--pill);
-
+            border-radius: var(--pill);
             background: #fff;
-
             color: #000;
-
             font-size: 14px;
-
             font-weight: 700;
-
-            transition:
-                opacity .15s ease,
-                transform .15s ease;
+            transition: opacity .15s ease, transform .15s ease;
         }
 
+        .btn:active { transform: scale(.98); }
+        .btn:disabled { opacity: .5; cursor: default; }
+        .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
 
-        .btn:active {
-
-            transform:
-                scale(.98);
-        }
-
-
-        .btn:disabled {
-
-            opacity: .5;
-
-            cursor: default;
-        }
-
-
-        .btn-secondary {
-
-            background:
-                var(--surface);
-
-            color: var(--text);
-
-            border:
-                1px solid var(--border);
-        }
-
-
-        .btn-danger {
-
-            background:
-                var(--red);
-
-            color: #fff;
-        }
-
-
-        /* =====================================================
-           CAMERA VIEW
-        ===================================================== */
-
-        #camera-view {
-
-            position: fixed;
-
-            inset: 0;
-
-            display: none;
-
-            background: #000;
-        }
-
-
-        #camera-view.active {
-            display: flex;
-        }
-
+        /* CAMERA VIEW */
+        #camera-view { position: fixed; inset: 0; display: none; background: #000; }
+        #camera-view.active { display: flex; }
 
         #camera-video {
-
             position: absolute;
-
             inset: 0;
-
             width: 100%;
             height: 100%;
-
             object-fit: cover;
-
             background: #000;
         }
 
-
-        /* =====================================================
-           CAMERA UI
-        ===================================================== */
-
         .camera-ui {
-
             position: absolute;
-
             inset: 0;
-
             z-index: 10;
-
             display: flex;
-
             flex-direction: column;
-
             justify-content: space-between;
-
-            padding:
-
-                max(
-                    18px,
-                    env(safe-area-inset-top)
-                )
-
-                18px
-
-                max(
-                    18px,
-                    env(safe-area-inset-bottom)
-                );
-
+            padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
             pointer-events: none;
         }
 
-
-        .camera-ui > * {
-            pointer-events: auto;
-        }
-
-
-        .top-row {
-
-            display: flex;
-
-            align-items: flex-start;
-
-            justify-content: space-between;
-
-            gap: 10px;
-        }
-
+        .camera-ui > * { pointer-events: auto; }
+        .top-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 
         .pill {
-
             display: inline-flex;
-
             align-items: center;
-
             gap: 8px;
-
             min-height: 38px;
-
-            padding:
-                0 13px;
-
-            border:
-                1px solid
-                rgba(255,255,255,.12);
-
-            border-radius:
-                var(--pill);
-
-            background:
-                rgba(8,8,12,.72);
-
-            backdrop-filter:
-                blur(20px);
-
+            padding: 0 13px;
+            border: 1px solid rgba(255,255,255,.12);
+            border-radius: var(--pill);
+            background: rgba(8,8,12,.72);
+            backdrop-filter: blur(20px);
             color: #fff;
-
             font-size: 12px;
-
             font-weight: 700;
         }
 
+        .stats { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+        .dot { width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 10px var(--green); }
+        .dot.warning { background: var(--yellow); box-shadow: 0 0 10px var(--yellow); }
+        .dot.bad { background: var(--red); box-shadow: 0 0 10px var(--red); }
 
-        .stats {
-
-            display: flex;
-
-            align-items: center;
-
-            justify-content: flex-end;
-
-            gap: 8px;
-
-            flex-wrap: wrap;
-        }
-
-
-        .dot {
-
-            width: 8px;
-            height: 8px;
-
-            flex: 0 0 8px;
-
-            border-radius: 50%;
-
-            background:
-                var(--green);
-
-            box-shadow:
-                0 0 10px
-                var(--green);
-        }
-
-
-        .dot.warning {
-
-            background:
-                var(--yellow);
-
-            box-shadow:
-                0 0 10px
-                var(--yellow);
-        }
-
-
-        .dot.bad {
-
-            background:
-                var(--red);
-
-            box-shadow:
-                0 0 10px
-                var(--red);
-        }
-
-
-        .bottom {
-
-            display: flex;
-
-            justify-content: center;
-
-            gap: 8px;
-
-            flex-wrap: wrap;
-        }
-
+        .bottom { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
 
         .action {
-
             min-height: 46px;
-
-            padding:
-                0 16px;
-
-            border-radius:
-                var(--pill);
-
-            background:
-                rgba(8,8,12,.78);
-
+            padding: 0 16px;
+            border-radius: var(--pill);
+            background: rgba(8,8,12,.78);
             color: #fff;
-
-            border:
-                1px solid
-                rgba(255,255,255,.12);
-
-            backdrop-filter:
-                blur(20px);
-
+            border: 1px solid rgba(255,255,255,.12);
+            backdrop-filter: blur(20px);
             font-size: 12px;
-
             font-weight: 700;
         }
 
+        .action:active { transform: scale(.97); }
+        .stop { background: var(--red); border-color: transparent; }
 
-        .action:active {
-
-            transform:
-                scale(.97);
-        }
-
-
-        .stop {
-
-            background:
-                var(--red);
-
-            border-color:
-                transparent;
-        }
-
-
-        /* =====================================================
-           TOAST
-        ===================================================== */
-
+        /* TOAST */
         #toast-container {
-
             position: fixed;
-
             left: 50%;
-
-            bottom:
-                calc(
-                    80px +
-                    env(safe-area-inset-bottom)
-                );
-
-            transform:
-                translateX(-50%);
-
+            bottom: calc(80px + env(safe-area-inset-bottom));
+            transform: translateX(-50%);
             z-index: 100;
-
             display: flex;
-
             flex-direction: column;
-
             align-items: center;
-
             gap: 8px;
-
             pointer-events: none;
         }
 
-
         .toast {
-
-            padding:
-                11px 16px;
-
-            border-radius:
-                var(--pill);
-
-            background:
-                rgba(15,15,20,.94);
-
-            border:
-                1px solid var(--border);
-
+            padding: 11px 16px;
+            border-radius: var(--pill);
+            background: rgba(15,15,20,.94);
+            border: 1px solid var(--border);
             color: #fff;
-
             font-size: 12px;
-
             white-space: nowrap;
         }
-
     </style>
 </head>
 
 <body>
 
-<!-- =========================================================
-     START SCREEN
-========================================================= -->
-
-<section
-    id="screen-start"
-    class="screen active"
->
-
+<section id="screen-start" class="screen active">
     <div class="logo">
-
         <span class="logo-dot"></span>
-
-        <span class="logo-name">
-            Glazok
-        </span>
-
+        <span class="logo-name">Glazok</span>
     </div>
-
 
     <div class="modes">
-
-        <button
-            class="mode"
-            data-mode="camera"
-        >
-
-            <div class="mode-icon">
-                📱
-            </div>
-
+        <button class="mode" data-mode="camera">
+            <div class="mode-icon">📱</div>
             <div>
-
-                <div class="mode-title">
-                    Камера
-                </div>
-
-                <div class="mode-description">
-                    Использовать телефон
-                    как беспроводную камеру
-                </div>
-
+                <div class="mode-title">Камера</div>
+                <div class="mode-description">Использовать телефон как беспроводную камеру</div>
             </div>
-
         </button>
 
-
-        <button
-            class="mode"
-            data-mode="monitor"
-        >
-
-            <div class="mode-icon">
-                🖥️
-            </div>
-
+        <button class="mode" data-mode="monitor">
+            <div class="mode-icon">🖥️</div>
             <div>
-
-                <div class="mode-title">
-                    Монитор
-                </div>
-
-                <div class="mode-description">
-                    Создать комнату
-                    на компьютере
-                </div>
-
+                <div class="mode-title">Монитор</div>
+                <div class="mode-description">Создать комнату на компьютере</div>
             </div>
-
         </button>
-
     </div>
-
 </section>
 
-
-<!-- =========================================================
-     CAMERA SCREEN
-========================================================= -->
-
-<section
-    id="screen-camera"
-    class="screen"
->
-
+<section id="screen-camera" class="screen">
     <div id="camera-connect">
+        <div class="connect-title">Подключить камеру</div>
+        <div class="connect-description">Введите код комнаты, который показан на компьютере.</div>
 
-        <div class="connect-title">
-            Подключить камеру
-        </div>
-
-
-        <div class="connect-description">
-            Введите код комнаты,
-            который показан на компьютере.
-        </div>
-
-
-        <input
-            id="connection-code"
-            class="code-input"
-            maxlength="6"
-            autocomplete="off"
-            autocapitalize="characters"
-            spellcheck="false"
-            inputmode="text"
-            placeholder="ABC123"
-        >
-
+        <input id="connection-code" class="code-input" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text" placeholder="ABC123">
 
         <div class="quality-row">
-
             <div class="field">
-
-                <div class="field-label">
-                    Разрешение
-                </div>
-
-                <select
-                    id="res-select"
-                    class="select"
-                >
-
-                    <option value="480">
-                        480p
-                    </option>
-
-                    <option value="720">
-                        720p HD
-                    </option>
-
-                    <option
-                        value="1080"
-                        selected
-                    >
-                        1080p Full HD
-                    </option>
-
-                    <option value="1440">
-                        1440p 2K
-                    </option>
-
-                    <option value="2160">
-                        2160p 4K
-                    </option>
-
+                <div class="field-label">Разрешение</div>
+                <select id="res-select" class="select">
+                    <option value="480">480p</option>
+                    <option value="720">720p HD</option>
+                    <option value="1080" selected>1080p Full HD</option>
+                    <option value="1440">1440p 2K</option>
+                    <option value="2160">2160p 4K</option>
                 </select>
-
             </div>
 
-
             <div class="field">
-
-                <div class="field-label">
-                    Частота
-                </div>
-
-                <select
-                    id="fps-select"
-                    class="select"
-                >
-
-                    <option value="30">
-                        30 FPS
-                    </option>
-
-                    <option
-                        value="60"
-                        selected
-                    >
-                        60 FPS
-                    </option>
-
-                    <option value="120">
-                        120 FPS
-                    </option>
-
-                    <option value="240">
-                        240 FPS
-                    </option>
-
+                <div class="field-label">Частота</div>
+                <select id="fps-select" class="select">
+                    <option value="30">30 FPS</option>
+                    <option value="60" selected>60 FPS</option>
+                    <option value="120">120 FPS</option>
+                    <option value="240">240 FPS</option>
                 </select>
-
             </div>
-
         </div>
-
 
         <div class="adaptive-box">
-
             <div class="adaptive-text">
-
-                <strong>
-                    Adaptive Quality
-                </strong>
-
-                <span>
-                    Автоматически снижает нагрузку
-                    при плохом интернете
-                </span>
-
+                <strong>Adaptive Quality</strong>
+                <span>Автоматически снижает нагрузку при плохом интернете</span>
             </div>
-
-
             <label class="switch">
-
-                <input
-                    id="adaptive-toggle"
-                    type="checkbox"
-                    checked
-                >
-
+                <input id="adaptive-toggle" type="checkbox" checked>
                 <span class="slider"></span>
-
             </label>
-
         </div>
 
-
-        <button
-            id="connect-btn"
-            class="btn"
-        >
-            Подключить камеру
-        </button>
-
-
-        <button
-            id="back-btn"
-            class="btn btn-secondary"
-        >
-            Назад
-        </button>
-
+        <button id="connect-btn" class="btn">Подключить камеру</button>
+        <button id="back-btn" class="btn btn-secondary">Назад</button>
     </div>
-
-
-    <!-- =====================================================
-         CAMERA LIVE VIEW
-    ===================================================== -->
 
     <div id="camera-view">
-
-        <video
-            id="camera-video"
-            autoplay
-            playsinline
-            muted
-        ></video>
-
+        <video id="camera-video" autoplay playsinline muted></video>
 
         <div class="camera-ui">
-
             <div class="top-row">
-
                 <div class="pill">
-
-                    <span
-                        id="status-dot"
-                        class="dot warning"
-                    ></span>
-
-                    <span id="status-text">
-                        CONNECTING
-                    </span>
-
+                    <span id="status-dot" class="dot warning"></span>
+                    <span id="status-text">CONNECTING</span>
                 </div>
-
 
                 <div class="stats">
-
-                    <div class="pill">
-                        <span id="quality-info">
-                            —
-                        </span>
-                    </div>
-
-                    <div class="pill">
-                        <span id="network-info">
-                            —
-                        </span>
-                    </div>
-
+                    <div class="pill"><span id="quality-info">—</span></div>
+                    <div class="pill"><span id="network-info">—</span></div>
                 </div>
-
             </div>
-
 
             <div class="bottom">
-
-                <button
-                    id="torch-btn"
-                    class="action"
-                    type="button"
-                >
-                    Вспышка
-                </button>
-
-
-                <button
-                    id="flip-btn"
-                    class="action"
-                    type="button"
-                >
-                    Камера
-                </button>
-
-
-                <button
-                    id="stop-btn"
-                    class="action stop"
-                    type="button"
-                >
-                    Стоп
-                </button>
-
+                <button id="torch-btn" class="action" type="button">Вспышка</button>
+                <button id="flip-btn" class="action" type="button">Камера</button>
+                <button id="stop-btn" class="action stop" type="button">Стоп</button>
             </div>
-
         </div>
-
     </div>
-
 </section>
-
 
 <div id="toast-container"></div>
 
-
 <script>
-
 "use strict";
 
+const $ = id => document.getElementById(id);
 
-/* =========================================================
-   ELEMENTS
-========================================================= */
-
-const $ = id =>
-    document.getElementById(id);
-
-
-const startScreen =
-    $("screen-start");
-
-const cameraScreen =
-    $("screen-camera");
-
-const cameraConnect =
-    $("camera-connect");
-
-const cameraView =
-    $("camera-view");
-
-const cameraVideo =
-    $("camera-video");
-
-const connectionCode =
-    $("connection-code");
-
-const resSelect =
-    $("res-select");
-
-const fpsSelect =
-    $("fps-select");
-
-const adaptiveToggle =
-    $("adaptive-toggle");
-
-const statusDot =
-    $("status-dot");
-
-const statusText =
-    $("status-text");
-
-const qualityInfo =
-    $("quality-info");
-
-const networkInfo =
-    $("network-info");
-
-const connectButton =
-    $("connect-btn");
-
-
-/* =========================================================
-   STATE
-========================================================= */
+const startScreen = $("screen-start");
+const cameraScreen = $("screen-camera");
+const cameraConnect = $("camera-connect");
+const cameraView = $("camera-view");
+const cameraVideo = $("camera-video");
+const connectionCode = $("connection-code");
+const resSelect = $("res-select");
+const fpsSelect = $("fps-select");
+const adaptiveToggle = $("adaptive-toggle");
+const statusDot = $("status-dot");
+const statusText = $("status-text");
+const qualityInfo = $("quality-info");
+const networkInfo = $("network-info");
+const connectButton = $("connect-btn");
 
 const state = {
-
     peer: null,
-
     call: null,
-
     stream: null,
-
     videoTrack: null,
-
     facingMode: "environment",
-
     torchOn: false,
-
     room: null,
-
     adaptiveTimer: null,
-
     statsTimer: null,
-
     lastStats: null,
-
     currentLevel: 0,
-
-    connected: false,
-
-    reconnectTimer: null
-
+    connected: false
 };
-
-
-/* =========================================================
-   WEBRTC CONFIG
-========================================================= */
 
 const PEER_CONFIG = {
-
     config: {
-
         iceServers: [
-
-            {
-                urls:
-                    "stun:stun.l.google.com:19302"
-            },
-
-            {
-                urls:
-                    "stun:stun1.l.google.com:19302"
-            },
-
-            {
-                urls:
-                    "stun:stun2.l.google.com:19302"
-            }
-
-        ]
-
+            { urls: "stun:stun.l.google.com:19302" },
+            { urls: "stun:stun1.l.google.com:19302" },
+            { urls: "stun:stun2.l.google.com:19302" }
+        ],
+        sdpSemantics: 'unified-plan'
     }
-
 };
 
-
-/* =========================================================
-   QUALITY LEVELS
-========================================================= */
-
 const LEVELS = [
-
-    {
-        name: "480p30",
-
-        width: 854,
-        height: 480,
-
-        fps: 30,
-
-        bitrate: 900000
-    },
-
-    {
-        name: "720p30",
-
-        width: 1280,
-        height: 720,
-
-        fps: 30,
-
-        bitrate: 1800000
-    },
-
-    {
-        name: "720p60",
-
-        width: 1280,
-        height: 720,
-
-        fps: 60,
-
-        bitrate: 3000000
-    },
-
-    {
-        name: "1080p30",
-
-        width: 1920,
-        height: 1080,
-
-        fps: 30,
-
-        bitrate: 4500000
-    },
-
-    {
-        name: "1080p60",
-
-        width: 1920,
-        height: 1080,
-
-        fps: 60,
-
-        bitrate: 7000000
-    }
-
+    { name: "480p30", width: 854, height: 480, fps: 30, bitrate: 900000 },
+    { name: "720p30", width: 1280, height: 720, fps: 30, bitrate: 1800000 },
+    { name: "720p60", width: 1280, height: 720, fps: 60, bitrate: 3000000 },
+    { name: "1080p30", width: 1920, height: 1080, fps: 30, bitrate: 4500000 },
+    { name: "1080p60", width: 1920, height: 1080, fps: 60, bitrate: 7000000 }
 ];
 
-
-/* =========================================================
-   START LEVEL
-========================================================= */
-
 function getInitialLevel() {
+    const res = Number(resSelect.value);
+    const fps = Number(fpsSelect.value);
 
-    const resolution =
-        Number(
-            resSelect.value
-        );
-
-    const fps =
-        Number(
-            fpsSelect.value
-        );
-
-
-    if (
-        resolution >= 1080 &&
-        fps >= 60
-    ) {
-
-        return 4;
-    }
-
-
-    if (
-        resolution >= 1080
-    ) {
-
-        return 3;
-    }
-
-
-    if (
-        resolution >= 720 &&
-        fps >= 60
-    ) {
-
-        return 2;
-    }
-
-
-    if (
-        resolution >= 720
-    ) {
-
-        return 1;
-    }
-
-
+    if (res >= 1080 && fps >= 60) return 4;
+    if (res >= 1080) return 3;
+    if (res >= 720 && fps >= 60) return 2;
+    if (res >= 720) return 1;
     return 0;
 }
 
-
-/* =========================================================
-   TOAST
-========================================================= */
-
 function toast(message) {
-
-    const element =
-        document.createElement("div");
-
-    element.className =
-        "toast";
-
-    element.textContent =
-        message;
-
-    $("toast-container")
-        .appendChild(element);
-
-
-    setTimeout(
-        () => element.remove(),
-        2800
-    );
+    const el = document.createElement("div");
+    el.className = "toast";
+    el.textContent = message;
+    $("toast-container").appendChild(el);
+    setTimeout(() => el.remove(), 2800);
 }
 
-
-/* =========================================================
-   STATUS
-========================================================= */
-
-function setStatus(
-    text,
-    type = "ok"
-) {
-
-    statusText.textContent =
-        text;
-
-    statusDot.className =
-        "dot";
-
-
-    if (
-        type === "warning"
-    ) {
-
-        statusDot.classList
-            .add("warning");
-    }
-
-
-    if (
-        type === "bad"
-    ) {
-
-        statusDot.classList
-            .add("bad");
-    }
-
+function setStatus(text, type = "ok") {
+    statusText.textContent = text;
+    statusDot.className = "dot";
+    if (type === "warning") statusDot.classList.add("warning");
+    if (type === "bad") statusDot.classList.add("bad");
 }
-
-
-/* =========================================================
-   STOP MEDIA
-========================================================= */
 
 function stopStream() {
-
     if (state.stream) {
-
-        state.stream
-            .getTracks()
-            .forEach(track => {
-
-                try {
-                    track.stop();
-                } catch {}
-
-            });
-
+        state.stream.getTracks().forEach(track => {
+            try { track.stop(); } catch {}
+        });
         state.stream = null;
     }
-
-
     state.videoTrack = null;
     state.torchOn = false;
 }
 
-
-/* =========================================================
-   CAMERA CONSTRAINTS
-========================================================= */
-
 function getConstraints(level) {
-
-    const quality =
-        LEVELS[level];
-
-
+    const quality = LEVELS[level];
     return {
-
         audio: false,
-
         video: {
-
-            facingMode:
-                state.facingMode,
-
-            width: {
-
-                ideal:
-                    quality.width
-
-            },
-
-            height: {
-
-                ideal:
-                    quality.height
-
-            },
-
-            frameRate: {
-
-                ideal:
-                    quality.fps,
-
-                max:
-                    quality.fps
-
-            }
-
+            facingMode: state.facingMode,
+            width: { ideal: quality.width },
+            height: { ideal: quality.height },
+            frameRate: { ideal: quality.fps, max: quality.fps }
         }
-
     };
-
 }
 
-
-/* =========================================================
-   GET CAMERA
-========================================================= */
-
 async function getCameraStream(level) {
-
     stopStream();
-
-
     let stream;
-
-
     try {
-
-        stream =
-            await navigator
-                .mediaDevices
-                .getUserMedia(
-                    getConstraints(level)
-                );
-
+        stream = await navigator.mediaDevices.getUserMedia(getConstraints(level));
     } catch (error) {
-
-        console.warn(
-            "Requested camera mode unavailable:",
-            error
-        );
-
-
-        /*
-         * Безопасный fallback.
-         */
-
-        stream =
-            await navigator
-                .mediaDevices
-                .getUserMedia(
-                    getConstraints(1)
-                );
+        console.warn("Requested camera mode unavailable:", error);
+        stream = await navigator.mediaDevices.getUserMedia(getConstraints(1));
     }
 
+    state.stream = stream;
+    state.videoTrack = stream.getVideoTracks()[0];
 
-    state.stream =
-        stream;
-
-
-    state.videoTrack =
-        stream.getVideoTracks()[0];
-
-
-    /*
-     * Для камеры WebRTC полезно
-     * сообщить браузеру, что видео
-     * содержит движение.
-     */
-
-    if (
-        state.videoTrack &&
-        "contentHint" in state.videoTrack
-    ) {
-
-        state.videoTrack.contentHint =
-            "motion";
+    if (state.videoTrack && "contentHint" in state.videoTrack) {
+        state.videoTrack.contentHint = "motion";
     }
 
+    cameraVideo.srcObject = stream;
+    await cameraVideo.play().then(() => {
+        if (cameraVideo.buffered.length > 0) {
+            cameraVideo.currentTime = cameraVideo.buffered.end(0) - 0.05;
+        }
+    }).catch(() => {});
 
-    cameraVideo.srcObject =
-        stream;
-
-
-    await cameraVideo
-        .play()
-        .catch(() => {});
-
-
-    updateLocalQuality();
-
-
+    setTimeout(() => updateLocalQuality(), 500);
     return stream;
 }
 
-
-/* =========================================================
-   REAL CAMERA SETTINGS
-========================================================= */
-
 function updateLocalQuality() {
+    if (!state.videoTrack) return;
+    const settings = state.videoTrack.getSettings();
+    const w = cameraVideo.videoWidth || settings.width || 0;
+    const h = cameraVideo.videoHeight || settings.height || 0;
+    const fps = settings.frameRate || 0;
 
-    if (!state.videoTrack) {
-        return;
+    if (w && h) {
+        qualityInfo.textContent = `${w}×${h} • ${Math.round(fps)} FPS`;
     }
-
-
-    const settings =
-        state.videoTrack.getSettings();
-
-
-    const width =
-        settings.width || 0;
-
-    const height =
-        settings.height || 0;
-
-    const fps =
-        settings.frameRate || 0;
-
-
-    if (
-        width &&
-        height
-    ) {
-
-        qualityInfo.textContent =
-            `${width}×${height} • ${Math.round(fps)} FPS`;
-
-    }
-
 }
-
-
-/* =========================================================
-   CONNECT CAMERA
-========================================================= */
 
 async function connectCamera() {
-
-    const code =
-        connectionCode.value
-            .trim()
-            .toLowerCase();
-
+    const code = connectionCode.value.trim().toLowerCase();
 
     if (!code) {
-
-        toast(
-            "Введите код комнаты"
-        );
-
+        toast("Введите код комнаты");
         return;
     }
 
-
-    if (
-        !/^[a-z0-9]{6}$/.test(code)
-    ) {
-
-        toast(
-            "Код должен содержать 6 символов"
-        );
-
+    if (!/^[a-z0-9]{6}$/.test(code)) {
+        toast("Код должен содержать 6 символов");
         return;
     }
 
-
-    connectButton.disabled =
-        true;
-
+    connectButton.disabled = true;
 
     try {
+        state.room = code;
+        state.currentLevel = getInitialLevel();
+        setStatus("КАМЕРА", "warning");
 
-        state.room =
-            code;
+        const stream = await getCameraStream(state.currentLevel);
 
+        state.peer = new Peer(undefined, PEER_CONFIG);
 
-        state.currentLevel =
-            getInitialLevel();
+        state.peer.on("open", () => {
+            makeCall("glz-" + code, stream);
+        });
 
-
-        setStatus(
-            "КАМЕРА",
-            "warning"
-        );
-
-
-        /*
-         * Сначала запрашиваем камеру.
-         */
-
-        const stream =
-            await getCameraStream(
-                state.currentLevel
-            );
-
-
-        /*
-         * Создаём случайный Peer ID.
-         *
-         * НИКАКОГО glz-ROOM здесь нет.
-         */
-
-        state.peer =
-            new Peer(
-                undefined,
-                PEER_CONFIG
-            );
-
-
-        state.peer.on(
-            "open",
-            () => {
-
-                makeCall(
-                    "glz-" + code,
-                    stream
-                );
-
+        state.peer.on("error", error => {
+            console.error("PeerJS error:", error);
+            if (error.type === "peer-unavailable") {
+                setStatus("МОНИТОР НЕ НАЙДЕН", "bad");
+                toast("Проверьте код комнаты");
+            } else {
+                setStatus("ОШИБКА PEERJS", "bad");
             }
-        );
+        });
 
-
-        state.peer.on(
-            "error",
-            error => {
-
-                console.error(
-                    "PeerJS error:",
-                    error
-                );
-
-
-                if (
-                    error.type ===
-                    "peer-unavailable"
-                ) {
-
-                    setStatus(
-                        "МОНИТОР НЕ НАЙДЕН",
-                        "bad"
-                    );
-
-                    toast(
-                        "Проверьте код комнаты"
-                    );
-
-                } else {
-
-                    setStatus(
-                        "ОШИБКА PEERJS",
-                        "bad"
-                    );
-
-                }
-
-            }
-        );
-
-
-        state.peer.on(
-            "disconnected",
-            () => {
-
-                state.connected =
-                    false;
-
-                setStatus(
-                    "СВЯЗЬ ПОТЕРЯНА",
-                    "bad"
-                );
-
-            }
-        );
-
+        state.peer.on("disconnected", () => {
+            state.connected = false;
+            setStatus("СВЯЗЬ ПОТЕРЯНА", "bad");
+        });
 
     } catch (error) {
-
-        console.error(
-            "Camera start error:",
-            error
-        );
-
-
+        console.error("Camera start error:", error);
         stopStream();
-
-
-        setStatus(
-            "КАМЕРА НЕДОСТУПНА",
-            "bad"
-        );
-
-
-        toast(
-            "Не удалось запустить камеру"
-        );
-
-
-        connectButton.disabled =
-            false;
+        setStatus("КАМЕРА НЕДОСТУПНА", "bad");
+        toast("Не удалось запустить камеру");
+        connectButton.disabled = false;
     }
-
 }
 
-
-/* =========================================================
-   MAKE CALL
-========================================================= */
-
-function makeCall(
-    target,
-    stream
-) {
-
-    if (
-        state.call
-    ) {
-
-        try {
-            state.call.close();
-        } catch {}
-
+function makeCall(target, stream) {
+    if (state.call) {
+        try { state.call.close(); } catch {}
         state.call = null;
     }
 
-
-    state.call =
-        state.peer.call(
-            target,
-            stream
-        );
-
+    state.call = state.peer.call(target, stream);
 
     if (!state.call) {
-
-        setStatus(
-            "ЗВОНОК НЕ СОЗДАН",
-            "bad"
-        );
-
+        setStatus("ЗВОНОК НЕ СОЗДАН", "bad");
         return;
     }
 
+    cameraConnect.style.display = "none";
+    cameraView.classList.add("active");
+    setStatus("ПОДКЛЮЧЕНИЕ...", "warning");
 
-    cameraConnect.style.display =
-        "none";
+    state.call.on("stream", () => {
+        state.connected = true;
+        setStatus("LIVE");
+        startAdaptiveMonitoring();
+    });
 
-    cameraView.classList
-        .add("active");
+    state.call.on("close", () => {
+        state.connected = false;
+        stopAdaptiveMonitoring();
+        setStatus("СОЕДИНЕНИЕ ЗАКРЫТО", "bad");
+    });
 
-
-    setStatus(
-        "ПОДКЛЮЧЕНИЕ...",
-        "warning"
-    );
-
-
-    state.call.on(
-        "stream",
-        () => {
-
-            /*
-             * Камера сама локальный
-             * stream уже показывает.
-             *
-             * Здесь нам важно только
-             * зафиксировать успешный
-             * WebRTC call.
-             */
-
-            state.connected =
-                true;
-
-            setStatus(
-                "LIVE"
-            );
-
-            startAdaptiveMonitoring();
-
-        }
-    );
-
-
-    state.call.on(
-        "close",
-        () => {
-
-            state.connected =
-                false;
-
-            stopAdaptiveMonitoring();
-
-            setStatus(
-                "СОЕДИНЕНИЕ ЗАКРЫТО",
-                "bad"
-            );
-
-        }
-    );
-
-
-    state.call.on(
-        "error",
-        error => {
-
-            console.error(
-                "WebRTC call error:",
-                error
-            );
-
-
-            state.connected =
-                false;
-
-            setStatus(
-                "ОШИБКА СВЯЗИ",
-                "bad"
-            );
-
-        }
-    );
-
-
-    /*
-     * PeerConnection появляется
-     * немного позже вызова peer.call().
-     */
+    state.call.on("error", error => {
+        console.error("WebRTC call error:", error);
+        state.connected = false;
+        setStatus("ОШИБКА СВЯЗИ", "bad");
+    });
 
     waitForPeerConnection();
 }
 
-
-/* =========================================================
-   WAIT FOR PEER CONNECTION
-========================================================= */
-
 function waitForPeerConnection() {
-
     let attempts = 0;
-
-
-    const timer =
-        setInterval(
-            () => {
-
-                attempts++;
-
-
-                const pc =
-                    state.call &&
-                    state.call.peerConnection;
-
-
-                if (pc) {
-
-                    clearInterval(timer);
-
-                    configureSender();
-
-                    return;
-                }
-
-
-                if (
-                    attempts >= 100
-                ) {
-
-                    clearInterval(timer);
-
-                    console.warn(
-                        "RTCPeerConnection timeout"
-                    );
-
-                }
-
-            },
-            100
-        );
-
+    const timer = setInterval(() => {
+        attempts++;
+        const pc = state.call && state.call.peerConnection;
+        if (pc) {
+            clearInterval(timer);
+            configureSender();
+            return;
+        }
+        if (attempts >= 100) {
+            clearInterval(timer);
+            console.warn("RTCPeerConnection timeout");
+        }
+    }, 100);
 }
-
-
-/* =========================================================
-   GET VIDEO SENDER
-========================================================= */
 
 function getVideoSender() {
-
-    const pc =
-        state.call &&
-        state.call.peerConnection;
-
-
-    if (!pc) {
-        return null;
-    }
-
-
-    return pc
-        .getSenders()
-        .find(
-            sender =>
-                sender.track &&
-                sender.track.kind ===
-                "video"
-        ) || null;
+    const pc = state.call && state.call.peerConnection;
+    if (!pc) return null;
+    return pc.getSenders().find(s => s.track && s.track.kind === "video") || null;
 }
 
+async function applyEncoding(levelIndex) {
+    const sender = getVideoSender();
+    if (!sender) return false;
 
-/* =========================================================
-   APPLY ENCODING
-========================================================= */
+    const level = LEVELS[levelIndex];
+    const parameters = sender.getParameters();
 
-async function applyEncoding(
-    levelIndex
-) {
-
-    const sender =
-        getVideoSender();
-
-
-    if (!sender) {
-        return false;
-    }
-
-
-    const level =
-        LEVELS[levelIndex];
-
-
-    const parameters =
-        sender.getParameters();
-
-
-    if (
-        !parameters.encodings ||
-        !parameters.encodings.length
-    ) {
-
+    if (!parameters.encodings || !parameters.encodings.length) {
         parameters.encodings = [{}];
     }
 
-
-    const encoding =
-        parameters.encodings[0];
-
-
-    encoding.maxBitrate =
-        level.bitrate;
-
-    encoding.maxFramerate =
-        level.fps;
-
-
-    /*
-     * При плохой сети браузер
-     * сначала старается сохранить
-     * разрешение.
-     */
-
-    parameters.degradationPreference =
-        "maintain-resolution";
-
+    const encoding = parameters.encodings[0];
+    encoding.maxBitrate = level.bitrate;
+    encoding.maxFramerate = level.fps;
+    parameters.degradationPreference = "maintain-resolution";
 
     try {
-
-        await sender.setParameters(
-            parameters
-        );
-
+        await sender.setParameters(parameters);
         return true;
-
     } catch (error) {
-
-        console.debug(
-            "setParameters failed:",
-            error
-        );
-
+        console.debug("setParameters failed:", error);
         return false;
     }
-
 }
-
-
-/* =========================================================
-   CONFIGURE SENDER
-========================================================= */
 
 function configureSender() {
-
-    applyEncoding(
-        state.currentLevel
-    );
-
+    applyEncoding(state.currentLevel);
     updateLocalQuality();
-
 }
 
-
-/* =========================================================
-   ADAPTIVE MONITORING
-========================================================= */
-
 function startAdaptiveMonitoring() {
-
     stopAdaptiveMonitoring();
-
-
-    state.statsTimer =
-        setInterval(
-            collectNetworkStats,
-            2000
-        );
-
-
-    state.adaptiveTimer =
-        setInterval(
-            evaluateNetwork,
-            4000
-        );
-
-
+    state.statsTimer = setInterval(collectNetworkStats, 2000);
+    state.adaptiveTimer = setInterval(evaluateNetwork, 4000);
     collectNetworkStats();
 }
 
-
-/* =========================================================
-   STOP ADAPTIVE
-========================================================= */
-
 function stopAdaptiveMonitoring() {
-
-    if (
-        state.statsTimer
-    ) {
-
-        clearInterval(
-            state.statsTimer
-        );
-
-        state.statsTimer = null;
-    }
-
-
-    if (
-        state.adaptiveTimer
-    ) {
-
-        clearInterval(
-            state.adaptiveTimer
-        );
-
-        state.adaptiveTimer = null;
-    }
-
+    if (state.statsTimer) { clearInterval(state.statsTimer); state.statsTimer = null; }
+    if (state.adaptiveTimer) { clearInterval(state.adaptiveTimer); state.adaptiveTimer = null; }
 }
-
-
-/* =========================================================
-   COLLECT STATS
-========================================================= */
 
 async function collectNetworkStats() {
-
-    const pc =
-        state.call &&
-        state.call.peerConnection;
-
-
-    if (!pc) {
-        return;
-    }
-
+    const pc = state.call && state.call.peerConnection;
+    if (!pc) return;
 
     try {
+        const reports = await pc.getStats();
+        let availableBitrate = null;
+        let roundTripTime = null;
 
-        const reports =
-            await pc.getStats();
-
-
-        let availableBitrate =
-            null;
-
-        let roundTripTime =
-            null;
-
-
-        reports.forEach(
-            report => {
-
-                if (
-                    report.type ===
-                    "candidate-pair" &&
-
-                    report.state ===
-                    "succeeded"
-                ) {
-
-                    if (
-                        typeof
-                        report.availableOutgoingBitrate
-                        === "number"
-                    ) {
-
-                        availableBitrate =
-                            report.availableOutgoingBitrate;
-                    }
-
-
-                    if (
-                        typeof
-                        report.currentRoundTripTime
-                        === "number"
-                    ) {
-
-                        roundTripTime =
-                            report.currentRoundTripTime;
-                    }
-
-                }
-
+        reports.forEach(report => {
+            if (report.type === "candidate-pair" && report.state === "succeeded") {
+                if (typeof report.availableOutgoingBitrate === "number") availableBitrate = report.availableOutgoingBitrate;
+                if (typeof report.currentRoundTripTime === "number") roundTripTime = report.currentRoundTripTime;
             }
-        );
+        });
 
-
-        if (
-            availableBitrate !== null
-        ) {
-
-            networkInfo.textContent =
-                formatBitrate(
-                    availableBitrate
-                );
-
-        }
-
-
-        state.lastStats = {
-
-            availableBitrate,
-
-            roundTripTime
-
-        };
-
-
+        if (availableBitrate !== null) networkInfo.textContent = formatBitrate(availableBitrate);
+        state.lastStats = { availableBitrate, roundTripTime };
     } catch (error) {
-
-        console.debug(
-            "Stats error:",
-            error
-        );
-
+        console.debug("Stats error:", error);
     }
-
 }
 
-
-/* =========================================================
-   EVALUATE NETWORK
-========================================================= */
-
 async function evaluateNetwork() {
+    if (!adaptiveToggle.checked) return;
+    const pc = state.call && state.call.peerConnection;
+    if (!pc) return;
 
-    if (
-        !adaptiveToggle.checked
-    ) {
-
-        return;
-    }
-
-
-    const pc =
-        state.call &&
-        state.call.peerConnection;
-
-
-    if (!pc) {
-        return;
-    }
-
-
-    let availableBitrate =
-        null;
-
-    let roundTripTime =
-        null;
-
-    let outbound =
-        null;
-
-    let remoteInbound =
-        null;
-
+    let availableBitrate = null;
+    let roundTripTime = null;
+    let outbound = null;
+    let remoteInbound = null;
 
     try {
-
-        const reports =
-            await pc.getStats();
-
-
-        reports.forEach(
-            report => {
-
-                if (
-                    report.type ===
-                    "candidate-pair" &&
-
-                    report.state ===
-                    "succeeded"
-                ) {
-
-                    if (
-                        typeof
-                        report.availableOutgoingBitrate
-                        === "number"
-                    ) {
-
-                        availableBitrate =
-                            report.availableOutgoingBitrate;
-                    }
-
-
-                    if (
-                        typeof
-                        report.currentRoundTripTime
-                        === "number"
-                    ) {
-
-                        roundTripTime =
-                            report.currentRoundTripTime;
-                    }
-
-                }
-
-
-                if (
-                    report.type ===
-                    "outbound-rtp" &&
-
-                    report.kind ===
-                    "video"
-                ) {
-
-                    outbound =
-                        report;
-                }
-
-
-                if (
-                    report.type ===
-                    "remote-inbound-rtp" &&
-
-                    report.kind ===
-                    "video"
-                ) {
-
-                    remoteInbound =
-                        report;
-                }
-
+        const reports = await pc.getStats();
+        reports.forEach(report => {
+            if (report.type === "candidate-pair" && report.state === "succeeded") {
+                if (typeof report.availableOutgoingBitrate === "number") availableBitrate = report.availableOutgoingBitrate;
+                if (typeof report.currentRoundTripTime === "number") roundTripTime = report.currentRoundTripTime;
             }
-        );
+            if (report.type === "outbound-rtp" && report.kind === "video") outbound = report;
+            if (report.type === "remote-inbound-rtp" && report.kind === "video") remoteInbound = report;
+        });
+    } catch { return; }
 
+    if (availableBitrate !== null) networkInfo.textContent = formatBitrate(availableBitrate);
 
-    } catch {
-
-        return;
-    }
-
-
-    if (
-        availableBitrate !== null
-    ) {
-
-        networkInfo.textContent =
-            formatBitrate(
-                availableBitrate
-            );
-    }
-
-
-    const current =
-        LEVELS[
-            state.currentLevel
-        ];
-
-
+    const current = LEVELS[state.currentLevel];
     let bad = false;
     let veryBad = false;
 
-
-    /*
-     * Доступная полоса.
-     */
-
-    if (
-        availableBitrate !== null
-    ) {
-
-        if (
-            availableBitrate <
-            current.bitrate * 0.65
-        ) {
-
-            bad = true;
-        }
-
-
-        if (
-            availableBitrate <
-            current.bitrate * 0.40
-        ) {
-
-            veryBad = true;
-        }
-
+    if (availableBitrate !== null) {
+        if (availableBitrate < current.bitrate * 0.65) bad = true;
+        if (availableBitrate < current.bitrate * 0.40) veryBad = true;
     }
 
-
-    /*
-     * RTT.
-     */
-
-    if (
-        roundTripTime !== null
-    ) {
-
-        if (
-            roundTripTime > 0.40
-        ) {
-
-            bad = true;
-        }
-
-
-        if (
-            roundTripTime > 0.80
-        ) {
-
-            veryBad = true;
-        }
-
+    if (roundTripTime !== null) {
+        if (roundTripTime > 0.40) bad = true;
+        if (roundTripTime > 0.80) veryBad = true;
     }
 
-
-    /*
-     * remote-inbound-rtp
-     * содержит данные о том,
-     * что реально получил удалённый
-     * конец соединения.
-     */
-
-    if (
-        remoteInbound
-    ) {
-
-        const lost =
-            Number(
-                remoteInbound.packetsLost || 0
-            );
-
-
-        const received =
-            Number(
-                remoteInbound.packetsReceived || 0
-            );
-
-
-        const total =
-            lost + received;
-
-
-        if (
-            total > 100
-        ) {
-
-            const loss =
-                lost / total;
-
-
-            if (
-                loss > 0.08
-            ) {
-
-                bad = true;
-            }
-
-
-            if (
-                loss > 0.15
-            ) {
-
-                veryBad = true;
-            }
-
+    if (remoteInbound) {
+        const lost = Number(remoteInbound.packetsLost || 0);
+        const received = Number(remoteInbound.packetsReceived || 0);
+        const total = lost + received;
+        if (total > 100) {
+            const loss = lost / total;
+            if (loss > 0.08) bad = true;
+            if (loss > 0.15) veryBad = true;
         }
-
     }
 
-
-    /*
-     * Если браузер сам сообщает,
-     * что качество ограничено
-     * пропускной способностью.
-     */
-
-    if (
-        outbound &&
-        outbound.qualityLimitationReason ===
-        "bandwidth"
-    ) {
-
-        bad = true;
-    }
-
+    if (outbound && outbound.qualityLimitationReason === "bandwidth") bad = true;
 
     if (veryBad) {
-
-        setStatus(
-            "ПЛОХАЯ СВЯЗЬ",
-            "bad"
-        );
-
-
+        setStatus("ПЛОХАЯ СВЯЗЬ", "bad");
         await decreaseQuality();
-
         return;
     }
-
 
     if (bad) {
-
-        setStatus(
-            "АДАПТАЦИЯ",
-            "warning"
-        );
-
-
+        setStatus("АДАПТАЦИЯ", "warning");
         await decreaseQuality();
-
         return;
     }
 
-
-    /*
-     * Хорошая сеть.
-     *
-     * Возвращаем качество
-     * медленно.
-     */
-
-    if (
-        availableBitrate !== null &&
-
-        availableBitrate >
-        current.bitrate * 1.7 &&
-
-        (
-            roundTripTime === null ||
-            roundTripTime < 0.20
-        )
-    ) {
-
+    if (availableBitrate !== null && availableBitrate > current.bitrate * 1.7 && (roundTripTime === null || roundTripTime < 0.20)) {
         await increaseQuality();
-
     }
 
-
-    if (
-        state.connected
-    ) {
-
-        setStatus(
-            "LIVE"
-        );
-    }
-
+    if (state.connected) setStatus("LIVE");
 }
-
-
-/* =========================================================
-   DECREASE QUALITY
-========================================================= */
 
 async function decreaseQuality() {
+    if (state.currentLevel <= 0) return;
+    const oldLevel = state.currentLevel;
+    state.currentLevel = Math.max(0, state.currentLevel - 1);
+    if (oldLevel === state.currentLevel) return;
 
-    if (
-        state.currentLevel <= 0
-    ) {
+    const success = await applyEncoding(state.currentLevel);
+    if (!success) { state.currentLevel = oldLevel; return; }
 
-        return;
-    }
-
-
-    const oldLevel =
-        state.currentLevel;
-
-
-    state.currentLevel =
-        Math.max(
-            0,
-            state.currentLevel - 1
-        );
-
-
-    if (
-        oldLevel ===
-        state.currentLevel
-    ) {
-
-        return;
-    }
-
-
-    const success =
-        await applyEncoding(
-            state.currentLevel
-        );
-
-
-    if (!success) {
-
-        state.currentLevel =
-            oldLevel;
-
-        return;
-    }
-
-
-    const level =
-        LEVELS[
-            state.currentLevel
-        ];
-
-
-    toast(
-        `Адаптация: ${level.name}`
-    );
-
-
+    toast(`Адаптация: ${LEVELS[state.currentLevel].name}`);
     updateLocalQuality();
-
 }
-
-
-/* =========================================================
-   INCREASE QUALITY
-========================================================= */
 
 async function increaseQuality() {
-
-    if (
-        state.currentLevel >=
-        LEVELS.length - 1
-    ) {
-
-        return;
-    }
-
-
-    const oldLevel =
-        state.currentLevel;
-
-
+    if (state.currentLevel >= LEVELS.length - 1) return;
+    const oldLevel = state.currentLevel;
     state.currentLevel++;
 
+    const success = await applyEncoding(state.currentLevel);
+    if (!success) { state.currentLevel = oldLevel; return; }
 
-    const success =
-        await applyEncoding(
-            state.currentLevel
-        );
-
-
-    if (!success) {
-
-        state.currentLevel =
-            oldLevel;
-
-        return;
-    }
-
-
-    const level =
-        LEVELS[
-            state.currentLevel
-        ];
-
-
-    toast(
-        `Качество: ${level.name}`
-    );
-
-
+    toast(`Качество: ${LEVELS[state.currentLevel].name}`);
     updateLocalQuality();
-
 }
 
-
-/* =========================================================
-   FORMAT BITRATE
-========================================================= */
-
-function formatBitrate(
-    bitrate
-) {
-
-    if (
-        bitrate >= 1000000
-    ) {
-
-        return (
-            bitrate /
-            1000000
-        ).toFixed(1) +
-        " Mbps";
-
-    }
-
-
-    return Math.round(
-        bitrate / 1000
-    ) + " Kbps";
-
+function formatBitrate(bitrate) {
+    if (bitrate >= 1000000) return (bitrate / 1000000).toFixed(1) + " Mbps";
+    return Math.round(bitrate / 1000) + " Kbps";
 }
-
-
-/* =========================================================
-   TORCH
-========================================================= */
 
 async function toggleTorch() {
-
-    if (
-        !state.videoTrack
-    ) {
-
-        return;
-    }
-
-
+    if (!state.videoTrack) return;
     try {
-
-        state.torchOn =
-            !state.torchOn;
-
-
-        await state.videoTrack
-            .applyConstraints({
-
-                advanced: [
-
-                    {
-                        torch:
-                            state.torchOn
-                    }
-
-                ]
-
-            });
-
-
-        $("torch-btn")
-            .textContent =
-            state.torchOn
-                ? "Выключить"
-                : "Вспышка";
-
-
+        state.torchOn = !state.torchOn;
+        await state.videoTrack.applyConstraints({
+            advanced: [{ torch: state.torchOn }]
+        });
+        $("torch-btn").textContent = state.torchOn ? "Выключить" : "Вспышка";
     } catch (error) {
-
-        state.torchOn =
-            false;
-
-
-        toast(
-            "Вспышка недоступна"
-        );
-
+        state.torchOn = false;
+        toast("Вспышка недоступна");
     }
-
 }
-
-
-/* =========================================================
-   FLIP CAMERA
-========================================================= */
 
 async function flipCamera() {
+    const oldStream = state.stream;
+    const oldTrack = state.videoTrack;
+    const oldFacingMode = state.facingMode;
 
-    const oldStream =
-        state.stream;
-
-
-    const oldTrack =
-        state.videoTrack;
-
-
-    const oldFacingMode =
-        state.facingMode;
-
-
-    state.facingMode =
-        oldFacingMode ===
-        "environment"
-            ? "user"
-            : "environment";
-
+    state.facingMode = oldFacingMode === "environment" ? "user" : "environment";
 
     try {
+        const newStream = await navigator.mediaDevices.getUserMedia(getConstraints(state.currentLevel));
+        const newTrack = newStream.getVideoTracks()[0];
 
-        /*
-         * Не останавливаем старую
-         * камеру до получения новой.
-         */
+        if ("contentHint" in newTrack) newTrack.contentHint = "motion";
 
-        const newStream =
-            await navigator
-                .mediaDevices
-                .getUserMedia(
-                    getConstraints(
-                        state.currentLevel
-                    )
-                );
+        const sender = getVideoSender();
+        if (sender) await sender.replaceTrack(newTrack);
 
-
-        const newTrack =
-            newStream
-                .getVideoTracks()[0];
-
-
-        if (
-            "contentHint" in newTrack
-        ) {
-
-            newTrack.contentHint =
-                "motion";
-        }
-
-
-        const sender =
-            getVideoSender();
-
-
-        if (sender) {
-
-            await sender.replaceTrack(
-                newTrack
-            );
-        }
-
-
-        state.stream =
-            newStream;
-
-
-        state.videoTrack =
-            newTrack;
-
-
-        cameraVideo.srcObject =
-            newStream;
-
-
-        await cameraVideo
-            .play()
-            .catch(() => {});
-
+        state.stream = newStream;
+        state.videoTrack = newTrack;
+        cameraVideo.srcObject = newStream;
+        await cameraVideo.play().catch(() => {});
 
         if (oldStream) {
-
-            oldStream
-                .getTracks()
-                .forEach(track => {
-
-                    try {
-                        track.stop();
-                    } catch {}
-
-                });
-
+            oldStream.getTracks().forEach(track => { try { track.stop(); } catch {} });
         }
-
 
         updateLocalQuality();
-
-
-        toast(
-            "Камера переключена"
-        );
-
-
+        toast("Камера переключена");
     } catch (error) {
+        console.error("Flip camera error:", error);
+        state.facingMode = oldFacingMode;
+        toast("Не удалось переключить камеру");
 
-        console.error(
-            "Flip camera error:",
-            error
-        );
-
-
-        state.facingMode =
-            oldFacingMode;
-
-
-        toast(
-            "Не удалось переключить камеру"
-        );
-
-
-        /*
-         * Если новая камера
-         * успела создаться, закрываем её.
-         */
-
-        if (
-            state.stream !== oldStream
-        ) {
-
+        if (state.stream !== oldStream) {
             stopStream();
-
-            state.stream =
-                oldStream;
-
-            state.videoTrack =
-                oldTrack;
-
-            cameraVideo.srcObject =
-                oldStream;
+            state.stream = oldStream;
+            state.videoTrack = oldTrack;
+            cameraVideo.srcObject = oldStream;
         }
-
     }
-
 }
-
-
-/* =========================================================
-   STOP CAMERA
-========================================================= */
 
 function stopCamera() {
-
     stopAdaptiveMonitoring();
-
-
-    if (
-        state.call
-    ) {
-
-        try {
-            state.call.close();
-        } catch {}
-
-        state.call = null;
-    }
-
-
-    if (
-        state.peer
-    ) {
-
-        try {
-            state.peer.destroy();
-        } catch {}
-
-        state.peer = null;
-    }
-
+    if (state.call) { try { state.call.close(); } catch {} state.call = null; }
+    if (state.peer) { try { state.peer.destroy(); } catch {} state.peer = null; }
 
     stopStream();
+    cameraVideo.srcObject = null;
+    cameraView.classList.remove("active");
+    cameraConnect.style.display = "flex";
+    connectButton.disabled = false;
+    state.connected = false;
 
-
-    cameraVideo.srcObject =
-        null;
-
-
-    cameraView.classList
-        .remove("active");
-
-
-    cameraConnect.style.display =
-        "flex";
-
-
-    connectButton.disabled =
-        false;
-
-
-    state.connected =
-        false;
-
-
-    networkInfo.textContent =
-        "—";
-
-
-    qualityInfo.textContent =
-        "—";
-
-
-    setStatus(
-        "CONNECTING",
-        "warning"
-    );
-
+    networkInfo.textContent = "—";
+    qualityInfo.textContent = "—";
+    setStatus("CONNECTING", "warning");
 }
-
-
-/* =========================================================
-   SHOW START
-========================================================= */
 
 function showStart() {
-
     stopCamera();
-
-
-    cameraScreen.classList
-        .remove("active");
-
-
-    startScreen.classList
-        .add("active");
-
+    cameraScreen.classList.remove("active");
+    startScreen.classList.add("active");
 }
 
-
-/* =========================================================
-   OPEN MODE
-========================================================= */
-
 function openMode(mode) {
+    if (mode === "camera") {
+        startScreen.classList.remove("active");
+        cameraScreen.classList.add("active");
+        return;
+    }
+    if (mode === "monitor") {
+        window.location.href = "./monitor.html";
+    }
+}
 
-    if (
-        mode === "camera"
-    ) {
+document.addEventListener("click", event => {
+    const mode = event.target.closest("[data-mode]");
+    if (mode) openMode(mode.dataset.mode);
+});
 
-        startScreen.classList
-            .remove("active");
+connectButton.addEventListener("click", connectCamera);
+$("back-btn").addEventListener("click", showStart);
+$("stop-btn").addEventListener("click", stopCamera);
+$("torch-btn").addEventListener("click", toggleTorch);
+$("flip-btn").addEventListener("click", flipCamera);
 
+connectionCode.addEventListener("keydown", event => {
+    if (event.key === "Enter") connectCamera();
+});
 
-        cameraScreen.classList
-            .add("active");
+window.addEventListener("DOMContentLoaded", () => {
+    const params = new URLSearchParams(window.location.search);
+    const mode = params.get("m");
+    const room = params.get("room");
 
+    if (mode === "monitor") {
+        window.location.href = "./monitor.html";
         return;
     }
 
-
-    if (
-        mode === "monitor"
-    ) {
-
-        /*
-         * Монитор — отдельная страница.
-         */
-
-        window.location.href =
-            "./monitor.html";
+    if (mode === "camera" || room) {
+        startScreen.classList.remove("active");
+        cameraScreen.classList.add("active");
+        if (room) connectionCode.value = room.toUpperCase().slice(0, 6);
     }
+});
 
-}
-
-
-/* =========================================================
-   BUTTON EVENTS
-========================================================= */
-
-document.addEventListener(
-    "click",
-    event => {
-
-        const mode =
-            event.target.closest(
-                "[data-mode]"
-            );
-
-
-        if (mode) {
-
-            openMode(
-                mode.dataset.mode
-            );
-
-        }
-
-    }
-);
-
-
-connectButton
-    .addEventListener(
-        "click",
-        connectCamera
-    );
-
-
-$("back-btn")
-    .addEventListener(
-        "click",
-        showStart
-    );
-
-
-$("stop-btn")
-    .addEventListener(
-        "click",
-        stopCamera
-    );
-
-
-$("torch-btn")
-    .addEventListener(
-        "click",
-        toggleTorch
-    );
-
-
-$("flip-btn")
-    .addEventListener(
-        "click",
-        flipCamera
-    );
-
-
-/* =========================================================
-   ENTER KEY
-========================================================= */
-
-connectionCode
-    .addEventListener(
-        "keydown",
-        event => {
-
-            if (
-                event.key ===
-                "Enter"
-            ) {
-
-                connectCamera();
-
-            }
-
-        }
-    );
-
-
-/* =========================================================
-   AUTO START
-========================================================= */
-
-window.addEventListener(
-    "DOMContentLoaded",
-    () => {
-
-        const params =
-            new URLSearchParams(
-                window.location.search
-            );
-
-
-        const mode =
-            params.get("m");
-
-        const room =
-            params.get("room");
-
-
-        if (
-            mode === "monitor"
-        ) {
-
-            window.location.href =
-                "./monitor.html";
-
-            return;
-        }
-
-
-        if (
-            mode === "camera" ||
-            room
-        ) {
-
-            startScreen.classList
-                .remove("active");
-
-
-            cameraScreen.classList
-                .add("active");
-
-
-            if (room) {
-
-                connectionCode.value =
-                    room
-                        .toUpperCase()
-                        .slice(0, 6);
-
-            }
-
-        }
-
-    }
-);
-
-
-/* =========================================================
-   CLEANUP
-========================================================= */
-
-window.addEventListener(
-    "beforeunload",
-    () => {
-
-        stopAdaptiveMonitoring();
-
-        stopStream();
-
-
-        if (state.call) {
-
-            try {
-                state.call.close();
-            } catch {}
-
-        }
-
-        if (state.peer) {
-
-            try {
-                state.peer.destroy();
-            } catch {}
-
-        }
-
-    }
-);
+window.addEventListener("beforeunload", () => {
+    stopAdaptiveMonitoring();
+    stopStream();
+    if (state.call) try { state.call.close(); } catch {}
+    if (state.peer) try { state.peer.destroy(); } catch {}
+});
 </script>
 </body>
 </html>
