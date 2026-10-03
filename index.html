@@ -11,43 +11,44 @@
                  user-scalable=no"
     >
 
-    <meta name="theme-color" content="#050508">
+    <meta
+        name="theme-color"
+        content="#050508"
+    >
 
     <title>Glazok Studio</title>
 
-    <link rel="manifest" href="./manifest.webmanifest">
-    <link rel="icon" href="./icon.svg">
+    <link
+        rel="manifest"
+        href="./manifest.webmanifest"
+    >
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+    <link
+        rel="icon"
+        href="./icon.svg"
+    >
+
+    <script
+        src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js">
+    </script>
 
     <style>
 
         :root {
             --bg: #050508;
-
-            --surface:
-                rgba(255,255,255,.055);
-
-            --surface-strong:
-                rgba(15,15,22,.88);
-
-            --border:
-                rgba(255,255,255,.10);
+            --surface: rgba(255,255,255,.055);
+            --surface-strong: rgba(15,15,22,.92);
+            --border: rgba(255,255,255,.10);
 
             --text: #f8fafc;
-
             --muted: #788195;
 
             --accent: #6366f1;
-
             --green: #10b981;
-
             --red: #ef4444;
-
             --yellow: #f59e0b;
 
             --radius: 18px;
-
             --pill: 999px;
         }
 
@@ -58,8 +59,7 @@
             margin: 0;
             padding: 0;
 
-            -webkit-tap-highlight-color:
-                transparent;
+            -webkit-tap-highlight-color: transparent;
         }
 
 
@@ -100,9 +100,9 @@
         }
 
 
-        /* =========================
-           SCREENS
-        ========================= */
+        /* =====================================================
+           SCREEN
+        ===================================================== */
 
         .screen {
 
@@ -128,9 +128,9 @@
         }
 
 
-        /* =========================
+        /* =====================================================
            START
-        ========================= */
+        ===================================================== */
 
         #screen-start {
 
@@ -191,7 +191,7 @@
 
             width: min(
                 100%,
-                340px
+                360px
             );
 
             display: flex;
@@ -223,11 +223,24 @@
             background:
                 var(--surface);
 
+            color: var(--text);
+
             text-align: left;
 
             transition:
                 transform .15s ease,
-                background .15s ease;
+                background .15s ease,
+                border-color .15s ease;
+        }
+
+
+        .mode:hover {
+
+            background:
+                rgba(255,255,255,.08);
+
+            border-color:
+                rgba(255,255,255,.16);
         }
 
 
@@ -240,8 +253,10 @@
 
         .mode-icon {
 
-            width: 42px;
-            height: 42px;
+            width: 44px;
+            height: 44px;
+
+            flex: 0 0 44px;
 
             display: flex;
 
@@ -272,12 +287,14 @@
             color: var(--muted);
 
             font-size: 12px;
+
+            line-height: 1.4;
         }
 
 
-        /* =========================
+        /* =====================================================
            CAMERA CONNECT
-        ========================= */
+        ===================================================== */
 
         #screen-camera {
 
@@ -343,8 +360,9 @@
             background:
                 var(--surface);
 
+            color: #fff;
+
             font-family:
-                "JetBrains Mono",
                 monospace;
 
             font-size: 26px;
@@ -356,6 +374,11 @@
             letter-spacing: .18em;
 
             text-transform: uppercase;
+        }
+
+
+        .code-input::placeholder {
+            color: #4b5563;
         }
 
 
@@ -404,8 +427,7 @@
 
             padding: 0 14px;
 
-            border-radius:
-                14px;
+            border-radius: 14px;
 
             border:
                 1px solid var(--border);
@@ -429,6 +451,10 @@
         }
 
 
+        /* =====================================================
+           ADAPTIVE QUALITY
+        ===================================================== */
+
         .adaptive-box {
 
             display: flex;
@@ -437,17 +463,24 @@
 
             justify-content: space-between;
 
+            gap: 15px;
+
             padding: 14px 16px;
 
             border:
                 1px solid
                 rgba(99,102,241,.25);
 
-            border-radius:
-                14px;
+            border-radius: 14px;
 
             background:
                 rgba(99,102,241,.08);
+        }
+
+
+        .adaptive-text {
+
+            min-width: 0;
         }
 
 
@@ -468,6 +501,8 @@
             color: var(--muted);
 
             font-size: 11px;
+
+            line-height: 1.35;
         }
 
 
@@ -477,6 +512,8 @@
 
             width: 44px;
             height: 26px;
+
+            flex: 0 0 44px;
         }
 
 
@@ -495,13 +532,11 @@
 
             inset: 0;
 
-            border-radius:
-                999px;
+            border-radius: 999px;
 
             background: #30303a;
 
-            transition:
-                .2s;
+            transition: .2s;
         }
 
 
@@ -521,8 +556,7 @@
 
             background: #fff;
 
-            transition:
-                .2s;
+            transition: .2s;
         }
 
 
@@ -539,6 +573,10 @@
                 translateX(18px);
         }
 
+
+        /* =====================================================
+           BUTTONS
+        ===================================================== */
 
         .btn {
 
@@ -558,6 +596,25 @@
             font-size: 14px;
 
             font-weight: 700;
+
+            transition:
+                opacity .15s ease,
+                transform .15s ease;
+        }
+
+
+        .btn:active {
+
+            transform:
+                scale(.98);
+        }
+
+
+        .btn:disabled {
+
+            opacity: .5;
+
+            cursor: default;
         }
 
 
@@ -582,9 +639,9 @@
         }
 
 
-        /* =========================
+        /* =====================================================
            CAMERA VIEW
-        ========================= */
+        ===================================================== */
 
         #camera-view {
 
@@ -599,7 +656,6 @@
 
 
         #camera-view.active {
-
             display: flex;
         }
 
@@ -618,6 +674,10 @@
             background: #000;
         }
 
+
+        /* =====================================================
+           CAMERA UI
+        ===================================================== */
 
         .camera-ui {
 
@@ -652,7 +712,6 @@
 
 
         .camera-ui > * {
-
             pointer-events: auto;
         }
 
@@ -661,9 +720,11 @@
 
             display: flex;
 
-            align-items: center;
+            align-items: flex-start;
 
             justify-content: space-between;
+
+            gap: 10px;
         }
 
 
@@ -693,9 +754,25 @@
             backdrop-filter:
                 blur(20px);
 
+            color: #fff;
+
             font-size: 12px;
 
             font-weight: 700;
+        }
+
+
+        .stats {
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: flex-end;
+
+            gap: 8px;
+
+            flex-wrap: wrap;
         }
 
 
@@ -703,6 +780,8 @@
 
             width: 8px;
             height: 8px;
+
+            flex: 0 0 8px;
 
             border-radius: 50%;
 
@@ -737,20 +816,6 @@
         }
 
 
-        .stats {
-
-            display: flex;
-
-            align-items: center;
-
-            gap: 8px;
-
-            flex-wrap: wrap;
-
-            justify-content: flex-end;
-        }
-
-
         .bottom {
 
             display: flex;
@@ -758,6 +823,8 @@
             justify-content: center;
 
             gap: 8px;
+
+            flex-wrap: wrap;
         }
 
 
@@ -789,6 +856,13 @@
         }
 
 
+        .action:active {
+
+            transform:
+                scale(.97);
+        }
+
+
         .stop {
 
             background:
@@ -799,9 +873,9 @@
         }
 
 
-        /* =========================
+        /* =====================================================
            TOAST
-        ========================= */
+        ===================================================== */
 
         #toast-container {
 
@@ -824,6 +898,8 @@
 
             flex-direction: column;
 
+            align-items: center;
+
             gap: 8px;
 
             pointer-events: none;
@@ -844,6 +920,8 @@
             border:
                 1px solid var(--border);
 
+            color: #fff;
+
             font-size: 12px;
 
             white-space: nowrap;
@@ -854,10 +932,9 @@
 
 <body>
 
-
-<!-- =========================
-     START
-========================= -->
+<!-- =========================================================
+     START SCREEN
+========================================================= -->
 
 <section
     id="screen-start"
@@ -918,7 +995,7 @@
                 </div>
 
                 <div class="mode-description">
-                    Открыть комнату
+                    Создать комнату
                     на компьютере
                 </div>
 
@@ -931,28 +1008,25 @@
 </section>
 
 
-
-<!-- =========================
-     CAMERA
-========================= -->
+<!-- =========================================================
+     CAMERA SCREEN
+========================================================= -->
 
 <section
     id="screen-camera"
     class="screen"
 >
 
-
-    <div
-        id="camera-connect"
-    >
+    <div id="camera-connect">
 
         <div class="connect-title">
             Подключить камеру
         </div>
 
+
         <div class="connect-description">
-            Введите код комнаты
-            с компьютера.
+            Введите код комнаты,
+            который показан на компьютере.
         </div>
 
 
@@ -962,12 +1036,13 @@
             maxlength="6"
             autocomplete="off"
             autocapitalize="characters"
+            spellcheck="false"
+            inputmode="text"
             placeholder="ABC123"
         >
 
 
         <div class="quality-row">
-
 
             <div class="field">
 
@@ -1054,8 +1129,8 @@
                 </strong>
 
                 <span>
-                    Автоматическая адаптация
-                    под интернет
+                    Автоматически снижает нагрузку
+                    при плохом интернете
                 </span>
 
             </div>
@@ -1094,10 +1169,11 @@
     </div>
 
 
-    <!-- CAMERA VIEW -->
+    <!-- =====================================================
+         CAMERA LIVE VIEW
+    ===================================================== -->
 
     <div id="camera-view">
-
 
         <video
             id="camera-video"
@@ -1109,15 +1185,13 @@
 
         <div class="camera-ui">
 
-
             <div class="top-row">
-
 
                 <div class="pill">
 
                     <span
                         id="status-dot"
-                        class="dot"
+                        class="dot warning"
                     ></span>
 
                     <span id="status-text">
@@ -1148,26 +1222,28 @@
 
             <div class="bottom">
 
-
                 <button
                     id="torch-btn"
                     class="action"
+                    type="button"
                 >
-                    💡 Вспышка
+                    Вспышка
                 </button>
 
 
                 <button
                     id="flip-btn"
                     class="action"
+                    type="button"
                 >
-                    🔄 Камера
+                    Камера
                 </button>
 
 
                 <button
                     id="stop-btn"
                     class="action stop"
+                    type="button"
                 >
                     Стоп
                 </button>
@@ -1182,7 +1258,6 @@
 
 
 <div id="toast-container"></div>
-
 
 
 <script>
@@ -1237,6 +1312,9 @@ const qualityInfo =
 const networkInfo =
     $("network-info");
 
+const connectButton =
+    $("connect-btn");
+
 
 /* =========================================================
    STATE
@@ -1266,18 +1344,47 @@ const state = {
 
     currentLevel: 0,
 
-    targetLevel: 0,
+    connected: false,
 
-    manualResolution: true,
+    reconnectTimer: null
 
-    manualFps: true,
-
-    connected: false
 };
 
 
 /* =========================================================
-   CAMERA LEVELS
+   WEBRTC CONFIG
+========================================================= */
+
+const PEER_CONFIG = {
+
+    config: {
+
+        iceServers: [
+
+            {
+                urls:
+                    "stun:stun.l.google.com:19302"
+            },
+
+            {
+                urls:
+                    "stun:stun1.l.google.com:19302"
+            },
+
+            {
+                urls:
+                    "stun:stun2.l.google.com:19302"
+            }
+
+        ]
+
+    }
+
+};
+
+
+/* =========================================================
+   QUALITY LEVELS
 ========================================================= */
 
 const LEVELS = [
@@ -1341,7 +1448,7 @@ const LEVELS = [
 
 
 /* =========================================================
-   USER QUALITY → START LEVEL
+   START LEVEL
 ========================================================= */
 
 function getInitialLevel() {
@@ -1361,6 +1468,7 @@ function getInitialLevel() {
         resolution >= 1080 &&
         fps >= 60
     ) {
+
         return 4;
     }
 
@@ -1368,6 +1476,7 @@ function getInitialLevel() {
     if (
         resolution >= 1080
     ) {
+
         return 3;
     }
 
@@ -1376,6 +1485,7 @@ function getInitialLevel() {
         resolution >= 720 &&
         fps >= 60
     ) {
+
         return 2;
     }
 
@@ -1383,6 +1493,7 @@ function getInitialLevel() {
     if (
         resolution >= 720
     ) {
+
         return 1;
     }
 
@@ -1398,9 +1509,7 @@ function getInitialLevel() {
 function toast(message) {
 
     const element =
-        document.createElement(
-            "div"
-        );
+        document.createElement("div");
 
     element.className =
         "toast";
@@ -1431,7 +1540,6 @@ function setStatus(
     statusText.textContent =
         text;
 
-
     statusDot.className =
         "dot";
 
@@ -1442,7 +1550,6 @@ function setStatus(
 
         statusDot.classList
             .add("warning");
-
     }
 
 
@@ -1452,38 +1559,35 @@ function setStatus(
 
         statusDot.classList
             .add("bad");
-
     }
 
 }
 
 
 /* =========================================================
-   STOP STREAM
+   STOP MEDIA
 ========================================================= */
 
 function stopStream() {
 
-    if (
-        state.stream
-    ) {
+    if (state.stream) {
 
         state.stream
             .getTracks()
-            .forEach(track =>
-                track.stop()
-            );
+            .forEach(track => {
+
+                try {
+                    track.stop();
+                } catch {}
+
+            });
 
         state.stream = null;
     }
 
 
-    state.videoTrack =
-        null;
-
-
-    state.torchOn =
-        false;
+    state.videoTrack = null;
+    state.torchOn = false;
 }
 
 
@@ -1491,9 +1595,7 @@ function stopStream() {
    CAMERA CONSTRAINTS
 ========================================================= */
 
-function getConstraints(
-    level
-) {
+function getConstraints(level) {
 
     const quality =
         LEVELS[level];
@@ -1509,34 +1611,33 @@ function getConstraints(
                 state.facingMode,
 
             width: {
+
                 ideal:
                     quality.width
+
             },
 
             height: {
+
                 ideal:
                     quality.height
+
             },
 
             frameRate: {
+
                 ideal:
                     quality.fps,
 
                 max:
                     quality.fps
-            },
 
-            /*
-             * Не требуем exact.
-             *
-             * Это важно:
-             * если телефон не умеет
-             * 1080p60, браузер сможет
-             * выбрать ближайший режим.
-             */
+            }
+
         }
 
     };
+
 }
 
 
@@ -1544,67 +1645,70 @@ function getConstraints(
    GET CAMERA
 ========================================================= */
 
-async function getCameraStream(
-    level
-) {
+async function getCameraStream(level) {
 
     stopStream();
 
 
-    const constraints =
-        getConstraints(
-            level
-        );
+    let stream;
 
 
     try {
 
-        state.stream =
+        stream =
             await navigator
                 .mediaDevices
                 .getUserMedia(
-                    constraints
+                    getConstraints(level)
                 );
 
     } catch (error) {
 
-        console.error(
-            "Camera error:",
+        console.warn(
+            "Requested camera mode unavailable:",
             error
         );
 
 
         /*
-         * Fallback:
-         * если выбранный режим
-         * недоступен — пробуем 720p30.
+         * Безопасный fallback.
          */
 
-        if (level !== 1) {
-
-            state.stream =
-                await navigator
-                    .mediaDevices
-                    .getUserMedia(
-                        getConstraints(1)
-                    );
-
-        } else {
-
-            throw error;
-
-        }
-
+        stream =
+            await navigator
+                .mediaDevices
+                .getUserMedia(
+                    getConstraints(1)
+                );
     }
 
 
+    state.stream =
+        stream;
+
+
     state.videoTrack =
-        state.stream
-            .getVideoTracks()[0];
+        stream.getVideoTracks()[0];
+
+
+    /*
+     * Для камеры WebRTC полезно
+     * сообщить браузеру, что видео
+     * содержит движение.
+     */
+
+    if (
+        state.videoTrack &&
+        "contentHint" in state.videoTrack
+    ) {
+
+        state.videoTrack.contentHint =
+            "motion";
+    }
 
 
     cameraVideo.srcObject =
-        state.stream;
+        stream;
 
 
     await cameraVideo
@@ -1615,7 +1719,7 @@ async function getCameraStream(
     updateLocalQuality();
 
 
-    return state.stream;
+    return stream;
 }
 
 
@@ -1625,16 +1729,13 @@ async function getCameraStream(
 
 function updateLocalQuality() {
 
-    if (
-        !state.videoTrack
-    ) {
+    if (!state.videoTrack) {
         return;
     }
 
 
     const settings =
-        state.videoTrack
-            .getSettings();
+        state.videoTrack.getSettings();
 
 
     const width =
@@ -1647,14 +1748,21 @@ function updateLocalQuality() {
         settings.frameRate || 0;
 
 
-    qualityInfo.textContent =
-        `${width}×${height} • ${Math.round(fps)} FPS`;
+    if (
+        width &&
+        height
+    ) {
+
+        qualityInfo.textContent =
+            `${width}×${height} • ${Math.round(fps)} FPS`;
+
+    }
 
 }
 
 
 /* =========================================================
-   CONNECT
+   CONNECT CAMERA
 ========================================================= */
 
 async function connectCamera() {
@@ -1687,26 +1795,28 @@ async function connectCamera() {
     }
 
 
+    connectButton.disabled =
+        true;
+
+
     try {
-
-        $("connect-btn")
-            .disabled = true;
-
 
         state.room =
             code;
 
 
-        state.targetLevel =
+        state.currentLevel =
             getInitialLevel();
 
 
-        state.currentLevel =
-            state.targetLevel;
+        setStatus(
+            "КАМЕРА",
+            "warning"
+        );
 
 
         /*
-         * Получаем камеру ДО создания звонка.
+         * Сначала запрашиваем камеру.
          */
 
         const stream =
@@ -1716,31 +1826,15 @@ async function connectCamera() {
 
 
         /*
-         * Создаём Peer.
+         * Создаём случайный Peer ID.
+         *
+         * НИКАКОГО glz-ROOM здесь нет.
          */
 
         state.peer =
             new Peer(
                 undefined,
-                {
-                    config: {
-
-                        iceServers: [
-
-                            {
-                                urls:
-                                    "stun:stun.l.google.com:19302"
-                            },
-
-                            {
-                                urls:
-                                    "stun:stun1.l.google.com:19302"
-                            }
-
-                        ]
-
-                    }
-                }
+                PEER_CONFIG
             );
 
 
@@ -1762,20 +1856,33 @@ async function connectCamera() {
             error => {
 
                 console.error(
-                    "Peer error:",
+                    "PeerJS error:",
                     error
                 );
 
 
-                toast(
-                    "Ошибка WebRTC"
-                );
+                if (
+                    error.type ===
+                    "peer-unavailable"
+                ) {
 
+                    setStatus(
+                        "МОНИТОР НЕ НАЙДЕН",
+                        "bad"
+                    );
 
-                setStatus(
-                    "ОШИБКА",
-                    "bad"
-                );
+                    toast(
+                        "Проверьте код комнаты"
+                    );
+
+                } else {
+
+                    setStatus(
+                        "ОШИБКА PEERJS",
+                        "bad"
+                    );
+
+                }
 
             }
         );
@@ -1784,6 +1891,9 @@ async function connectCamera() {
         state.peer.on(
             "disconnected",
             () => {
+
+                state.connected =
+                    false;
 
                 setStatus(
                     "СВЯЗЬ ПОТЕРЯНА",
@@ -1797,7 +1907,17 @@ async function connectCamera() {
     } catch (error) {
 
         console.error(
+            "Camera start error:",
             error
+        );
+
+
+        stopStream();
+
+
+        setStatus(
+            "КАМЕРА НЕДОСТУПНА",
+            "bad"
         );
 
 
@@ -1806,9 +1926,8 @@ async function connectCamera() {
         );
 
 
-        $("connect-btn")
-            .disabled = false;
-
+        connectButton.disabled =
+            false;
     }
 
 }
@@ -1831,6 +1950,7 @@ function makeCall(
             state.call.close();
         } catch {}
 
+        state.call = null;
     }
 
 
@@ -1843,61 +1963,14 @@ function makeCall(
 
     if (!state.call) {
 
-        toast(
-            "Не удалось создать соединение"
+        setStatus(
+            "ЗВОНОК НЕ СОЗДАН",
+            "bad"
         );
 
         return;
     }
 
-
-    /*
-     * Когда PeerJS создал RTCPeerConnection,
-     * применяем параметры отправки.
-     */
-
-    waitForPeerConnection();
-
-
-    state.call.on(
-        "close",
-        () => {
-
-            state.connected =
-                false;
-
-            setStatus(
-                "СОЕДИНЕНИЕ ЗАКРЫТО",
-                "bad"
-            );
-
-            stopAdaptiveMonitoring();
-
-        }
-    );
-
-
-    state.call.on(
-        "error",
-        error => {
-
-            console.error(
-                "Call error:",
-                error
-            );
-
-            setStatus(
-                "ОШИБКА СВЯЗИ",
-                "bad"
-            );
-
-        }
-    );
-
-
-    /*
-     * Интерфейс камеры.
-     */
 
     cameraConnect.style.display =
         "none";
@@ -1912,13 +1985,83 @@ function makeCall(
     );
 
 
-    startAdaptiveMonitoring();
+    state.call.on(
+        "stream",
+        () => {
 
+            /*
+             * Камера сама локальный
+             * stream уже показывает.
+             *
+             * Здесь нам важно только
+             * зафиксировать успешный
+             * WebRTC call.
+             */
+
+            state.connected =
+                true;
+
+            setStatus(
+                "LIVE"
+            );
+
+            startAdaptiveMonitoring();
+
+        }
+    );
+
+
+    state.call.on(
+        "close",
+        () => {
+
+            state.connected =
+                false;
+
+            stopAdaptiveMonitoring();
+
+            setStatus(
+                "СОЕДИНЕНИЕ ЗАКРЫТО",
+                "bad"
+            );
+
+        }
+    );
+
+
+    state.call.on(
+        "error",
+        error => {
+
+            console.error(
+                "WebRTC call error:",
+                error
+            );
+
+
+            state.connected =
+                false;
+
+            setStatus(
+                "ОШИБКА СВЯЗИ",
+                "bad"
+            );
+
+        }
+    );
+
+
+    /*
+     * PeerConnection появляется
+     * немного позже вызова peer.call().
+     */
+
+    waitForPeerConnection();
 }
 
 
 /* =========================================================
-   WAIT PEER CONNECTION
+   WAIT FOR PEER CONNECTION
 ========================================================= */
 
 function waitForPeerConnection() {
@@ -1935,8 +2078,7 @@ function waitForPeerConnection() {
 
                 const pc =
                     state.call &&
-                    state.call
-                        .peerConnection;
+                    state.call.peerConnection;
 
 
                 if (pc) {
@@ -1949,9 +2091,15 @@ function waitForPeerConnection() {
                 }
 
 
-                if (attempts > 100) {
+                if (
+                    attempts >= 100
+                ) {
 
                     clearInterval(timer);
+
+                    console.warn(
+                        "RTCPeerConnection timeout"
+                    );
 
                 }
 
@@ -1963,10 +2111,10 @@ function waitForPeerConnection() {
 
 
 /* =========================================================
-   CONFIGURE SENDER
+   GET VIDEO SENDER
 ========================================================= */
 
-function configureSender() {
+function getVideoSender() {
 
     const pc =
         state.call &&
@@ -1974,29 +2122,40 @@ function configureSender() {
 
 
     if (!pc) {
-        return;
+        return null;
     }
 
 
+    return pc
+        .getSenders()
+        .find(
+            sender =>
+                sender.track &&
+                sender.track.kind ===
+                "video"
+        ) || null;
+}
+
+
+/* =========================================================
+   APPLY ENCODING
+========================================================= */
+
+async function applyEncoding(
+    levelIndex
+) {
+
     const sender =
-        pc.getSenders()
-            .find(
-                item =>
-                    item.track &&
-                    item.track.kind ===
-                    "video"
-            );
+        getVideoSender();
 
 
     if (!sender) {
-        return;
+        return false;
     }
 
 
     const level =
-        LEVELS[
-            state.currentLevel
-        ];
+        LEVELS[levelIndex];
 
 
     const parameters =
@@ -2009,7 +2168,6 @@ function configureSender() {
     ) {
 
         parameters.encodings = [{}];
-
     }
 
 
@@ -2017,43 +2175,53 @@ function configureSender() {
         parameters.encodings[0];
 
 
-    /*
-     * Главный параметр.
-     *
-     * WebRTC не будет пытаться
-     * постоянно держать 40 Mbps.
-     */
-
     encoding.maxBitrate =
         level.bitrate;
-
 
     encoding.maxFramerate =
         level.fps;
 
 
     /*
-     * При плохой сети сначала
-     * уменьшаем масштаб, а не
-     * полностью ломаем поток.
+     * При плохой сети браузер
+     * сначала старается сохранить
+     * разрешение.
      */
 
     parameters.degradationPreference =
         "maintain-resolution";
 
 
-    sender
-        .setParameters(
+    try {
+
+        await sender.setParameters(
             parameters
-        )
-        .catch(
-            error =>
-                console.debug(
-                    "setParameters:",
-                    error
-                )
         );
 
+        return true;
+
+    } catch (error) {
+
+        console.debug(
+            "setParameters failed:",
+            error
+        );
+
+        return false;
+    }
+
+}
+
+
+/* =========================================================
+   CONFIGURE SENDER
+========================================================= */
+
+function configureSender() {
+
+    applyEncoding(
+        state.currentLevel
+    );
 
     updateLocalQuality();
 
@@ -2069,10 +2237,6 @@ function startAdaptiveMonitoring() {
     stopAdaptiveMonitoring();
 
 
-    /*
-     * Статистика сети.
-     */
-
     state.statsTimer =
         setInterval(
             collectNetworkStats,
@@ -2080,16 +2244,14 @@ function startAdaptiveMonitoring() {
         );
 
 
-    /*
-     * Проверка качества.
-     */
-
     state.adaptiveTimer =
         setInterval(
             evaluateNetwork,
             4000
         );
 
+
+    collectNetworkStats();
 }
 
 
@@ -2107,8 +2269,7 @@ function stopAdaptiveMonitoring() {
             state.statsTimer
         );
 
-        state.statsTimer =
-            null;
+        state.statsTimer = null;
     }
 
 
@@ -2120,15 +2281,14 @@ function stopAdaptiveMonitoring() {
             state.adaptiveTimer
         );
 
-        state.adaptiveTimer =
-            null;
+        state.adaptiveTimer = null;
     }
 
 }
 
 
 /* =========================================================
-   COLLECT WEBRTC STATS
+   COLLECT STATS
 ========================================================= */
 
 async function collectNetworkStats() {
@@ -2149,7 +2309,11 @@ async function collectNetworkStats() {
             await pc.getStats();
 
 
-        let outbound = null;
+        let availableBitrate =
+            null;
+
+        let roundTripTime =
+            null;
 
 
         reports.forEach(
@@ -2157,14 +2321,32 @@ async function collectNetworkStats() {
 
                 if (
                     report.type ===
-                        "outbound-rtp" &&
+                    "candidate-pair" &&
 
-                    report.kind ===
-                        "video"
+                    report.state ===
+                    "succeeded"
                 ) {
 
-                    outbound =
-                        report;
+                    if (
+                        typeof
+                        report.availableOutgoingBitrate
+                        === "number"
+                    ) {
+
+                        availableBitrate =
+                            report.availableOutgoingBitrate;
+                    }
+
+
+                    if (
+                        typeof
+                        report.currentRoundTripTime
+                        === "number"
+                    ) {
+
+                        roundTripTime =
+                            report.currentRoundTripTime;
+                    }
 
                 }
 
@@ -2172,13 +2354,25 @@ async function collectNetworkStats() {
         );
 
 
-        if (!outbound) {
-            return;
+        if (
+            availableBitrate !== null
+        ) {
+
+            networkInfo.textContent =
+                formatBitrate(
+                    availableBitrate
+                );
+
         }
 
 
-        state.lastStats =
-            outbound;
+        state.lastStats = {
+
+            availableBitrate,
+
+            roundTripTime
+
+        };
 
 
     } catch (error) {
@@ -2220,11 +2414,13 @@ async function evaluateNetwork() {
     let availableBitrate =
         null;
 
-    let packetsLost = 0;
-
-    let packetsSent = 0;
-
     let roundTripTime =
+        null;
+
+    let outbound =
+        null;
+
+    let remoteInbound =
         null;
 
 
@@ -2236,10 +2432,6 @@ async function evaluateNetwork() {
 
         reports.forEach(
             report => {
-
-                /*
-                 * Исходящая полоса.
-                 */
 
                 if (
                     report.type ===
@@ -2257,7 +2449,6 @@ async function evaluateNetwork() {
 
                         availableBitrate =
                             report.availableOutgoingBitrate;
-
                     }
 
 
@@ -2269,15 +2460,10 @@ async function evaluateNetwork() {
 
                         roundTripTime =
                             report.currentRoundTripTime;
-
                     }
 
                 }
 
-
-                /*
-                 * Потери видео.
-                 */
 
                 if (
                     report.type ===
@@ -2287,62 +2473,57 @@ async function evaluateNetwork() {
                     "video"
                 ) {
 
-                    packetsLost =
-                        report.packetsLost || 0;
-
-                    packetsSent =
-                        report.packetsSent || 0;
-
+                    outbound =
+                        report;
                 }
 
-            });
+
+                if (
+                    report.type ===
+                    "remote-inbound-rtp" &&
+
+                    report.kind ===
+                    "video"
+                ) {
+
+                    remoteInbound =
+                        report;
+                }
+
+            }
+        );
 
 
     } catch {
 
         return;
-
     }
 
 
-    /*
-     * Отображаем сеть.
-     */
-
     if (
-        availableBitrate
+        availableBitrate !== null
     ) {
 
         networkInfo.textContent =
             formatBitrate(
                 availableBitrate
             );
-
     }
 
 
-    /*
-     * Вычисляем процент потерь.
-     */
+    const current =
+        LEVELS[
+            state.currentLevel
+        ];
 
-    const loss =
-        packetsSent > 0
-            ? packetsLost /
-              (
-                packetsSent +
-                packetsLost
-              )
-            : 0;
-
-
-    /*
-     * Уровень проблемы.
-     */
 
     let bad = false;
-
     let veryBad = false;
 
+
+    /*
+     * Доступная полоса.
+     */
 
     if (
         availableBitrate !== null
@@ -2350,63 +2531,128 @@ async function evaluateNetwork() {
 
         if (
             availableBitrate <
-            LEVELS[
-                state.currentLevel
-            ].bitrate * 0.65
+            current.bitrate * 0.65
         ) {
 
             bad = true;
-
         }
 
 
         if (
             availableBitrate <
-            LEVELS[
-                state.currentLevel
-            ].bitrate * 0.4
+            current.bitrate * 0.40
         ) {
 
             veryBad = true;
+        }
+
+    }
+
+
+    /*
+     * RTT.
+     */
+
+    if (
+        roundTripTime !== null
+    ) {
+
+        if (
+            roundTripTime > 0.40
+        ) {
+
+            bad = true;
+        }
+
+
+        if (
+            roundTripTime > 0.80
+        ) {
+
+            veryBad = true;
+        }
+
+    }
+
+
+    /*
+     * remote-inbound-rtp
+     * содержит данные о том,
+     * что реально получил удалённый
+     * конец соединения.
+     */
+
+    if (
+        remoteInbound
+    ) {
+
+        const lost =
+            Number(
+                remoteInbound.packetsLost || 0
+            );
+
+
+        const received =
+            Number(
+                remoteInbound.packetsReceived || 0
+            );
+
+
+        const total =
+            lost + received;
+
+
+        if (
+            total > 100
+        ) {
+
+            const loss =
+                lost / total;
+
+
+            if (
+                loss > 0.08
+            ) {
+
+                bad = true;
+            }
+
+
+            if (
+                loss > 0.15
+            ) {
+
+                veryBad = true;
+            }
 
         }
 
     }
 
 
-    if (
-        loss > 0.08
-    ) {
-
-        bad = true;
-
-    }
-
-
-    if (
-        loss > 0.15
-    ) {
-
-        veryBad = true;
-
-    }
-
-
-    if (
-        roundTripTime !== null &&
-        roundTripTime > 0.6
-    ) {
-
-        bad = true;
-
-    }
-
-
     /*
-     * Плохая сеть.
+     * Если браузер сам сообщает,
+     * что качество ограничено
+     * пропускной способностью.
      */
 
+    if (
+        outbound &&
+        outbound.qualityLimitationReason ===
+        "bandwidth"
+    ) {
+
+        bad = true;
+    }
+
+
     if (veryBad) {
+
+        setStatus(
+            "ПЛОХАЯ СВЯЗЬ",
+            "bad"
+        );
+
 
         await decreaseQuality();
 
@@ -2415,6 +2661,12 @@ async function evaluateNetwork() {
 
 
     if (bad) {
+
+        setStatus(
+            "АДАПТАЦИЯ",
+            "warning"
+        );
+
 
         await decreaseQuality();
 
@@ -2425,22 +2677,19 @@ async function evaluateNetwork() {
     /*
      * Хорошая сеть.
      *
-     * Повышаем качество
-     * только постепенно.
+     * Возвращаем качество
+     * медленно.
      */
 
     if (
         availableBitrate !== null &&
-        availableBitrate >
-            LEVELS[
-                state.currentLevel
-            ].bitrate * 1.7 &&
 
-        loss < 0.02 &&
+        availableBitrate >
+        current.bitrate * 1.7 &&
 
         (
             roundTripTime === null ||
-            roundTripTime < 0.25
+            roundTripTime < 0.20
         )
     ) {
 
@@ -2449,31 +2698,13 @@ async function evaluateNetwork() {
     }
 
 
-    /*
-     * Статус.
-     */
-
-    if (veryBad) {
+    if (
+        state.connected
+    ) {
 
         setStatus(
-            "ПЛОХАЯ СВЯЗЬ",
-            "bad"
+            "LIVE"
         );
-
-    } else if (bad) {
-
-        setStatus(
-            "АДАПТАЦИЯ",
-            "warning"
-        );
-
-    } else {
-
-        setStatus(
-            "LIVE",
-            "ok"
-        );
-
     }
 
 }
@@ -2493,7 +2724,39 @@ async function decreaseQuality() {
     }
 
 
-    state.currentLevel--;
+    const oldLevel =
+        state.currentLevel;
+
+
+    state.currentLevel =
+        Math.max(
+            0,
+            state.currentLevel - 1
+        );
+
+
+    if (
+        oldLevel ===
+        state.currentLevel
+    ) {
+
+        return;
+    }
+
+
+    const success =
+        await applyEncoding(
+            state.currentLevel
+        );
+
+
+    if (!success) {
+
+        state.currentLevel =
+            oldLevel;
+
+        return;
+    }
 
 
     const level =
@@ -2502,66 +2765,12 @@ async function decreaseQuality() {
         ];
 
 
-    const sender =
-        getVideoSender();
+    toast(
+        `Адаптация: ${level.name}`
+    );
 
 
-    if (!sender) {
-        return;
-    }
-
-
-    const parameters =
-        sender.getParameters();
-
-
-    if (
-        !parameters.encodings ||
-        !parameters.encodings.length
-    ) {
-
-        parameters.encodings = [{}];
-
-    }
-
-
-    parameters.encodings[0]
-        .maxBitrate =
-        level.bitrate;
-
-
-    parameters.encodings[0]
-        .maxFramerate =
-        level.fps;
-
-
-    parameters.degradationPreference =
-        "maintain-resolution";
-
-
-    try {
-
-        await sender.setParameters(
-            parameters
-        );
-
-
-        toast(
-            `Качество: ${level.name}`
-        );
-
-
-        qualityInfo.textContent =
-            level.name;
-
-    } catch (error) {
-
-        console.debug(
-            "Adaptive decrease:",
-            error
-        );
-
-    }
+    updateLocalQuality();
 
 }
 
@@ -2581,7 +2790,26 @@ async function increaseQuality() {
     }
 
 
+    const oldLevel =
+        state.currentLevel;
+
+
     state.currentLevel++;
+
+
+    const success =
+        await applyEncoding(
+            state.currentLevel
+        );
+
+
+    if (!success) {
+
+        state.currentLevel =
+            oldLevel;
+
+        return;
+    }
 
 
     const level =
@@ -2590,90 +2818,13 @@ async function increaseQuality() {
         ];
 
 
-    const sender =
-        getVideoSender();
+    toast(
+        `Качество: ${level.name}`
+    );
 
 
-    if (!sender) {
-        return;
-    }
+    updateLocalQuality();
 
-
-    const parameters =
-        sender.getParameters();
-
-
-    if (
-        !parameters.encodings ||
-        !parameters.encodings.length
-    ) {
-
-        parameters.encodings = [{}];
-
-    }
-
-
-    parameters.encodings[0]
-        .maxBitrate =
-        level.bitrate;
-
-
-    parameters.encodings[0]
-        .maxFramerate =
-        level.fps;
-
-
-    try {
-
-        await sender.setParameters(
-            parameters
-        );
-
-
-        toast(
-            `Качество: ${level.name}`
-        );
-
-
-        qualityInfo.textContent =
-            level.name;
-
-    } catch (error) {
-
-        console.debug(
-            "Adaptive increase:",
-            error
-        );
-
-    }
-
-}
-
-
-/* =========================================================
-   GET VIDEO SENDER
-========================================================= */
-
-function getVideoSender() {
-
-    const pc =
-        state.call &&
-        state.call.peerConnection;
-
-
-    if (!pc) {
-        return null;
-    }
-
-
-    return pc
-        .getSenders()
-        .find(
-            sender =>
-                sender.track &&
-                sender.track.kind ===
-                "video"
-        ) || null;
 }
 
 
@@ -2690,20 +2841,16 @@ function formatBitrate(
     ) {
 
         return (
-            (
-                bitrate /
-                1000000
-            ).toFixed(1)
-        ) + " Mbps";
+            bitrate /
+            1000000
+        ).toFixed(1) +
+        " Mbps";
 
     }
 
 
-    return (
-        Math.round(
-            bitrate /
-            1000
-        )
+    return Math.round(
+        bitrate / 1000
     ) + " Kbps";
 
 }
@@ -2747,8 +2894,8 @@ async function toggleTorch() {
         $("torch-btn")
             .textContent =
             state.torchOn
-                ? "💡 Выключить"
-                : "💡 Вспышка";
+                ? "Выключить"
+                : "Вспышка";
 
 
     } catch (error) {
@@ -2758,7 +2905,7 @@ async function toggleTorch() {
 
 
         toast(
-            "Фонарик недоступен"
+            "Вспышка недоступна"
         );
 
     }
@@ -2772,8 +2919,20 @@ async function toggleTorch() {
 
 async function flipCamera() {
 
+    const oldStream =
+        state.stream;
+
+
+    const oldTrack =
+        state.videoTrack;
+
+
+    const oldFacingMode =
+        state.facingMode;
+
+
     state.facingMode =
-        state.facingMode ===
+        oldFacingMode ===
         "environment"
             ? "user"
             : "environment";
@@ -2781,15 +2940,33 @@ async function flipCamera() {
 
     try {
 
+        /*
+         * Не останавливаем старую
+         * камеру до получения новой.
+         */
+
         const newStream =
-            await getCameraStream(
-                state.currentLevel
-            );
+            await navigator
+                .mediaDevices
+                .getUserMedia(
+                    getConstraints(
+                        state.currentLevel
+                    )
+                );
 
 
         const newTrack =
             newStream
                 .getVideoTracks()[0];
+
+
+        if (
+            "contentHint" in newTrack
+        ) {
+
+            newTrack.contentHint =
+                "motion";
+        }
 
 
         const sender =
@@ -2798,28 +2975,89 @@ async function flipCamera() {
 
         if (sender) {
 
-            await sender
-                .replaceTrack(
-                    newTrack
-                );
-
-            toast(
-                "Камера переключена"
+            await sender.replaceTrack(
+                newTrack
             );
+        }
+
+
+        state.stream =
+            newStream;
+
+
+        state.videoTrack =
+            newTrack;
+
+
+        cameraVideo.srcObject =
+            newStream;
+
+
+        await cameraVideo
+            .play()
+            .catch(() => {});
+
+
+        if (oldStream) {
+
+            oldStream
+                .getTracks()
+                .forEach(track => {
+
+                    try {
+                        track.stop();
+                    } catch {}
+
+                });
 
         }
+
+
+        updateLocalQuality();
+
+
+        toast(
+            "Камера переключена"
+        );
 
 
     } catch (error) {
 
         console.error(
+            "Flip camera error:",
             error
         );
+
+
+        state.facingMode =
+            oldFacingMode;
 
 
         toast(
             "Не удалось переключить камеру"
         );
+
+
+        /*
+         * Если новая камера
+         * успела создаться, закрываем её.
+         */
+
+        if (
+            state.stream !== oldStream
+        ) {
+
+            stopStream();
+
+            state.stream =
+                oldStream;
+
+            state.videoTrack =
+                oldTrack;
+
+            cameraVideo.srcObject =
+                oldStream;
+        }
 
     }
 
@@ -2827,7 +3065,7 @@ async function flipCamera() {
 
 
 /* =========================================================
-   STOP
+   STOP CAMERA
 ========================================================= */
 
 function stopCamera() {
@@ -2835,27 +3073,27 @@ function stopCamera() {
     stopAdaptiveMonitoring();
 
 
-    if (state.call) {
+    if (
+        state.call
+    ) {
 
         try {
             state.call.close();
         } catch {}
 
-        state.call =
-            null;
-
+        state.call = null;
     }
 
 
-    if (state.peer) {
+    if (
+        state.peer
+    ) {
 
         try {
             state.peer.destroy();
         } catch {}
 
-        state.peer =
-            null;
-
+        state.peer = null;
     }
 
 
@@ -2874,19 +3112,32 @@ function stopCamera() {
         "flex";
 
 
-    $("connect-btn")
-        .disabled = false;
+    connectButton.disabled =
+        false;
+
+
+    state.connected =
+        false;
+
+
+    networkInfo.textContent =
+        "—";
+
+
+    qualityInfo.textContent =
+        "—";
 
 
     setStatus(
-        "CONNECTING"
+        "CONNECTING",
+        "warning"
     );
 
 }
 
 
 /* =========================================================
-   SCREEN SWITCH
+   SHOW START
 ========================================================= */
 
 function showStart() {
@@ -2897,6 +3148,7 @@ function showStart() {
     cameraScreen.classList
         .remove("active");
 
+
     startScreen.classList
         .add("active");
 
@@ -2904,7 +3156,43 @@ function showStart() {
 
 
 /* =========================================================
-   EVENTS
+   OPEN MODE
+========================================================= */
+
+function openMode(mode) {
+
+    if (
+        mode === "camera"
+    ) {
+
+        startScreen.classList
+            .remove("active");
+
+
+        cameraScreen.classList
+            .add("active");
+
+        return;
+    }
+
+
+    if (
+        mode === "monitor"
+    ) {
+
+        /*
+         * Монитор — отдельная страница.
+         */
+
+        window.location.href =
+            "./monitor.html";
+    }
+
+}
+
+
+/* =========================================================
+   BUTTON EVENTS
 ========================================================= */
 
 document.addEventListener(
@@ -2919,34 +3207,9 @@ document.addEventListener(
 
         if (mode) {
 
-            const selected =
-                mode.dataset.mode;
-
-
-            startScreen.classList
-                .remove("active");
-
-
-            if (
-                selected ===
-                "camera"
-            ) {
-
-                cameraScreen.classList
-                    .add("active");
-
-            }
-
-
-            if (
-                selected ===
-                "monitor"
-            ) {
-
-                window.location.href =
-                    "./monitor.html";
-
-            }
+            openMode(
+                mode.dataset.mode
+            );
 
         }
 
@@ -2954,7 +3217,7 @@ document.addEventListener(
 );
 
 
-$("connect-btn")
+connectButton
     .addEventListener(
         "click",
         connectCamera
@@ -2990,7 +3253,29 @@ $("flip-btn")
 
 
 /* =========================================================
-   AUTO ROOM
+   ENTER KEY
+========================================================= */
+
+connectionCode
+    .addEventListener(
+        "keydown",
+        event => {
+
+            if (
+                event.key ===
+                "Enter"
+            ) {
+
+                connectCamera();
+
+            }
+
+        }
+    );
+
+
+/* =========================================================
+   AUTO START
 ========================================================= */
 
 window.addEventListener(
@@ -3029,6 +3314,7 @@ window.addEventListener(
             startScreen.classList
                 .remove("active");
 
+
             cameraScreen.classList
                 .add("active");
 
@@ -3060,6 +3346,7 @@ window.addEventListener(
 
         stopStream();
 
+
         if (state.call) {
 
             try {
@@ -3078,8 +3365,6 @@ window.addEventListener(
 
     }
 );
-
 </script>
-
 </body>
 </html>
