@@ -1,10 +1,13 @@
 "use strict";
 
-const CACHE_NAME = "glazok-studio-v3";
+const CACHE_NAME = "glazok-studio-v4";
 
 const STATIC_ASSETS = [
   "./",
   "./index.html",
+  "./monitor.html",
+  "./view.html",
+  "./view.js",
   "./manifest.webmanifest",
   "./icon.svg"
 ];
@@ -36,20 +39,16 @@ self.addEventListener("fetch", event => {
 
   const url = new URL(event.request.url);
 
-  // Наши файлы — сначала сеть, чтобы приложение
-  // всегда получало свежую версию.
   if (url.origin === location.origin) {
     event.respondWith(
       fetch(event.request)
         .then(response => {
           if (response && response.ok) {
             const copy = response.clone();
-
             caches.open(CACHE_NAME).then(cache => {
               cache.put(event.request, copy);
             });
           }
-
           return response;
         })
         .catch(() => {
@@ -57,33 +56,24 @@ self.addEventListener("fetch", event => {
             .then(cached => cached || caches.match("./index.html"));
         })
     );
-
     return;
   }
 
-  // Внешние ресурсы:
-  // PeerJS, Google Fonts и т.д.
   event.respondWith(
     caches.match(event.request)
       .then(cached => {
         if (cached) return cached;
-
         return fetch(event.request)
           .then(response => {
-            if (
-              response &&
-              (response.ok || response.type === "opaque")
-            ) {
+            if (response && (response.ok || response.type === "opaque")) {
               const copy = response.clone();
-
               caches.open(CACHE_NAME).then(cache => {
                 cache.put(event.request, copy);
               });
             }
-
             return response;
           });
       })
-      .catch(() => caches.match(event.request))
+      .catch(() => caches.match(event.request));
   );
 });

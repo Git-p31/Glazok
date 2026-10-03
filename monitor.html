@@ -2,857 +2,249 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#050508">
-
     <title>Glazok Studio — Monitor</title>
-
     <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
-
     <style>
         :root {
             --bg: #050508;
             --panel: rgba(255,255,255,.055);
             --border: rgba(255,255,255,.10);
-
             --text: #f8fafc;
             --muted: #7c8495;
-
             --accent: #6366f1;
             --green: #10b981;
             --red: #ef4444;
-
             --radius: 18px;
         }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        html,
-        body {
-            width: 100%;
-            height: 100%;
-
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            width: 100%; height: 100%;
             overflow: hidden;
-
-            background: var(--bg);
-            color: var(--text);
-
-            font-family:
-                Arial,
-                sans-serif;
+            background: var(--bg); color: var(--text);
+            font-family: system-ui, -apple-system, sans-serif;
+            display: flex; align-items: center; justify-content: center;
         }
-
-        body {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .app {
-            width: min(900px, 92vw);
-
-            display: flex;
-            flex-direction: column;
-
-            gap: 22px;
-        }
-
-        /* HEADER */
-
-        .header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-
-            font-size: 20px;
-            font-weight: 700;
-        }
-
-        .brand-dot {
-            width: 12px;
-            height: 12px;
-
-            border-radius: 50%;
-
-            background: var(--accent);
-
-            box-shadow:
-                0 0 20px
-                rgba(99,102,241,.7);
-        }
-
-        .connection {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-
-            color: var(--muted);
-
-            font-size: 13px;
-        }
-
-        .connection-dot {
-            width: 8px;
-            height: 8px;
-
-            border-radius: 50%;
-
-            background: var(--muted);
-        }
-
-        .connection-dot.ready {
-            background: var(--green);
-
-            box-shadow:
-                0 0 10px
-                rgba(16,185,129,.8);
-        }
-
-        .connection-dot.live {
-            background: var(--red);
-
-            box-shadow:
-                0 0 10px
-                rgba(239,68,68,.8);
-            animation: pulse 1.5s infinite;
-        }
-
-        @keyframes pulse {
-            50% {
-                opacity: .45;
-            }
-        }
-
-        /* ROOM */
-
-        .room-card {
-            padding: 32px;
-
-            border: 1px solid var(--border);
-
-            border-radius: var(--radius);
-
-            background:
-                linear-gradient(
-                    145deg,
-                    rgba(255,255,255,.07),
-                    rgba(255,255,255,.025)
-                );
-
-            backdrop-filter: blur(30px);
-        }
-
-        .room-label {
-            margin-bottom: 10px;
-
-            color: var(--muted);
-
-            font-size: 13px;
-            font-weight: 600;
-            text-transform: uppercase;
-
-            letter-spacing: .08em;
-        }
-
-        .room-code {
-            font-family:
-                "JetBrains Mono",
-                monospace;
-
-            font-size: clamp(42px, 8vw, 72px);
-
-            font-weight: 700;
-
-            letter-spacing: .12em;
-
-            color: var(--text);
-
-            cursor: pointer;
-
-            user-select: all;
-        }
-
-        .room-hint {
-            margin-top: 10px;
-
-            color: var(--muted);
-
-            font-size: 13px;
-        }
-
-        /* ACTIONS */
-
-        .actions {
-            display: flex;
-            gap: 10px;
-        }
-
-        button {
-            border: 0;
-            outline: 0;
-
-            cursor: pointer;
-
-            font: inherit;
-        }
-
-        .btn {
-            min-height: 46px;
-
-            padding: 0 20px;
-
-            border-radius: 999px;
-
-            font-size: 14px;
-            font-weight: 700;
-
-            transition:
-                transform .15s ease,
-                opacity .15s ease;
-        }
-
-        .btn:hover {
-            transform: translateY(-1px);
-        }
-
-        .btn-primary {
-            background: #fff;
-            color: #000;
-        }
-
-        .btn-secondary {
-            background: var(--panel);
-            color: var(--text);
-
-            border: 1px solid var(--border);
-        }
-
-        /* VIDEO */
-
-        .video-container {
-            position: relative;
-
-            width: 100%;
-
-            aspect-ratio: 16 / 9;
-
-            overflow: hidden;
-
-            border-radius: var(--radius);
-
-            background: #000;
-
-            border: 1px solid var(--border);
-        }
-
-        #video {
-            width: 100%;
-            height: 100%;
-
-            display: block;
-
-            object-fit: contain;
-
-            background: #000;
-        }
-
-        .video-overlay {
-            position: absolute;
-
-            inset: 0;
-
-            display: flex;
-
-            align-items: center;
-            justify-content: center;
-
-            pointer-events: none;
-
-            color: var(--muted);
-
-            font-size: 14px;
-        }
-
-        .video-overlay.hidden {
-            display: none;
-        }
-
-        /* FOOTER */
-
-        .footer {
-            display: flex;
-
-            align-items: center;
-            justify-content: space-between;
-
-            color: var(--muted);
-
-            font-size: 12px;
-        }
-
-        .stats {
-            display: flex;
-            gap: 18px;
-        }
-
-        .stat strong {
-            color: var(--text);
-        }
-
+        .app { width: min(900px, 92vw); display: flex; flex-direction: column; gap: 22px; }
+        .header { display: flex; align-items: center; justify-content: space-between; }
+        .brand { display: flex; align-items: center; gap: 12px; font-size: 20px; font-weight: 700; }
+        .brand-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 20px rgba(99,102,241,.7); }
+        .connection { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+        .connection-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+        .connection-dot.ready { background: var(--green); box-shadow: 0 0 10px rgba(16,185,129,.8); }
+        .connection-dot.live { background: var(--red); box-shadow: 0 0 10px rgba(239,68,68,.8); animation: pulse 1.5s infinite; }
+        @keyframes pulse { 50% { opacity: .45; } }
+        .room-card { padding: 32px; border: 1px solid var(--border); border-radius: var(--radius); background: linear-gradient(145deg, rgba(255,255,255,.07), rgba(255,255,255,.025)); backdrop-filter: blur(30px); }
+        .room-label { margin-bottom: 10px; color: var(--muted); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; }
+        .room-code { font-family: monospace; font-size: clamp(42px, 8vw, 72px); font-weight: 700; letter-spacing: .12em; color: var(--text); cursor: pointer; user-select: all; }
+        .room-hint { margin-top: 10px; color: var(--muted); font-size: 13px; }
+        .actions { display: flex; gap: 10px; }
+        button { border: 0; outline: 0; cursor: pointer; font: inherit; }
+        .btn { min-height: 46px; padding: 0 20px; border-radius: 999px; font-size: 14px; font-weight: 700; transition: transform .15s ease; }
+        .btn:hover { transform: translateY(-1px); }
+        .btn-primary { background: #fff; color: #000; }
+        .btn-secondary { background: var(--panel); color: var(--text); border: 1px solid var(--border); }
+        .video-container { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border-radius: var(--radius); background: #000; border: 1px solid var(--border); }
+        #video { width: 100%; height: 100%; display: block; object-fit: contain; background: #000; }
+        .video-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; color: var(--muted); font-size: 14px; }
+        .video-overlay.hidden { display: none; }
+        .footer { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 12px; }
+        .stats { display: flex; gap: 18px; }
+        .stat strong { color: var(--text); }
         @media (max-width: 600px) {
-
-            .room-card {
-                padding: 24px;
-            }
-
-            .actions {
-                flex-direction: column;
-            }
-
-            .btn {
-                width: 100%;
-            }
-
-            .footer {
-                display: none;
-            }
+            .room-card { padding: 24px; }
+            .actions { flex-direction: column; }
+            .btn { width: 100%; }
+            .footer { display: none; }
         }
     </style>
 </head>
-
 <body>
 
 <div class="app">
-
     <header class="header">
-
         <div class="brand">
             <span class="brand-dot"></span>
             <span>Glazok Studio</span>
         </div>
-
         <div class="connection">
-
-            <span
-                id="connection-dot"
-                class="connection-dot"
-            ></span>
-
-            <span id="connection-text">
-                Создание комнаты...
-            </span>
-
+            <span id="connection-dot" class="connection-dot"></span>
+            <span id="connection-text">Создание комнаты...</span>
         </div>
-
     </header>
 
-
     <section class="room-card">
-
-        <div class="room-label">
-            Код комнаты
-        </div>
-
-        <div
-            id="room-code"
-            class="room-code"
-            title="Нажмите, чтобы скопировать"
-        >
-            ------
-        </div>
-
-        <div class="room-hint">
-            Введите этот код на телефоне
-        </div>
-
+        <div class="room-label">Код комнаты</div>
+        <div id="room-code" class="room-code" title="Нажмите, чтобы скопировать">------</div>
+        <div class="room-hint">Введите этот код на телефоне</div>
     </section>
-
 
     <div class="actions">
-
-        <button
-            id="copy-btn"
-            class="btn btn-primary"
-        >
-            Скопировать код
-        </button>
-
-        <button
-            id="clean-btn"
-            class="btn btn-secondary"
-        >
-            Открыть Clean Output
-        </button>
-
+        <button id="copy-btn" class="btn btn-primary">Скопировать код</button>
+        <button id="clean-btn" class="btn btn-secondary">Открыть Clean Output</button>
     </div>
 
-
     <section class="video-container">
-
-        <video
-            id="video"
-            autoplay
-            playsinline
-            muted
-        ></video>
-
-        <div
-            id="video-overlay"
-            class="video-overlay"
-        >
-            Ожидание камеры...
-        </div>
-
+        <video id="video" autoplay playsinline muted></video>
+        <div id="video-overlay" class="video-overlay">Ожидание камеры...</div>
     </section>
 
-
     <footer class="footer">
-
         <div class="stats">
-
-            <div class="stat">
-                Качество:
-                <strong id="quality">
-                    —
-                </strong>
-            </div>
-
-            <div class="stat">
-                FPS:
-                <strong id="fps">
-                    —
-                </strong>
-            </div>
-
+            <div class="stat">Качество: <strong id="quality">—</strong></div>
+            <div class="stat">FPS: <strong id="fps">—</strong></div>
         </div>
-
-        <div>
-            Glazok WebRTC
-        </div>
-
+        <div>Glazok WebRTC</div>
     </footer>
-
 </div>
-
 
 <script>
 "use strict";
 
-const video =
-    document.getElementById("video");
-
-const roomCode =
-    document.getElementById("room-code");
-
-const connectionDot =
-    document.getElementById("connection-dot");
-
-const connectionText =
-    document.getElementById("connection-text");
-
-const overlay =
-    document.getElementById("video-overlay");
-
-const copyBtn =
-    document.getElementById("copy-btn");
-
-const cleanBtn =
-    document.getElementById("clean-btn");
-
-const quality =
-    document.getElementById("quality");
-
-const fps =
-    document.getElementById("fps");
-
+const video = document.getElementById("video");
+const roomCode = document.getElementById("room-code");
+const connectionDot = document.getElementById("connection-dot");
+const connectionText = document.getElementById("connection-text");
+const overlay = document.getElementById("video-overlay");
+const copyBtn = document.getElementById("copy-btn");
+const cleanBtn = document.getElementById("clean-btn");
+const quality = document.getElementById("quality");
+const fps = document.getElementById("fps");
 
 let peer = null;
-let call = null;
+let cameraCall = null;
 let room = null;
-
-
-/*
- * Генерация короткого кода.
- */
+let activeStream = null;
+const viewers = new Set();
 
 function generateRoomCode() {
-
-    const chars =
-        "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     let result = "";
-
     for (let i = 0; i < 6; i++) {
-
-        result += chars[
-            Math.floor(
-                Math.random() *
-                chars.length
-            )
-        ];
-
+        result += chars[Math.floor(Math.random() * chars.length)];
     }
-
     return result;
 }
 
-
-/*
- * Состояние интерфейса.
- */
-
-function setConnection(
-    text,
-    state = ""
-) {
-
+function setConnection(text, state = "") {
     connectionText.textContent = text;
-
-    connectionDot.className =
-        "connection-dot " + state;
+    connectionDot.className = "connection-dot " + state;
 }
-
-
-/*
- * Создаём комнату.
- */
 
 function createRoom() {
+    room = generateRoomCode();
+    roomCode.textContent = room;
 
-    room =
-        generateRoomCode();
-
-    roomCode.textContent =
-        room;
-
-
-    peer = new Peer(
-        "glz-" + room.toLowerCase(),
-        {
-            config: {
-                iceServers: [
-
-                    {
-                        urls:
-                            "stun:stun.l.google.com:19302"
-                    },
-
-                    {
-                        urls:
-                            "stun:stun1.l.google.com:19302"
-                    }
-
-                ]
-            }
+    peer = new Peer("glz-" + room.toLowerCase(), {
+        config: {
+            iceServers: [
+                { urls: "stun:stun.l.google.com:19302" },
+                { urls: "stun:stun1.l.google.com:19302" }
+            ]
         }
-    );
-
-
-    peer.on("open", () => {
-
-        setConnection(
-            "Ожидание камеры",
-            "ready"
-        );
-
     });
 
+    peer.on("open", () => {
+        setConnection("Ожидание камеры", "ready");
+    });
 
-    /*
-     * Получаем звонок
-     * от телефона.
-     */
-
-    peer.on(
-        "call",
-        incomingCall => {
-
-            if (call) {
-
-                try {
-                    call.close();
-                } catch {}
-
+    // Обработка подключения Clean Output (view.html)
+    peer.on("connection", dataConn => {
+        dataConn.on("data", data => {
+            if (data && data.type === "clean-view" && data.viewerId) {
+                viewers.add(data.viewerId);
+                if (activeStream) {
+                    peer.call(data.viewerId, activeStream);
+                }
             }
+        });
+    });
 
-            call =
-                incomingCall;
-
-
-            /*
-             * Камере ничего
-             * отправлять не нужно.
-             */
-
-            call.answer();
-
-
-            call.on(
-                "stream",
-                stream => {
-
-                    video.srcObject =
-                        stream;
-
-                    video
-                        .play()
-                        .catch(() => {});
-
-
-                    overlay.classList
-                        .add("hidden");
-
-
-                    setConnection(
-                        "Камера подключена",
-                        "live"
-                    );
-
-
-                    updateVideoInfo(
-                        stream
-                    );
-
-                }
-            );
-
-
-            call.on(
-                "close",
-                () => {
-
-                    video.srcObject =
-                        null;
-
-                    overlay.classList
-                        .remove("hidden");
-
-                    overlay.textContent =
-                        "Камера отключена";
-
-                    setConnection(
-                        "Ожидание камеры",
-                        "ready"
-                    );
-
-                }
-            );
-
-
-            call.on(
-                "error",
-                error => {
-
-                    console.error(
-                        "Call error:",
-                        error
-                    );
-
-                    overlay.classList
-                        .remove("hidden");
-
-                    overlay.textContent =
-                        "Ошибка видеосоединения";
-
-                }
-            );
-
+    // Получаем видеопоток от телефона
+    peer.on("call", incomingCall => {
+        if (cameraCall) {
+            try { cameraCall.close(); } catch {}
         }
-    );
 
+        cameraCall = incomingCall;
+        cameraCall.answer();
 
-    peer.on(
-        "error",
-        error => {
+        cameraCall.on("stream", stream => {
+            activeStream = stream;
+            video.srcObject = stream;
+            video.muted = true;
+            video.play().catch(() => {});
 
-            console.error(
-                "PeerJS error:",
-                error
-            );
+            overlay.classList.add("hidden");
+            setConnection("Камера подключена", "live");
+            updateVideoInfo(stream);
 
-            setConnection(
-                "Ошибка соединения",
-                ""
-            );
+            // Отправляем поток во все открытые Clean Output окна
+            viewers.forEach(viewerId => {
+                peer.call(viewerId, activeStream);
+            });
+        });
 
-        }
-    );
+        cameraCall.on("close", () => {
+            activeStream = null;
+            video.srcObject = null;
+            overlay.classList.remove("hidden");
+            overlay.textContent = "Камера отключена";
+            setConnection("Ожидание камеры", "ready");
+        });
 
+        cameraCall.on("error", error => {
+            console.error("Call error:", error);
+            overlay.classList.remove("hidden");
+            overlay.textContent = "Ошибка видеосоединения";
+        });
+    });
 
-    peer.on(
-        "disconnected",
-        () => {
+    peer.on("error", error => {
+        console.error("PeerJS error:", error);
+        setConnection("Ошибка соединения", "");
+    });
 
-            setConnection(
-                "Соединение потеряно",
-                ""
-            );
-
-        }
-    );
-
+    peer.on("disconnected", () => {
+        setConnection("Соединение потеряно", "");
+    });
 }
-
-
-/*
- * Информация о реальном видео.
- */
 
 function updateVideoInfo(stream) {
-
-    const track =
-        stream.getVideoTracks()[0];
-
-    if (!track) {
-        return;
-    }
-
-    const settings =
-        track.getSettings();
-
-    if (settings.width) {
-
-        quality.textContent =
-            `${settings.width}×${settings.height}`;
-
-    }
-
-    if (settings.frameRate) {
-
-        fps.textContent =
-            Math.round(
-                settings.frameRate
-            );
-
-    }
-
+    const track = stream.getVideoTracks()[0];
+    if (!track) return;
+    const settings = track.getSettings();
+    if (settings.width) quality.textContent = `${settings.width}×${settings.height}`;
+    if (settings.frameRate) fps.textContent = Math.round(settings.frameRate);
 }
-
-
-/*
- * Копирование кода.
- */
 
 async function copyRoom() {
-
     try {
-
-        await navigator.clipboard.writeText(
-            room
-        );
-
-        copyBtn.textContent =
-            "Скопировано";
-
-        setTimeout(() => {
-
-            copyBtn.textContent =
-                "Скопировать код";
-
-        }, 1500);
-
+        await navigator.clipboard.writeText(room);
+        copyBtn.textContent = "Скопировано";
+        setTimeout(() => { copyBtn.textContent = "Скопировать код"; }, 1500);
     } catch {
-
-        console.log(
-            "Room:",
-            room
-        );
-
+        console.log("Room:", room);
     }
-
 }
-
-
-/*
- * Открываем чистый output.
- */
 
 function openCleanOutput() {
-
-    const url =
-        new URL(
-            "./view.html",
-            window.location.href
-        );
-
-    url.searchParams.set(
-        "room",
-        room
-    );
-
-    window.open(
-        url.href,
-        "_blank"
-    );
-
+    const url = new URL("./view.html", window.location.href);
+    url.searchParams.set("room", room);
+    window.open(url.href, "_blank");
 }
 
+copyBtn.addEventListener("click", copyRoom);
+cleanBtn.addEventListener("click", openCleanOutput);
+roomCode.addEventListener("click", copyRoom);
 
-/*
- * Кнопки.
- */
-
-copyBtn.addEventListener(
-    "click",
-    copyRoom
-);
-
-cleanBtn.addEventListener(
-    "click",
-    openCleanOutput
-);
-
-roomCode.addEventListener(
-    "click",
-    copyRoom
-);
-
-
-/*
- * Запуск.
- */
-
-window.addEventListener(
-    "beforeunload",
-    () => {
-
-        if (call) {
-
-            try {
-                call.close();
-            } catch {}
-
-        }
-
-        if (peer) {
-
-            try {
-                peer.destroy();
-            } catch {}
-
-        }
-
-    }
-);
-
+window.addEventListener("beforeunload", () => {
+    if (cameraCall) try { cameraCall.close(); } catch {}
+    if (peer) try { peer.destroy(); } catch {}
+});
 
 createRoom();
 </script>
-
 </body>
 </html>
