@@ -139,8 +139,29 @@ function createRoom() {
     peer = new Peer("glz-" + room.toLowerCase(), {
         config: {
             iceServers: [
-                { urls: "stun:stun.l.google.com:19302" },
-                { urls: "stun:stun1.l.google.com:19302" }
+                {
+                    urls: "stun:stun.relay.metered.ca:80",
+                },
+                {
+                    urls: "turn:standard.relay.metered.ca:80",
+                    username: "35162de63b0eb72fbb27f4e3",
+                    credential: "ZbW2aJl3WmRUyOss",
+                },
+                {
+                    urls: "turn:standard.relay.metered.ca:80?transport=tcp",
+                    username: "35162de63b0eb72fbb27f4e3",
+                    credential: "ZbW2aJl3WmRUyOss",
+                },
+                {
+                    urls: "turn:standard.relay.metered.ca:443",
+                    username: "35162de63b0eb72fbb27f4e3",
+                    credential: "ZbW2aJl3WmRUyOss",
+                },
+                {
+                    urls: "turns:standard.relay.metered.ca:443?transport=tcp",
+                    username: "35162de63b0eb72fbb27f4e3",
+                    credential: "ZbW2aJl3WmRUyOss",
+                }
             ],
             sdpSemantics: 'unified-plan'
         }
@@ -150,7 +171,6 @@ function createRoom() {
         setConnection("Ожидание камеры", "ready");
     });
 
-    // Обработка подключения Clean Output (view.html)
     peer.on("connection", dataConn => {
         dataConn.on("data", data => {
             if (data && data.type === "clean-view" && data.viewerId) {
@@ -162,7 +182,6 @@ function createRoom() {
         });
     });
 
-    // Получаем видеопоток от телефона
     peer.on("call", incomingCall => {
         if (cameraCall) {
             try { cameraCall.close(); } catch {}
@@ -176,7 +195,6 @@ function createRoom() {
             video.srcObject = stream;
             video.muted = true;
             
-            // Воспроизведение с нулевой задержкой
             video.play().then(() => {
                 if (video.buffered.length > 0) {
                     video.currentTime = video.buffered.end(0) - 0.05;
@@ -186,10 +204,8 @@ function createRoom() {
             overlay.classList.add("hidden");
             setConnection("Камера подключена", "live");
             
-            // Запрашиваем актуальные параметры потока
             setTimeout(() => updateVideoInfo(stream), 1000);
 
-            // Отправляем поток во все открытые Clean Output окна
             viewers.forEach(viewerId => {
                 peer.call(viewerId, activeStream);
             });
@@ -226,7 +242,6 @@ function updateVideoInfo(stream) {
     const track = stream.getVideoTracks()[0];
     if (!track) return;
     
-    // Берем реальные размеры видео
     const w = video.videoWidth || track.getSettings().width || 0;
     const h = video.videoHeight || track.getSettings().height || 0;
     const frameRate = track.getSettings().frameRate || 30;
