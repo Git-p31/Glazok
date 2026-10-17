@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#050508">
     <title>Glazok Studio — Monitor</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+    <script src="./config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         :root {
@@ -86,6 +87,18 @@ html, body { overflow-y: auto; }
   .qr-box { align-self: center; }
   .zoom-mode { display: none; }
 }
+
+.actions { flex-wrap: wrap; }
+.btn:disabled { opacity: .45; cursor: default; transform: none; }
+.rec-on { background: var(--red) !important; color: #fff !important; border-color: transparent !important; }
+.approve { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 18px; border: 1px solid rgba(99,102,241,.5); border-radius: 14px; background: rgba(99,102,241,.12); font-size: 14px; }
+.approve[hidden] { display: none; }
+.approve span { flex: 1 1 220px; }
+.toast { position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 20px); padding: 11px 18px; border-radius: 999px; background: rgba(15,15,20,.95); border: 1px solid var(--border); font-size: 13px; opacity: 0; pointer-events: none; transition: .2s; z-index: 50; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+#video { object-fit: contain; }
+.video-container { margin-left: auto; margin-right: auto; }
+.video-container:fullscreen { width: 100vw !important; height: 100vh !important; max-height: none; aspect-ratio: auto !important; border: 0; border-radius: 0; }
 </style>
 </head>
 <body>
@@ -102,7 +115,13 @@ html, body { overflow-y: auto; }
         </div>
     </header>
 
-    <section class="room-card">
+    <div id="approve" class="approve" hidden>
+            <span id="approve-text"></span>
+            <button id="approve-yes" class="btn btn-primary" type="button">Разрешить</button>
+            <button id="approve-no" class="btn btn-secondary" type="button">Отклонить</button>
+        </div>
+
+        <section class="room-card">
             <div class="room-info">
                 <div class="room-label">Код комнаты</div>
                 <div id="room-code" class="room-code" title="Нажмите, чтобы скопировать">------</div>
@@ -119,6 +138,10 @@ html, body { overflow-y: auto; }
     <div class="actions">
         <button id="copy-btn" class="btn btn-primary">Скопировать код</button>
         <button id="clean-btn" class="btn btn-secondary">Открыть Clean Output</button>
+            <button id="sound-btn" class="btn btn-secondary" type="button" disabled>🔇 Нет звука</button>
+            <button id="shot-btn" class="btn btn-secondary" type="button">📸 Скриншот</button>
+            <button id="rec-btn" class="btn btn-secondary" type="button">⏺ Запись</button>
+            <button id="fs-btn" class="btn btn-secondary" type="button">⛶ Во весь экран</button>
     </div>
 
     <section id="video-box" class="video-container">
@@ -141,6 +164,8 @@ html, body { overflow-y: auto; }
         <div>Glazok WebRTC (Ultra-Low Latency)</div>
     </footer>
 </div>
+
+<div id="toast" class="toast"></div>
 
 <script>
 "use strict";
@@ -165,14 +190,14 @@ const zoomRange = $("zoom-range");
 const zoomValue = $("zoom-value");
 const zoomMode = $("zoom-mode");
 const zoomReset = $("zoom-reset");
+const approveBox = $("approve");
+const approveText = $("approve-text");
+const soundBtn = $("sound-btn");
+const shotBtn = $("shot-btn");
+const recBtn = $("rec-btn");
+const fsBtn = $("fs-btn");
+const toastEl = $("toast");
 
-const ICE_SERVERS = [
-  { urls: "stun:stun.relay.metered.ca:80" },
-  { urls: "turn:standard.relay.metered.ca:80", username: "35162de63b0eb72fbb27f4e3", credential: "ZbW2aJl3WmRUyOss" },
-  { urls: "turn:standard.relay.metered.ca:80?transport=tcp", username: "35162de63b0eb72fbb27f4e3", credential: "ZbW2aJl3WmRUyOss" },
-  { urls: "turn:standard.relay.metered.ca:443", username: "35162de63b0eb72fbb27f4e3", credential: "ZbW2aJl3WmRUyOss" },
-  { urls: "turns:standard.relay.metered.ca:443?transport=tcp", username: "35162de63b0eb72fbb27f4e3", credential: "ZbW2aJl3WmRUyOss" }
-];
 
 let peer = null;
 let cameraCall = null;
@@ -182,16 +207,26 @@ let activeStream = null;
 let reconnectTimer = null;
 let statsTimer = null;
 let failCount = 0;
+let roomToken = null;
+let pendingCall = null;
+let recorder = null;
+const approved = new Set();
+const viewerCalls = new Map();
 let prevBytes = null;
 const viewers = new Set();
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
 function generateRoomCode() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let result = "";
-  for (let i = 0; i < 6; i++) result += chars[Math.floor(Math.random() * chars.length)];
-  return result;
+  return GLAZOK.randomId(6, "ABCDEFGHJKLMNPQRSTUVWXYZ23456789");
+}
+
+let toastTimer = null;
+function toast(message) {
+  toastEl.textContent = message;
+  toastEl.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2600);
 }
 
 function setConnection(text, state = "") {
@@ -206,6 +241,7 @@ function renderQR() {
   url.search = "";
   url.hash = "";
   url.searchParams.set("room", room);
+  url.searchParams.set("k", roomToken);
 
   qrEl.innerHTML = "";
   if (typeof QRCode === "undefined") {
@@ -239,6 +275,7 @@ function destroyPeer() {
   clearTimeout(reconnectTimer);
   if (cameraCall) { const c = cameraCall; cameraCall = null; try { c.close(); } catch {} }
   ctrlConn = null;
+  viewerCalls.clear();
   if (peer) { const p = peer; peer = null; try { p.destroy(); } catch {} }
 }
 
@@ -257,13 +294,13 @@ function scheduleReconnect() {
 function createRoom(keepCode) {
   destroyPeer();
   room = keepCode || generateRoomCode();
+  if (!keepCode || !roomToken) roomToken = GLAZOK.randomId(12);
+  if (!keepCode) approved.clear();
   roomCode.textContent = room;
   renderQR();
   setConnection("Создание комнаты...", "");
 
-  const p = new Peer("glz-" + room.toLowerCase(), {
-    config: { iceServers: ICE_SERVERS, sdpSemantics: "unified-plan" }
-  });
+  const p = new Peer("glz-" + room.toLowerCase(), GLAZOK.peerOptions());
   peer = p;
 
   p.on("open", () => {
@@ -277,9 +314,17 @@ function createRoom(keepCode) {
     conn.on("data", data => {
       if (!data) return;
       if (data.type === "clean-view" && data.viewerId) {
+        if (data.token !== roomToken) {
+          try { conn.send({ type: "denied" }); } catch {}
+          return;
+        }
         viewers.add(data.viewerId);
-        if (activeStream) p.call(data.viewerId, activeStream);
-      } else if (data.type === "caps") {
+        callViewer(data.viewerId);
+        return;
+      }
+      const cid = conn.metadata && conn.metadata.cid;
+      if (!cid || !approved.has(cid)) return; // управление — только от подтверждённой камеры
+      if (data.type === "caps") {
         ctrlConn = conn;
         applyCaps(data.zoom);
       } else if (data.type === "zoom-value" && zoomCaps && typeof data.value === "number") {
@@ -292,53 +337,15 @@ function createRoom(keepCode) {
     });
   });
 
-  p.on("call", incoming => {
-    if (cameraCall && cameraCall !== incoming) {
-      const old = cameraCall;
-      cameraCall = null;
-      try { old.close(); } catch {}
-    }
-    cameraCall = incoming;
-    incoming.answer();
-
-    incoming.on("stream", stream => {
-      if (cameraCall !== incoming) return;
-      activeStream = stream;
-      video.srcObject = stream;
-      video.muted = true;
-      video.play().catch(() => {});
-      overlay.classList.add("hidden");
-      setConnection("Камера подключена", "live");
-      startStats(incoming);
-      updateVideoInfo();
-      zoomRange.disabled = false;
-      viewers.forEach(viewerId => p.call(viewerId, activeStream));
-    });
-
-    incoming.on("close", () => {
-      if (cameraCall !== incoming) return;
-      cameraCall = null;
-      activeStream = null;
-      video.srcObject = null;
-      overlay.classList.remove("hidden");
-      overlay.textContent = "Камера отключена — ждём переподключения…";
-      setConnection("Ожидание камеры", "ready");
-      quality.textContent = "—";
-      fps.textContent = "—";
-      stopStats();
-      zoomRange.disabled = true;
-    });
-
-    incoming.on("error", error => {
-      console.error("Call error:", error);
-      if (cameraCall !== incoming) return;
-      overlay.classList.remove("hidden");
-      overlay.textContent = "Ошибка видеосоединения";
-    });
-  });
+  p.on("call", handleIncoming);
 
   p.on("error", error => {
     if (peer !== p) return;
+    if (error.type === "peer-unavailable") {
+      const m = /(glz-view-\w+)/.exec(error.message || "");
+      if (m) { viewers.delete(m[1]); viewerCalls.delete(m[1]); }
+      return;
+    }
     console.error("PeerJS error:", error);
     if (error.type === "unavailable-id") {
       createRoom(); // код занят — берём новый
@@ -355,6 +362,108 @@ function createRoom(keepCode) {
     setConnection("Соединение потеряно — переподключение…", "");
     scheduleReconnect();
   });
+}
+
+/* ---------- Входящая камера: подтверждение ---------- */
+
+function handleIncoming(incoming) {
+  const md = incoming.metadata || {};
+  if (md.token && md.token === roomToken) {      // подключились по QR — доверяем
+    if (md.cid) approved.add(md.cid);
+    acceptCall(incoming);
+  } else if (md.cid && approved.has(md.cid)) {   // уже разрешали в этой сессии
+    acceptCall(incoming);
+  } else {
+    askApproval(incoming, md.cid);
+  }
+}
+
+function askApproval(incoming, cid) {
+  if (pendingCall && pendingCall !== incoming) { try { pendingCall.close(); } catch {} }
+  pendingCall = incoming;
+  approveText.textContent = "Камера" + (cid ? " «" + cid.slice(0, 4) + "»" : "") + " хочет подключиться по коду комнаты";
+  approveBox.hidden = false;
+  incoming.on("close", () => { if (pendingCall === incoming) hideApproval(); });
+}
+
+function hideApproval() {
+  pendingCall = null;
+  approveBox.hidden = true;
+}
+
+$("approve-yes").addEventListener("click", () => {
+  const call = pendingCall;
+  if (!call) return;
+  const cid = call.metadata && call.metadata.cid;
+  if (cid) approved.add(cid);
+  hideApproval();
+  acceptCall(call);
+});
+
+$("approve-no").addEventListener("click", () => {
+  const call = pendingCall;
+  hideApproval();
+  if (call) { try { call.close(); } catch {} }
+});
+
+function acceptCall(incoming) {
+  if (cameraCall && cameraCall !== incoming) {
+    const old = cameraCall;
+    cameraCall = null;
+    try { old.close(); } catch {}
+  }
+  cameraCall = incoming;
+  incoming.answer(undefined, { sdpTransform: GLAZOK.sdpHighBitrate(35000, 4000, 800) });
+
+  incoming.on("stream", stream => {
+    if (cameraCall !== incoming) return;
+    GLAZOK.tuneReceivers(incoming.peerConnection);
+    activeStream = stream;
+    video.srcObject = stream;
+    video.play().catch(() => {});
+    overlay.classList.add("hidden");
+    setConnection("Камера подключена", "live");
+    startStats(incoming);
+    updateVideoInfo();
+    updateSoundBtn();
+    zoomRange.disabled = false;
+    viewers.forEach(callViewer);
+  });
+
+  incoming.on("close", () => {
+    if (cameraCall !== incoming) return;
+    cameraCall = null;
+    activeStream = null;
+    if (recorder) recorder.stop();
+    video.srcObject = null;
+    overlay.classList.remove("hidden");
+    overlay.textContent = "Камера отключена — ждём переподключения…";
+    setConnection("Ожидание камеры", "ready");
+    quality.textContent = "—";
+    fps.textContent = "—";
+    stopStats();
+    updateSoundBtn();
+    zoomRange.disabled = true;
+  });
+
+  incoming.on("error", error => {
+    console.error("Call error:", error);
+    if (cameraCall !== incoming) return;
+    overlay.classList.remove("hidden");
+    overlay.textContent = "Ошибка видеосоединения";
+  });
+}
+
+/* Пересылка на «Чистый вывод» с высоким битрейтом */
+function callViewer(viewerId) {
+  if (!peer || !activeStream) return;
+  const old = viewerCalls.get(viewerId);
+  if (old) { try { old.close(); } catch {} }
+  const call = peer.call(viewerId, activeStream);
+  if (!call) return;
+  viewerCalls.set(viewerId, call);
+  GLAZOK.boostCall(call, GLAZOK.VIEWER_BITRATE);
+  call.on("close", () => { if (viewerCalls.get(viewerId) === call) viewerCalls.delete(viewerId); });
 }
 
 /* ---------- Статистика приёма ---------- */
@@ -385,13 +494,33 @@ function stopStats() {
   if (statsTimer) { clearInterval(statsTimer); statsTimer = null; }
 }
 
+/* Рамка повторяет пропорции кадра: вертикальное видео не обрезается */
+function fitBox() {
+  const w = video.videoWidth;
+  const h = video.videoHeight;
+  if (!w || !h) return;
+  videoBox.style.aspectRatio = w + " / " + h;
+  if (w >= h) {
+    videoBox.style.width = "100%";
+    videoBox.style.height = "auto";
+  } else {
+    videoBox.style.width = "auto";
+    videoBox.style.height = "62vh";
+    videoBox.style.margin = "0 auto";
+  }
+  clampPan();
+  applyTransform();
+}
+
 function updateVideoInfo(bitrateText) {
   const w = video.videoWidth;
   const h = video.videoHeight;
   if (!w || !h) return;
+  fitBox();
   quality.textContent = `${w}×${h}` + (bitrateText ? ` • ${bitrateText}` : "");
 }
 video.addEventListener("resize", () => updateVideoInfo());
+video.addEventListener("loadedmetadata", () => updateVideoInfo());
 
 /* ---------- Зум ---------- */
 
@@ -498,8 +627,83 @@ async function copyRoom() {
 function openCleanOutput() {
   const url = new URL("./view.html", window.location.href);
   url.searchParams.set("room", room);
+  url.searchParams.set("k", roomToken);
   window.open(url.href, "_blank");
 }
+
+function updateSoundBtn() {
+  const hasAudio = !!activeStream && activeStream.getAudioTracks().length > 0;
+  soundBtn.disabled = !hasAudio;
+  soundBtn.textContent = !hasAudio ? "🔇 Нет звука" : video.muted ? "🔇 Включить звук" : "🔊 Звук включён";
+}
+
+soundBtn.addEventListener("click", () => {
+  video.muted = !video.muted;
+  if (!video.muted) video.play().catch(() => {});
+  updateSoundBtn();
+});
+
+function stamp() {
+  const d = new Date();
+  const p = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+}
+
+function download(blob, name) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
+shotBtn.addEventListener("click", () => {
+  if (!activeStream || !video.videoWidth) { toast("Нет изображения"); return; }
+  const canvas = document.createElement("canvas");
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext("2d").drawImage(video, 0, 0);
+  canvas.toBlob(blob => {
+    if (blob) { download(blob, `glazok-${stamp()}.png`); toast("Скриншот сохранён"); }
+  }, "image/png");
+});
+
+recBtn.addEventListener("click", () => {
+  if (recorder) { recorder.stop(); return; }
+  if (!activeStream) { toast("Нет изображения"); return; }
+  if (typeof MediaRecorder === "undefined") { toast("Запись не поддерживается"); return; }
+  const types = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm", "video/mp4"];
+  const mime = types.find(t => MediaRecorder.isTypeSupported(t)) || "";
+  const chunks = [];
+  let rec;
+  try {
+    rec = new MediaRecorder(activeStream, mime ? { mimeType: mime, videoBitsPerSecond: 12000000 } : { videoBitsPerSecond: 12000000 });
+  } catch {
+    toast("Не удалось начать запись");
+    return;
+  }
+  rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+  rec.onstop = () => {
+    const type = rec.mimeType || "video/webm";
+    download(new Blob(chunks, { type }), `glazok-${stamp()}.${type.includes("mp4") ? "mp4" : "webm"}`);
+    recorder = null;
+    recBtn.textContent = "⏺ Запись";
+    recBtn.classList.remove("rec-on");
+    toast("Запись сохранена");
+  };
+  rec.start(1000);
+  recorder = rec;
+  recBtn.textContent = "⏹ Остановить запись";
+  recBtn.classList.add("rec-on");
+});
+
+fsBtn.addEventListener("click", () => {
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  else videoBox.requestFullscreen().catch(() => toast("Полный экран недоступен"));
+});
+document.addEventListener("fullscreenchange", () => { clampPan(); applyTransform(); });
 
 copyBtn.addEventListener("click", copyRoom);
 cleanBtn.addEventListener("click", openCleanOutput);
@@ -513,7 +717,12 @@ window.addEventListener("beforeunload", () => {
 });
 
 applyCaps(null);
+updateSoundBtn();
 createRoom();
+
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  navigator.serviceWorker.register("./sw.js").catch(() => {});
+}
 
 </script>
 </body>
