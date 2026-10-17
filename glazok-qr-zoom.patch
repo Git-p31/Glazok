@@ -1,0 +1,2027 @@
+diff --git a/index.html b/index.html
+index 95b7346..1802db8 100644
+--- a/index.html
++++ b/index.html
+@@ -8,6 +8,7 @@
+     <link rel="manifest" href="./manifest.webmanifest">
+     <link rel="icon" href="./icon.svg">
+     <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
++<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+ 
+     <style>
+         :root {
+@@ -305,7 +306,26 @@
+             font-size: 12px;
+             white-space: nowrap;
+         }
+-    </style>
++    
++/* QR SCANNER */
++.divider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; }
++.divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
++#scanner { position: fixed; inset: 0; z-index: 200; display: none; align-items: center; justify-content: center; background: #000; overflow: hidden; }
++#scanner.active { display: flex; }
++#scan-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
++.scan-frame { position: relative; width: min(70vw, 300px); aspect-ratio: 1; border: 3px solid rgba(255,255,255,.92); border-radius: 24px; box-shadow: 0 0 0 100vmax rgba(0,0,0,.55); }
++.scan-hint { position: absolute; left: 0; right: 0; bottom: calc(112px + env(safe-area-inset-bottom)); padding: 0 24px; color: #fff; font-size: 14px; text-align: center; }
++.scan-close { position: absolute; left: 50%; bottom: calc(36px + env(safe-area-inset-bottom)); width: min(70%, 260px); transform: translateX(-50%); background: rgba(8,8,12,.82); }
++.scan-close:active { transform: translateX(-50%) scale(.98); }
++
++/* ZOOM */
++#camera-video { touch-action: none; }
++.bottom-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; }
++.zoom-panel { width: min(100%, 420px); gap: 12px; }
++.zoom-panel[hidden] { display: none; }
++.zoom-panel input[type=range] { flex: 1; min-width: 0; height: 28px; accent-color: #6366f1; background: transparent; }
++.zoom-label { min-width: 42px; text-align: right; font-variant-numeric: tabular-nums; }
++</style>
+ </head>
+ 
+ <body>
+@@ -338,9 +358,13 @@
+ <section id="screen-camera" class="screen">
+     <div id="camera-connect">
+         <div class="connect-title">Подключить камеру</div>
+-        <div class="connect-description">Введите код комнаты, который показан на компьютере.</div>
++        <div class="connect-description">Отсканируйте QR-код на мониторе или введите код комнаты вручную.</div>
+ 
+-        <input id="connection-code" class="code-input" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text" placeholder="ABC123">
++        <button id="scan-btn" class="btn" type="button">📷 Сканировать QR-код</button>
++
++<div class="divider">или введите код</div>
++
++<input id="connection-code" class="code-input" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text" placeholder="ABC123">
+ 
+         <div class="quality-row">
+             <div class="field">
+@@ -396,15 +420,41 @@
+                 </div>
+             </div>
+ 
+-            <div class="bottom">
++            <div class="bottom-wrap">
++
++<div id="zoom-panel" class="pill zoom-panel" hidden>
++
++<span>🔍</span>
++
++<input id="zoom-range" type="range" min="1" max="1" step="0.1" value="1" aria-label="Зум">
++
++<span id="zoom-label" class="zoom-label">1.0×</span>
++
++</div>
++
++<div class="bottom">
+                 <button id="torch-btn" class="action" type="button">Вспышка</button>
+                 <button id="flip-btn" class="action" type="button">Камера</button>
+                 <button id="stop-btn" class="action stop" type="button">Стоп</button>
+             </div>
++
++</div>
+         </div>
+     </div>
+ </section>
+ 
++<div id="scanner">
++
++<video id="scan-video" autoplay playsinline muted></video>
++
++<div class="scan-frame"></div>
++
++<div class="scan-hint">Наведите камеру на QR-код на мониторе</div>
++
++<button id="scan-close" class="btn btn-secondary scan-close" type="button">Отмена</button>
++
++</div>
++
+ <div id="toast-container"></div>
+ 
+ <script>
+@@ -426,556 +476,880 @@ const statusText = $("status-text");
+ const qualityInfo = $("quality-info");
+ const networkInfo = $("network-info");
+ const connectButton = $("connect-btn");
++const scannerEl = $("scanner");
++const scanVideo = $("scan-video");
++const zoomPanel = $("zoom-panel");
++const zoomRange = $("zoom-range");
++const zoomLabel = $("zoom-label");
++
++const CODE_RE = /^[a-z0-9]{6}$/i;
++const MAX_REDIALS = 12;
+ 
+ const state = {
+-    peer: null,
+-    call: null,
+-    stream: null,
+-    videoTrack: null,
+-    facingMode: "environment",
+-    torchOn: false,
+-    room: null,
+-    adaptiveTimer: null,
+-    statsTimer: null,
+-    lastStats: null,
+-    currentLevel: 0,
+-    connected: false
++  peer: null,
++  call: null,
++  ctrl: null,
++  stream: null,
++  videoTrack: null,
++  facingMode: "environment",
++  torchOn: false,
++  room: null,
++  statsTimer: null,
++  adaptiveTimer: null,
++  redialTimer: null,
++  dropTimer: null,
++  wakeLock: null,
++  currentLevel: 0,
++  maxLevel: 0,
++  fpsCap: 60,
++  connected: false,
++  stopping: false,
++  starting: false,
++  switching: false,
++  retry: 0,
++  badStreak: 0,
++  goodStreak: 0,
++  prevLoss: null,
++  zoom: null
+ };
+ 
+ const PEER_CONFIG = {
+-    config: {
+-        iceServers: [
+-            {
+-                urls: "stun:stun.relay.metered.ca:80",
+-            },
+-            {
+-                urls: "turn:standard.relay.metered.ca:80",
+-                username: "35162de63b0eb72fbb27f4e3",
+-                credential: "ZbW2aJl3WmRUyOss",
+-            },
+-            {
+-                urls: "turn:standard.relay.metered.ca:80?transport=tcp",
+-                username: "35162de63b0eb72fbb27f4e3",
+-                credential: "ZbW2aJl3WmRUyOss",
+-            },
+-            {
+-                urls: "turn:standard.relay.metered.ca:443",
+-                username: "35162de63b0eb72fbb27f4e3",
+-                credential: "ZbW2aJl3WmRUyOss",
+-            },
+-            {
+-                urls: "turns:standard.relay.metered.ca:443?transport=tcp",
+-                username: "35162de63b0eb72fbb27f4e3",
+-                credential: "ZbW2aJl3WmRUyOss",
+-            }
+-        ],
+-        sdpSemantics: 'unified-plan'
+-    }
++  config: {
++    iceServers: [
++      { urls: "stun:stun.relay.metered.ca:80" },
++      { urls: "turn:standard.relay.metered.ca:80", username: "35162de63b0eb72fbb27f4e3", credential: "ZbW2aJl3WmRUyOss" },
++      { urls: "turn:standard.relay.metered.ca:80?transport=tcp", username: "35162de63b0eb72fbb27f4e3", credential: "ZbW2aJl3WmRUyOss" },
++      { urls: "turn:standard.relay.metered.ca:443", username: "35162de63b0eb72fbb27f4e3", credential: "ZbW2aJl3WmRUyOss" },
++      { urls: "turns:standard.relay.metered.ca:443?transport=tcp", username: "35162de63b0eb72fbb27f4e3", credential: "ZbW2aJl3WmRUyOss" }
++    ],
++    sdpSemantics: "unified-plan"
++  }
+ };
+ 
++/* Лестница качества. height — короткая сторона кадра. */
+ const LEVELS = [
+-    { name: "480p30", width: 854, height: 480, fps: 30, bitrate: 900000 },
+-    { name: "720p30", width: 1280, height: 720, fps: 30, bitrate: 1800000 },
+-    { name: "720p60", width: 1280, height: 720, fps: 60, bitrate: 3000000 },
+-    { name: "1080p30", width: 1920, height: 1080, fps: 30, bitrate: 4500000 },
+-    { name: "1080p60", width: 1920, height: 1080, fps: 60, bitrate: 7000000 }
++  { name: "480p30",  height: 480,  fps: 30, bitrate: 900000 },
++  { name: "720p30",  height: 720,  fps: 30, bitrate: 1800000 },
++  { name: "720p60",  height: 720,  fps: 60, bitrate: 3000000 },
++  { name: "1080p30", height: 1080, fps: 30, bitrate: 4500000 },
++  { name: "1080p60", height: 1080, fps: 60, bitrate: 7000000 },
++  { name: "1440p30", height: 1440, fps: 30, bitrate: 9000000 },
++  { name: "1440p60", height: 1440, fps: 60, bitrate: 13000000 },
++  { name: "2160p30", height: 2160, fps: 30, bitrate: 18000000 },
++  { name: "2160p60", height: 2160, fps: 60, bitrate: 25000000 }
+ ];
+ 
+-function getInitialLevel() {
+-    const res = Number(resSelect.value);
+-    const fps = Number(fpsSelect.value);
+-
+-    if (res >= 1080 && fps >= 60) return 4;
+-    if (res >= 1080) return 3;
+-    if (res >= 720 && fps >= 60) return 2;
+-    if (res >= 720) return 1;
+-    return 0;
++function levelIndex(height, fps) {
++  const f = fps >= 60 ? 60 : 30;
++  let best = 0;
++  LEVELS.forEach((l, i) => { if (l.height <= height && l.fps <= f) best = i; });
++  return best;
+ }
+ 
++const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
++
+ function toast(message) {
+-    const el = document.createElement("div");
+-    el.className = "toast";
+-    el.textContent = message;
+-    $("toast-container").appendChild(el);
+-    setTimeout(() => el.remove(), 2800);
++  const el = document.createElement("div");
++  el.className = "toast";
++  el.textContent = message;
++  $("toast-container").appendChild(el);
++  setTimeout(() => el.remove(), 2800);
+ }
+ 
+ function setStatus(text, type = "ok") {
+-    statusText.textContent = text;
+-    statusDot.className = "dot";
+-    if (type === "warning") statusDot.classList.add("warning");
+-    if (type === "bad") statusDot.classList.add("bad");
++  statusText.textContent = text;
++  statusDot.className = "dot";
++  if (type === "warning") statusDot.classList.add("warning");
++  if (type === "bad") statusDot.classList.add("bad");
+ }
+ 
+-function stopStream() {
+-    if (state.stream) {
+-        state.stream.getTracks().forEach(track => {
+-            try { track.stop(); } catch {}
+-        });
+-        state.stream = null;
+-    }
+-    state.videoTrack = null;
+-    state.torchOn = false;
+-}
+-
+-function getConstraints(level) {
+-    const quality = LEVELS[level];
+-    return {
+-        audio: false,
+-        video: {
+-            facingMode: state.facingMode,
+-            width: { ideal: quality.width },
+-            height: { ideal: quality.height },
+-            frameRate: { ideal: quality.fps, max: quality.fps }
+-        }
+-    };
++function describeError(error) {
++  switch (error && error.name) {
++    case "NotAllowedError":
++    case "SecurityError": return "Нет доступа к камере — разрешите её в настройках браузера";
++    case "NotFoundError":
++    case "OverconstrainedError": return "Камера не найдена";
++    case "NotReadableError": return "Камера занята другим приложением";
++    case "NotSupportedError": return "Нужен HTTPS и современный браузер";
++    default: return "Не удалось запустить камеру";
++  }
+ }
+ 
+-async function getCameraStream(level) {
+-    stopStream();
+-    let stream;
+-    try {
+-        stream = await navigator.mediaDevices.getUserMedia(getConstraints(level));
+-    } catch (error) {
+-        console.warn("Requested camera mode unavailable:", error);
+-        stream = await navigator.mediaDevices.getUserMedia(getConstraints(1));
+-    }
+-
+-    state.stream = stream;
+-    state.videoTrack = stream.getVideoTracks()[0];
+-
+-    if (state.videoTrack && "contentHint" in state.videoTrack) {
+-        state.videoTrack.contentHint = "motion";
+-    }
+-
+-    cameraVideo.srcObject = stream;
+-    await cameraVideo.play().then(() => {
+-        if (cameraVideo.buffered.length > 0) {
+-            cameraVideo.currentTime = cameraVideo.buffered.end(0) - 0.05;
+-        }
+-    }).catch(() => {});
+-
+-    setTimeout(() => updateLocalQuality(), 500);
+-    return stream;
++/* ---------- QR ---------- */
++
++function parseRoom(text) {
++  if (!text) return null;
++  text = String(text).trim();
++  try {
++    const url = new URL(text);
++    const r = url.searchParams.get("room");
++    if (r && CODE_RE.test(r)) return r.toUpperCase();
++  } catch {}
++  return CODE_RE.test(text) ? text.toUpperCase() : null;
+ }
+ 
+-function updateLocalQuality() {
+-    if (!state.videoTrack) return;
+-    const settings = state.videoTrack.getSettings();
+-    const w = cameraVideo.videoWidth || settings.width || 0;
+-    const h = cameraVideo.videoHeight || settings.height || 0;
+-    const fps = settings.frameRate || 0;
+-
+-    if (w && h) {
+-        qualityInfo.textContent = `${w}×${h} • ${Math.round(fps)} FPS`;
+-    }
++const scanner = { active: false, stream: null, timer: 0, detector: null, canvas: null };
++
++async function openScanner() {
++  if (scanner.active) return;
++  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
++    toast("Сканер недоступен: нужен HTTPS");
++    return;
++  }
++  scannerEl.classList.add("active");
++  try {
++    scanner.stream = await navigator.mediaDevices.getUserMedia({
++      audio: false,
++      video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }
++    });
++  } catch (error) {
++    scannerEl.classList.remove("active");
++    toast(describeError(error));
++    return;
++  }
++  scanVideo.srcObject = scanner.stream;
++  await scanVideo.play().catch(() => {});
++  if ("BarcodeDetector" in window) {
++    try { scanner.detector = new BarcodeDetector({ formats: ["qr_code"] }); } catch { scanner.detector = null; }
++  }
++  scanner.canvas = scanner.canvas || document.createElement("canvas");
++  scanner.active = true;
++  scanLoop();
+ }
+ 
+-async function connectCamera() {
+-    const code = connectionCode.value.trim().toLowerCase();
++function closeScanner() {
++  scanner.active = false;
++  clearTimeout(scanner.timer);
++  if (scanner.stream) {
++    scanner.stream.getTracks().forEach(t => { try { t.stop(); } catch {} });
++    scanner.stream = null;
++  }
++  scanVideo.srcObject = null;
++  scannerEl.classList.remove("active");
++}
+ 
+-    if (!code) {
+-        toast("Введите код комнаты");
+-        return;
+-    }
++async function scanLoop() {
++  if (!scanner.active) return;
++  let value = null;
++  if (scanVideo.readyState >= 2 && scanVideo.videoWidth) {
++    try {
++      if (scanner.detector) {
++        const found = await scanner.detector.detect(scanVideo);
++        if (found.length) value = found[0].rawValue;
++      } else if (window.jsQR) {
++        const scale = Math.min(1, 720 / scanVideo.videoWidth);
++        const w = Math.round(scanVideo.videoWidth * scale);
++        const h = Math.round(scanVideo.videoHeight * scale);
++        scanner.canvas.width = w;
++        scanner.canvas.height = h;
++        const ctx = scanner.canvas.getContext("2d", { willReadFrequently: true });
++        ctx.drawImage(scanVideo, 0, 0, w, h);
++        const img = ctx.getImageData(0, 0, w, h);
++        const code = window.jsQR(img.data, w, h, { inversionAttempts: "dontInvert" });
++        if (code) value = code.data;
++      }
++    } catch {}
++  }
++  if (!scanner.active) return;
++  const room = parseRoom(value);
++  if (room) {
++    closeScanner();
++    connectionCode.value = room;
++    toast("QR распознан");
++    connectCamera();
++    return;
++  }
++  scanner.timer = setTimeout(scanLoop, 120);
++}
+ 
+-    if (!/^[a-z0-9]{6}$/.test(code)) {
+-        toast("Код должен содержать 6 символов");
+-        return;
++/* ---------- Камера ---------- */
++
++function buildConstraints(levelIdx) {
++  const l = LEVELS[levelIdx];
++  return {
++    audio: false,
++    video: {
++      facingMode: { ideal: state.facingMode },
++      width: { ideal: Math.round(l.height * 16 / 9) },
++      height: { ideal: l.height },
++      frameRate: { ideal: l.fps }
+     }
++  };
++}
+ 
+-    connectButton.disabled = true;
+-
++async function openStream(levelIdx) {
++  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
++    const e = new Error("mediaDevices unavailable");
++    e.name = "NotSupportedError";
++    throw e;
++  }
++  const attempts = [
++    buildConstraints(levelIdx),
++    buildConstraints(Math.min(levelIdx, 1)),
++    { audio: false, video: { facingMode: { ideal: state.facingMode } } },
++    { audio: false, video: true }
++  ];
++  let lastError;
++  for (const constraints of attempts) {
+     try {
+-        state.room = code;
+-        state.currentLevel = getInitialLevel();
+-        setStatus("КАМЕРА", "warning");
+-
+-        const stream = await getCameraStream(state.currentLevel);
+-
+-        state.peer = new Peer(undefined, PEER_CONFIG);
+-
+-        state.peer.on("open", () => {
+-            makeCall("glz-" + code, stream);
+-        });
+-
+-        state.peer.on("error", error => {
+-            console.error("PeerJS error:", error);
+-            if (error.type === "peer-unavailable") {
+-                setStatus("МОНИТОР НЕ НАЙДЕН", "bad");
+-                toast("Проверьте код комнаты");
+-            } else {
+-                setStatus("ОШИБКА PEERJS", "bad");
+-            }
+-        });
+-
+-        state.peer.on("disconnected", () => {
+-            state.connected = false;
+-            setStatus("СВЯЗЬ ПОТЕРЯНА", "bad");
+-        });
+-
++      return await navigator.mediaDevices.getUserMedia(constraints);
+     } catch (error) {
+-        console.error("Camera start error:", error);
+-        stopStream();
+-        setStatus("КАМЕРА НЕДОСТУПНА", "bad");
+-        toast("Не удалось запустить камеру");
+-        connectButton.disabled = false;
++      lastError = error;
++      if (["NotAllowedError", "SecurityError", "NotReadableError"].includes(error.name)) break;
+     }
++  }
++  throw lastError;
+ }
+ 
+-function makeCall(target, stream) {
+-    if (state.call) {
+-        try { state.call.close(); } catch {}
+-        state.call = null;
+-    }
+-
+-    state.call = state.peer.call(target, stream);
+-
+-    if (!state.call) {
+-        setStatus("ЗВОНОК НЕ СОЗДАН", "bad");
+-        return;
+-    }
+-
+-    cameraConnect.style.display = "none";
+-    cameraView.classList.add("active");
+-    setStatus("ПОДКЛЮЧЕНИЕ...", "warning");
+-
+-    state.call.on("stream", () => {
+-        state.connected = true;
+-        setStatus("LIVE");
+-        startAdaptiveMonitoring();
++function stopStream() {
++  if (state.stream) {
++    state.stream.getTracks().forEach(track => {
++      track.onended = null;
++      try { track.stop(); } catch {}
+     });
++    state.stream = null;
++  }
++  state.videoTrack = null;
++  state.torchOn = false;
++}
+ 
+-    state.call.on("close", () => {
+-        state.connected = false;
+-        stopAdaptiveMonitoring();
+-        setStatus("СОЕДИНЕНИЕ ЗАКРЫТО", "bad");
+-    });
++function useStream(stream) {
++  state.stream = stream;
++  const track = stream.getVideoTracks()[0];
++  state.videoTrack = track;
++  if (track && "contentHint" in track) track.contentHint = "motion";
++  if (track) track.onended = onTrackEnded;
++  cameraVideo.srcObject = stream;
++  cameraVideo.play().catch(() => {});
++
++  const sender = getVideoSender();
++  if (sender && track) sender.replaceTrack(track).catch(error => console.warn("replaceTrack:", error));
++
++  $("torch-btn").textContent = "Вспышка";
++  setupZoom();
++  setTimeout(() => {
++    capLevelToCapture();
++    updateLocalQuality();
++    applyEncoding(state.currentLevel);
++  }, 400);
++}
+ 
+-    state.call.on("error", error => {
+-        console.error("WebRTC call error:", error);
+-        state.connected = false;
+-        setStatus("ОШИБКА СВЯЗИ", "bad");
+-    });
++/* Если телефон не дал выбранное разрешение — не обещаем лишнего. */
++function capLevelToCapture() {
++  if (!state.videoTrack) return;
++  const s = state.videoTrack.getSettings();
++  if (!s.width || !s.height) return;
++  const shortSide = Math.min(s.width, s.height);
++  const cap = levelIndex(shortSide + 8, state.fpsCap);
++  if (cap < state.maxLevel) state.maxLevel = cap;
++  if (state.currentLevel > state.maxLevel) state.currentLevel = state.maxLevel;
++}
+ 
+-    waitForPeerConnection();
++async function swapCamera() {
++  stopStream(); // сначала освобождаем камеру — на Android две сразу не открываются
++  const stream = await openStream(state.maxLevel);
++  useStream(stream);
+ }
+ 
+-function waitForPeerConnection() {
+-    let attempts = 0;
+-    const timer = setInterval(() => {
+-        attempts++;
+-        const pc = state.call && state.call.peerConnection;
+-        if (pc) {
+-            clearInterval(timer);
+-            configureSender();
+-            return;
+-        }
+-        if (attempts >= 100) {
+-            clearInterval(timer);
+-            console.warn("RTCPeerConnection timeout");
+-        }
+-    }, 100);
++function onTrackEnded() {
++  if (state.stopping || state.switching) return;
++  state.switching = true;
++  setStatus("ВОССТАНОВЛЕНИЕ КАМЕРЫ", "warning");
++  setTimeout(async () => {
++    try {
++      await swapCamera();
++      if (state.connected) setStatus("LIVE"); else setStatus("ПОДКЛЮЧЕНИЕ…", "warning");
++    } catch (error) {
++      console.error("Camera recover failed:", error);
++      setStatus("КАМЕРА НЕДОСТУПНА", "bad");
++      toast(describeError(error));
++    } finally {
++      state.switching = false;
++    }
++  }, 800);
+ }
+ 
+-function getVideoSender() {
+-    const pc = state.call && state.call.peerConnection;
+-    if (!pc) return null;
+-    return pc.getSenders().find(s => s.track && s.track.kind === "video") || null;
++function updateLocalQuality() {
++  if (!state.videoTrack) return;
++  const settings = state.videoTrack.getSettings();
++  const w = cameraVideo.videoWidth || settings.width || 0;
++  const h = cameraVideo.videoHeight || settings.height || 0;
++  const fps = settings.frameRate || 0;
++  if (w && h) qualityInfo.textContent = `${w}×${h} • ${Math.round(fps)} FPS • ${LEVELS[state.currentLevel].name}`;
++}
++
++async function requestWakeLock() {
++  try {
++    if ("wakeLock" in navigator && !state.wakeLock) {
++      state.wakeLock = await navigator.wakeLock.request("screen");
++      state.wakeLock.addEventListener("release", () => { state.wakeLock = null; });
++    }
++  } catch {}
+ }
+ 
+-async function applyEncoding(levelIndex) {
+-    const sender = getVideoSender();
+-    if (!sender) return false;
++function releaseWakeLock() {
++  if (state.wakeLock) { try { state.wakeLock.release(); } catch {} state.wakeLock = null; }
++}
+ 
+-    const level = LEVELS[levelIndex];
+-    const parameters = sender.getParameters();
++/* ---------- Зум ---------- */
+ 
+-    if (!parameters.encodings || !parameters.encodings.length) {
+-        parameters.encodings = [{}];
+-    }
++function showZoom() {
++  const z = state.zoom;
++  zoomLabel.textContent = z ? z.value.toFixed(1) + "×" : "";
++  if (z) zoomRange.value = z.value;
++}
+ 
+-    const encoding = parameters.encodings[0];
+-    encoding.maxBitrate = level.bitrate;
+-    encoding.maxFramerate = level.fps;
+-    parameters.degradationPreference = "maintain-resolution";
++function setupZoom() {
++  let caps = null;
++  try { caps = state.videoTrack && state.videoTrack.getCapabilities ? state.videoTrack.getCapabilities() : null; } catch {}
++  if (caps && caps.zoom && caps.zoom.max > caps.zoom.min) {
++    const s = state.videoTrack.getSettings();
++    state.zoom = {
++      min: caps.zoom.min,
++      max: caps.zoom.max,
++      step: caps.zoom.step || 0.1,
++      value: s.zoom || caps.zoom.min
++    };
++    zoomRange.min = state.zoom.min;
++    zoomRange.max = state.zoom.max;
++    zoomRange.step = state.zoom.step;
++    zoomPanel.hidden = false;
++    showZoom();
++  } else {
++    state.zoom = null;
++    zoomPanel.hidden = true;
++  }
++  sendCaps();
++}
+ 
++let zoomPending = null;
++let zoomBusy = false;
++
++async function setZoom(value) {
++  const z = state.zoom;
++  if (!z || !state.videoTrack) return;
++  zoomPending = clamp(value, z.min, z.max);
++  if (zoomBusy) return;
++  zoomBusy = true;
++  while (zoomPending !== null) {
++    const v = zoomPending;
++    zoomPending = null;
+     try {
+-        await sender.setParameters(parameters);
+-        return true;
++      await state.videoTrack.applyConstraints({ advanced: [{ zoom: v }] });
++      z.value = v;
+     } catch (error) {
+-        console.debug("setParameters failed:", error);
+-        return false;
++      console.warn("zoom failed:", error);
++      toast("Зум недоступен");
++      break;
+     }
++  }
++  zoomBusy = false;
++  showZoom();
++  sendCtrl({ type: "zoom-value", value: z.value });
+ }
+ 
+-function configureSender() {
+-    applyEncoding(state.currentLevel);
+-    updateLocalQuality();
++/* ---------- Канал управления с монитором ---------- */
++
++function sendCtrl(message) {
++  if (state.ctrl && state.ctrl.open) {
++    try { state.ctrl.send(message); } catch {}
++  }
+ }
+ 
+-function startAdaptiveMonitoring() {
+-    stopAdaptiveMonitoring();
+-    state.statsTimer = setInterval(collectNetworkStats, 2000);
+-    state.adaptiveTimer = setInterval(evaluateNetwork, 4000);
+-    collectNetworkStats();
++function sendCaps() {
++  sendCtrl({ type: "caps", zoom: state.zoom ? { min: state.zoom.min, max: state.zoom.max, step: state.zoom.step, value: state.zoom.value } : null });
+ }
+ 
+-function stopAdaptiveMonitoring() {
+-    if (state.statsTimer) { clearInterval(state.statsTimer); state.statsTimer = null; }
+-    if (state.adaptiveTimer) { clearInterval(state.adaptiveTimer); state.adaptiveTimer = null; }
++function openControl() {
++  if (state.ctrl) { try { state.ctrl.close(); } catch {} state.ctrl = null; }
++  if (!state.peer || state.peer.destroyed || state.peer.disconnected) return;
++  const conn = state.peer.connect("glz-" + state.room, { reliable: true });
++  state.ctrl = conn;
++  conn.on("open", sendCaps);
++  conn.on("data", data => {
++    if (data && data.type === "zoom" && typeof data.value === "number") setZoom(data.value);
++  });
++  conn.on("close", () => { if (state.ctrl === conn) state.ctrl = null; });
++  conn.on("error", () => {});
+ }
+ 
+-async function collectNetworkStats() {
+-    const pc = state.call && state.call.peerConnection;
+-    if (!pc) return;
++/* ---------- Подключение ---------- */
+ 
+-    try {
+-        const reports = await pc.getStats();
+-        let availableBitrate = null;
+-        let roundTripTime = null;
+-
+-        reports.forEach(report => {
+-            if (report.type === "candidate-pair" && report.state === "succeeded") {
+-                if (typeof report.availableOutgoingBitrate === "number") availableBitrate = report.availableOutgoingBitrate;
+-                if (typeof report.currentRoundTripTime === "number") roundTripTime = report.currentRoundTripTime;
+-            }
+-        });
+-
+-        if (availableBitrate !== null) networkInfo.textContent = formatBitrate(availableBitrate);
+-        state.lastStats = { availableBitrate, roundTripTime };
+-    } catch (error) {
+-        console.debug("Stats error:", error);
+-    }
++async function connectCamera() {
++  const code = parseRoom(connectionCode.value);
++  if (!code) {
++    toast("Код должен содержать 6 символов");
++    return;
++  }
++  if (state.starting) return;
++  state.starting = true;
++  connectButton.disabled = true;
++
++  state.room = code.toLowerCase();
++  state.stopping = false;
++  state.retry = 0;
++  state.fpsCap = Number(fpsSelect.value) >= 60 ? 60 : 30;
++  state.maxLevel = levelIndex(Number(resSelect.value), state.fpsCap);
++  state.currentLevel = state.maxLevel;
++
++  try {
++    setStatus("КАМЕРА", "warning");
++    const stream = await openStream(state.maxLevel);
++    cameraConnect.style.display = "none";
++    cameraView.classList.add("active");
++    useStream(stream);
++    requestWakeLock();
++    createPeer();
++  } catch (error) {
++    console.error("Camera start error:", error);
++    stopStream();
++    setStatus("КАМЕРА НЕДОСТУПНА", "bad");
++    toast(describeError(error));
++    connectButton.disabled = false;
++  } finally {
++    state.starting = false;
++  }
+ }
+ 
+-async function evaluateNetwork() {
+-    if (!adaptiveToggle.checked) return;
+-    const pc = state.call && state.call.peerConnection;
+-    if (!pc) return;
+-
+-    let availableBitrate = null;
+-    let roundTripTime = null;
+-    let outbound = null;
+-    let remoteInbound = null;
++function destroyPeer() {
++  closeCall();
++  if (state.ctrl) { try { state.ctrl.close(); } catch {} state.ctrl = null; }
++  if (state.peer) {
++    const p = state.peer;
++    state.peer = null;
++    try { p.destroy(); } catch {}
++  }
++}
+ 
+-    try {
+-        const reports = await pc.getStats();
+-        reports.forEach(report => {
+-            if (report.type === "candidate-pair" && report.state === "succeeded") {
+-                if (typeof report.availableOutgoingBitrate === "number") availableBitrate = report.availableOutgoingBitrate;
+-                if (typeof report.currentRoundTripTime === "number") roundTripTime = report.currentRoundTripTime;
+-            }
+-            if (report.type === "outbound-rtp" && report.kind === "video") outbound = report;
+-            if (report.type === "remote-inbound-rtp" && report.kind === "video") remoteInbound = report;
+-        });
+-    } catch { return; }
+-
+-    if (availableBitrate !== null) networkInfo.textContent = formatBitrate(availableBitrate);
+-
+-    const current = LEVELS[state.currentLevel];
+-    let bad = false;
+-    let veryBad = false;
+-
+-    if (availableBitrate !== null) {
+-        if (availableBitrate < current.bitrate * 0.65) bad = true;
+-        if (availableBitrate < current.bitrate * 0.40) veryBad = true;
++function createPeer() {
++  destroyPeer();
++  const peer = new Peer(undefined, PEER_CONFIG);
++  state.peer = peer;
++
++  peer.on("open", () => {
++    if (state.peer !== peer || state.stopping) return;
++    if (!state.connected) makeCall();
++  });
++
++  peer.on("disconnected", () => {
++    if (state.peer !== peer || state.stopping) return;
++    setTimeout(() => {
++      if (state.peer === peer && !peer.destroyed && peer.disconnected) {
++        try { peer.reconnect(); } catch { scheduleRedial(true); }
++      }
++    }, 1000);
++  });
++
++  peer.on("error", error => {
++    if (state.peer !== peer || state.stopping) return;
++    console.warn("PeerJS error:", error.type, error);
++    if (error.type === "peer-unavailable") {
++      setStatus("ЖДЁМ МОНИТОР", "warning");
++      scheduleRedial(false);
++    } else if (error.type === "browser-incompatible") {
++      setStatus("БРАУЗЕР НЕ ПОДДЕРЖИВАЕТСЯ", "bad");
++    } else {
++      setStatus("ПЕРЕПОДКЛЮЧЕНИЕ…", "warning");
++      scheduleRedial(true);
+     }
++  });
++}
+ 
+-    if (roundTripTime !== null) {
+-        if (roundTripTime > 0.40) bad = true;
+-        if (roundTripTime > 0.80) veryBad = true;
+-    }
++function closeCall() {
++  clearTimeout(state.dropTimer);
++  stopAdaptiveMonitoring();
++  const call = state.call;
++  state.call = null;
++  state.connected = false;
++  if (call) { try { call.close(); } catch {} }
++}
+ 
+-    if (remoteInbound) {
+-        const lost = Number(remoteInbound.packetsLost || 0);
+-        const received = Number(remoteInbound.packetsReceived || 0);
+-        const total = lost + received;
+-        if (total > 100) {
+-            const loss = lost / total;
+-            if (loss > 0.08) bad = true;
+-            if (loss > 0.15) veryBad = true;
+-        }
+-    }
++function scheduleRedial(recreatePeer) {
++  if (state.stopping) return;
++  clearTimeout(state.redialTimer);
++  if (state.retry >= MAX_REDIALS) {
++    setStatus("МОНИТОР НЕ НАЙДЕН", "bad");
++    toast("Проверьте код комнаты и что монитор открыт");
++    return;
++  }
++  state.retry++;
++  const delay = Math.min(1000 * state.retry, 5000);
++  state.redialTimer = setTimeout(() => {
++    if (state.stopping) return;
++    const p = state.peer;
++    if (recreatePeer || !p || p.destroyed) createPeer();
++    else if (p.disconnected) { try { p.reconnect(); } catch { createPeer(); } }
++    else makeCall();
++  }, delay);
++}
+ 
+-    if (outbound && outbound.qualityLimitationReason === "bandwidth") bad = true;
++function makeCall() {
++  const peer = state.peer;
++  if (!peer || peer.destroyed || !state.stream || state.stopping) return;
++  if (peer.disconnected) { try { peer.reconnect(); } catch {} return; }
++
++  closeCall();
++  const call = peer.call("glz-" + state.room, state.stream);
++  if (!call) {
++    setStatus("ЗВОНОК НЕ СОЗДАН", "bad");
++    scheduleRedial(true);
++    return;
++  }
++  state.call = call;
++  setStatus("ПОДКЛЮЧЕНИЕ…", "warning");
++
++  call.on("stream", () => { if (state.call === call) markLive(); });
++  call.on("close", () => {
++    if (state.call !== call || state.stopping) return;
++    state.connected = false;
++    stopAdaptiveMonitoring();
++    setStatus("ПЕРЕПОДКЛЮЧЕНИЕ…", "warning");
++    scheduleRedial(false);
++  });
++  call.on("error", error => {
++    console.warn("Call error:", error);
++    if (state.call !== call || state.stopping) return;
++    state.connected = false;
++    scheduleRedial(false);
++  });
+ 
+-    if (veryBad) {
+-        setStatus("ПЛОХАЯ СВЯЗЬ", "bad");
+-        await decreaseQuality();
+-        return;
+-    }
++  openControl();
++  watchConnection(call);
++}
+ 
+-    if (bad) {
+-        setStatus("АДАПТАЦИЯ", "warning");
+-        await decreaseQuality();
+-        return;
+-    }
++function markLive() {
++  if (!state.connected) { state.connected = true; state.retry = 0; }
++  setStatus("LIVE");
++  if (!state.statsTimer) startAdaptiveMonitoring();
++}
+ 
+-    if (availableBitrate !== null && availableBitrate > current.bitrate * 1.7 && (roundTripTime === null || roundTripTime < 0.20)) {
+-        await increaseQuality();
++/* Монитор отвечает без видео, поэтому событие "stream" у камеры не приходит —
++   состояние берём напрямую из RTCPeerConnection. */
++function watchConnection(call) {
++  let tries = 0;
++  const timer = setInterval(() => {
++    tries++;
++    const pc = call.peerConnection;
++    if (pc) {
++      clearInterval(timer);
++      if (state.call === call) attachPc(call, pc);
++    } else if (tries > 50) {
++      clearInterval(timer);
+     }
++  }, 100);
++}
+ 
+-    if (state.connected) setStatus("LIVE");
++function attachPc(call, pc) {
++  configureSender();
++  const onState = () => {
++    if (state.call !== call || state.stopping) return;
++    const s = pc.connectionState || pc.iceConnectionState;
++    clearTimeout(state.dropTimer);
++    if (s === "connected" || s === "completed") {
++      markLive();
++    } else if (s === "disconnected") {
++      state.connected = false;
++      setStatus("СВЯЗЬ НЕСТАБИЛЬНА", "warning");
++      state.dropTimer = setTimeout(() => {
++        if (state.call === call && !state.connected) scheduleRedial(false);
++      }, 6000);
++    } else if (s === "failed" || s === "closed") {
++      state.connected = false;
++      stopAdaptiveMonitoring();
++      setStatus("ПЕРЕПОДКЛЮЧЕНИЕ…", "warning");
++      scheduleRedial(false);
++    }
++  };
++  pc.addEventListener("connectionstatechange", onState);
++  pc.addEventListener("iceconnectionstatechange", onState);
++  onState();
+ }
+ 
+-async function decreaseQuality() {
+-    if (state.currentLevel <= 0) return;
+-    const oldLevel = state.currentLevel;
+-    state.currentLevel = Math.max(0, state.currentLevel - 1);
+-    if (oldLevel === state.currentLevel) return;
++function getVideoSender() {
++  const pc = state.call && state.call.peerConnection;
++  if (!pc) return null;
++  return pc.getSenders().find(s => s.track && s.track.kind === "video") || null;
++}
+ 
+-    const success = await applyEncoding(state.currentLevel);
+-    if (!success) { state.currentLevel = oldLevel; return; }
++/* ---------- Кодирование и адаптация ---------- */
++
++async function applyEncoding(levelIndexValue) {
++  const sender = getVideoSender();
++  if (!sender) return false;
++  const level = LEVELS[levelIndexValue];
++  const parameters = sender.getParameters();
++  if (!parameters.encodings || !parameters.encodings.length) parameters.encodings = [{}];
++  const encoding = parameters.encodings[0];
++  encoding.maxBitrate = level.bitrate;
++  encoding.maxFramerate = level.fps;
++
++  const s = state.videoTrack ? state.videoTrack.getSettings() : {};
++  if (s.width && s.height) {
++    encoding.scaleResolutionDownBy = Math.max(1, Math.min(s.width, s.height) / level.height);
++  }
++  parameters.degradationPreference = "balanced";
++
++  try {
++    await sender.setParameters(parameters);
++    return true;
++  } catch (error) {
++    console.debug("setParameters failed:", error);
++    return false;
++  }
++}
+ 
+-    toast(`Адаптация: ${LEVELS[state.currentLevel].name}`);
+-    updateLocalQuality();
++function configureSender() {
++  applyEncoding(state.currentLevel);
++  updateLocalQuality();
+ }
+ 
+-async function increaseQuality() {
+-    if (state.currentLevel >= LEVELS.length - 1) return;
+-    const oldLevel = state.currentLevel;
+-    state.currentLevel++;
++function startAdaptiveMonitoring() {
++  stopAdaptiveMonitoring();
++  state.prevLoss = null;
++  state.badStreak = 0;
++  state.goodStreak = 0;
++  state.statsTimer = setInterval(updateNetworkDisplay, 2000);
++  state.adaptiveTimer = setInterval(evaluateNetwork, 4000);
++  updateNetworkDisplay();
++}
+ 
+-    const success = await applyEncoding(state.currentLevel);
+-    if (!success) { state.currentLevel = oldLevel; return; }
++function stopAdaptiveMonitoring() {
++  if (state.statsTimer) { clearInterval(state.statsTimer); state.statsTimer = null; }
++  if (state.adaptiveTimer) { clearInterval(state.adaptiveTimer); state.adaptiveTimer = null; }
++}
+ 
+-    toast(`Качество: ${LEVELS[state.currentLevel].name}`);
+-    updateLocalQuality();
++async function readStats() {
++  const pc = state.call && state.call.peerConnection;
++  if (!pc) return null;
++  const out = { availableBitrate: null, rtt: null, outbound: null, remoteInbound: null };
++  try {
++    const reports = await pc.getStats();
++    reports.forEach(r => {
++      if (r.type === "candidate-pair" && (r.state === "succeeded" || r.nominated)) {
++        if (typeof r.availableOutgoingBitrate === "number") out.availableBitrate = r.availableOutgoingBitrate;
++        if (typeof r.currentRoundTripTime === "number") out.rtt = r.currentRoundTripTime;
++      }
++      if (r.type === "outbound-rtp" && r.kind === "video") out.outbound = r;
++      if (r.type === "remote-inbound-rtp" && r.kind === "video") out.remoteInbound = r;
++    });
++  } catch { return null; }
++  return out;
+ }
+ 
+-function formatBitrate(bitrate) {
+-    if (bitrate >= 1000000) return (bitrate / 1000000).toFixed(1) + " Mbps";
+-    return Math.round(bitrate / 1000) + " Kbps";
++async function updateNetworkDisplay() {
++  const s = await readStats();
++  if (s && s.availableBitrate !== null) networkInfo.textContent = formatBitrate(s.availableBitrate);
+ }
+ 
+-async function toggleTorch() {
+-    if (!state.videoTrack) return;
+-    try {
+-        state.torchOn = !state.torchOn;
+-        await state.videoTrack.applyConstraints({
+-            advanced: [{ torch: state.torchOn }]
+-        });
+-        $("torch-btn").textContent = state.torchOn ? "Выключить" : "Вспышка";
+-    } catch (error) {
+-        state.torchOn = false;
+-        toast("Вспышка недоступна");
++async function evaluateNetwork() {
++  if (!adaptiveToggle.checked || !state.connected) return;
++  const s = await readStats();
++  if (!s) return;
++  if (s.availableBitrate !== null) networkInfo.textContent = formatBitrate(s.availableBitrate);
++
++  const current = LEVELS[state.currentLevel];
++  let bad = false;
++  let veryBad = false;
++
++  if (s.availableBitrate !== null) {
++    if (s.availableBitrate < current.bitrate * 0.65) bad = true;
++    if (s.availableBitrate < current.bitrate * 0.40) veryBad = true;
++  }
++  if (s.rtt !== null) {
++    if (s.rtt > 0.40) bad = true;
++    if (s.rtt > 0.80) veryBad = true;
++  }
++  /* Потери считаем за последний интервал, а не за всю сессию. */
++  if (s.remoteInbound && s.outbound) {
++    const lost = Number(s.remoteInbound.packetsLost || 0);
++    const sent = Number(s.outbound.packetsSent || 0);
++    if (state.prevLoss) {
++      const dSent = sent - state.prevLoss.sent;
++      const dLost = lost - state.prevLoss.lost;
++      if (dSent > 50) {
++        const loss = Math.max(0, dLost) / dSent;
++        if (loss > 0.05) bad = true;
++        if (loss > 0.12) veryBad = true;
++      }
+     }
++    state.prevLoss = { lost, sent };
++  }
++  if (s.outbound && s.outbound.qualityLimitationReason === "bandwidth") bad = true;
++
++  if (veryBad) {
++    state.badStreak = 0; state.goodStreak = 0;
++    setStatus("ПЛОХАЯ СВЯЗЬ", "warning");
++    await changeLevel(-1);
++    return;
++  }
++  if (bad) {
++    state.goodStreak = 0;
++    state.badStreak++;
++    if (state.badStreak >= 2) { state.badStreak = 0; await changeLevel(-1); }
++    return;
++  }
++  state.badStreak = 0;
++  setStatus("LIVE");
++
++  const roomy = s.availableBitrate !== null && s.availableBitrate > current.bitrate * 1.7 && (s.rtt === null || s.rtt < 0.20);
++  if (roomy && state.currentLevel < state.maxLevel) {
++    state.goodStreak++;
++    if (state.goodStreak >= 3) { state.goodStreak = 0; await changeLevel(+1); }
++  } else {
++    state.goodStreak = 0;
++  }
+ }
+ 
+-async function flipCamera() {
+-    const oldStream = state.stream;
+-    const oldTrack = state.videoTrack;
+-    const oldFacingMode = state.facingMode;
+-
+-    state.facingMode = oldFacingMode === "environment" ? "user" : "environment";
+-
+-    try {
+-        const newStream = await navigator.mediaDevices.getUserMedia(getConstraints(state.currentLevel));
+-        const newTrack = newStream.getVideoTracks()[0];
+-
+-        if ("contentHint" in newTrack) newTrack.contentHint = "motion";
++async function changeLevel(delta) {
++  const next = clamp(state.currentLevel + delta, 0, state.maxLevel);
++  if (next === state.currentLevel) return;
++  const old = state.currentLevel;
++  state.currentLevel = next;
++  const ok = await applyEncoding(next);
++  if (!ok) { state.currentLevel = old; return; }
++  toast((delta < 0 ? "Адаптация: " : "Качество: ") + LEVELS[next].name);
++  updateLocalQuality();
++}
+ 
+-        const sender = getVideoSender();
+-        if (sender) await sender.replaceTrack(newTrack);
++function formatBitrate(bitrate) {
++  if (bitrate >= 1000000) return (bitrate / 1000000).toFixed(1) + " Mbps";
++  return Math.round(bitrate / 1000) + " Kbps";
++}
+ 
+-        state.stream = newStream;
+-        state.videoTrack = newTrack;
+-        cameraVideo.srcObject = newStream;
+-        await cameraVideo.play().catch(() => {});
++/* ---------- Кнопки ---------- */
+ 
+-        if (oldStream) {
+-            oldStream.getTracks().forEach(track => { try { track.stop(); } catch {} });
+-        }
++async function toggleTorch() {
++  if (!state.videoTrack) return;
++  try {
++    const next = !state.torchOn;
++    await state.videoTrack.applyConstraints({ advanced: [{ torch: next }] });
++    state.torchOn = next;
++    $("torch-btn").textContent = next ? "Выключить" : "Вспышка";
++  } catch {
++    toast("Вспышка недоступна");
++  }
++}
+ 
+-        updateLocalQuality();
+-        toast("Камера переключена");
+-    } catch (error) {
+-        console.error("Flip camera error:", error);
+-        state.facingMode = oldFacingMode;
+-        toast("Не удалось переключить камеру");
+-
+-        if (state.stream !== oldStream) {
+-            stopStream();
+-            state.stream = oldStream;
+-            state.videoTrack = oldTrack;
+-            cameraVideo.srcObject = oldStream;
+-        }
++async function flipCamera() {
++  if (state.switching) return;
++  state.switching = true;
++  const old = state.facingMode;
++  state.facingMode = old === "environment" ? "user" : "environment";
++  try {
++    await swapCamera();
++    toast("Камера переключена");
++  } catch (error) {
++    console.error("Flip camera error:", error);
++    state.facingMode = old;
++    try { await swapCamera(); } catch {
++      setStatus("КАМЕРА НЕДОСТУПНА", "bad");
+     }
++    toast("Не удалось переключить камеру");
++  } finally {
++    state.switching = false;
++  }
+ }
+ 
+ function stopCamera() {
+-    stopAdaptiveMonitoring();
+-    if (state.call) { try { state.call.close(); } catch {} state.call = null; }
+-    if (state.peer) { try { state.peer.destroy(); } catch {} state.peer = null; }
+-
+-    stopStream();
+-    cameraVideo.srcObject = null;
+-    cameraView.classList.remove("active");
+-    cameraConnect.style.display = "flex";
+-    connectButton.disabled = false;
+-    state.connected = false;
+-
+-    networkInfo.textContent = "—";
+-    qualityInfo.textContent = "—";
+-    setStatus("CONNECTING", "warning");
++  state.stopping = true;
++  clearTimeout(state.redialTimer);
++  closeScanner();
++  destroyPeer();
++  stopStream();
++  releaseWakeLock();
++  cameraVideo.srcObject = null;
++  cameraView.classList.remove("active");
++  cameraConnect.style.display = "flex";
++  connectButton.disabled = false;
++  zoomPanel.hidden = true;
++  state.zoom = null;
++  networkInfo.textContent = "—";
++  qualityInfo.textContent = "—";
++  setStatus("CONNECTING", "warning");
+ }
+ 
+ function showStart() {
+-    stopCamera();
+-    cameraScreen.classList.remove("active");
+-    startScreen.classList.add("active");
++  stopCamera();
++  cameraScreen.classList.remove("active");
++  startScreen.classList.add("active");
+ }
+ 
+ function openMode(mode) {
+-    if (mode === "camera") {
+-        startScreen.classList.remove("active");
+-        cameraScreen.classList.add("active");
+-        return;
+-    }
+-    if (mode === "monitor") {
+-        window.location.href = "./monitor.html";
+-    }
++  if (mode === "camera") {
++    startScreen.classList.remove("active");
++    cameraScreen.classList.add("active");
++    return;
++  }
++  if (mode === "monitor") window.location.href = "./monitor.html";
+ }
+ 
+ document.addEventListener("click", event => {
+-    const mode = event.target.closest("[data-mode]");
+-    if (mode) openMode(mode.dataset.mode);
++  const mode = event.target.closest("[data-mode]");
++  if (mode) openMode(mode.dataset.mode);
+ });
+ 
+ connectButton.addEventListener("click", connectCamera);
++$("scan-btn").addEventListener("click", openScanner);
++$("scan-close").addEventListener("click", closeScanner);
+ $("back-btn").addEventListener("click", showStart);
+ $("stop-btn").addEventListener("click", stopCamera);
+ $("torch-btn").addEventListener("click", toggleTorch);
+ $("flip-btn").addEventListener("click", flipCamera);
++zoomRange.addEventListener("input", () => setZoom(Number(zoomRange.value)));
++connectionCode.addEventListener("keydown", event => { if (event.key === "Enter") connectCamera(); });
++
++/* Щипок двумя пальцами */
++let pinch = null;
++const touchDist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
++cameraView.addEventListener("touchstart", e => {
++  if (e.touches.length === 2 && state.zoom) pinch = { d: touchDist(e.touches), z: state.zoom.value };
++}, { passive: true });
++cameraView.addEventListener("touchmove", e => {
++  if (pinch && e.touches.length === 2) {
++    e.preventDefault();
++    setZoom(pinch.z * touchDist(e.touches) / pinch.d);
++  }
++}, { passive: false });
++cameraView.addEventListener("touchend", e => { if (e.touches.length < 2) pinch = null; });
++
++document.addEventListener("visibilitychange", () => {
++  if (document.visibilityState === "visible" && state.stream && !state.stopping) {
++    requestWakeLock();
++    if (!state.connected && state.peer) scheduleRedial(false);
++  }
++});
+ 
+-connectionCode.addEventListener("keydown", event => {
+-    if (event.key === "Enter") connectCamera();
++window.addEventListener("online", () => {
++  if (state.stream && !state.stopping && !state.connected) { state.retry = 0; scheduleRedial(true); }
+ });
+ 
+ window.addEventListener("DOMContentLoaded", () => {
+-    const params = new URLSearchParams(window.location.search);
+-    const mode = params.get("m");
+-    const room = params.get("room");
+-
+-    if (mode === "monitor") {
+-        window.location.href = "./monitor.html";
+-        return;
+-    }
+-
+-    if (mode === "camera" || room) {
+-        startScreen.classList.remove("active");
+-        cameraScreen.classList.add("active");
+-        if (room) connectionCode.value = room.toUpperCase().slice(0, 6);
+-    }
++  const params = new URLSearchParams(window.location.search);
++  const mode = params.get("m");
++  const room = parseRoom(params.get("room"));
++
++  if (mode === "monitor") {
++    window.location.href = "./monitor.html";
++    return;
++  }
++  if (mode === "camera" || room) {
++    startScreen.classList.remove("active");
++    cameraScreen.classList.add("active");
++  }
++  if (room) {
++    connectionCode.value = room;
++    setTimeout(connectCamera, 300); // QR открыл страницу — подключаемся сразу
++  }
+ });
+ 
+ window.addEventListener("beforeunload", () => {
+-    stopAdaptiveMonitoring();
+-    stopStream();
+-    if (state.call) try { state.call.close(); } catch {}
+-    if (state.peer) try { state.peer.destroy(); } catch {}
++  state.stopping = true;
++  stopAdaptiveMonitoring();
++  stopStream();
++  closeScanner();
++  destroyPeer();
+ });
++
+ </script>
+ </body>
+ </html>
+\ No newline at end of file
+diff --git a/monitor.html b/monitor.html
+index 8360ea6..a78869e 100644
+--- a/monitor.html
++++ b/monitor.html
+@@ -6,6 +6,7 @@
+     <meta name="theme-color" content="#050508">
+     <title>Glazok Studio — Monitor</title>
+     <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
++<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+     <style>
+         :root {
+             --bg: #050508;
+@@ -58,7 +59,34 @@
+             .btn { width: 100%; }
+             .footer { display: none; }
+         }
+-    </style>
++    
++html, body { overflow-y: auto; }
++.app { margin: auto; padding: 20px 0; }
++.room-card { display: flex; align-items: center; justify-content: space-between; gap: 28px; }
++.room-info { min-width: 0; }
++.qr-box { flex: 0 0 auto; width: 190px; text-align: center; }
++#qr { width: 190px; height: 190px; padding: 10px; border-radius: 14px; background: #fff; color: #000; font-size: 12px; display: flex; align-items: center; justify-content: center; }
++#qr img, #qr canvas { width: 100% !important; height: 100% !important; display: block; }
++.qr-hint { margin-top: 8px; color: var(--muted); font-size: 12px; line-height: 1.4; }
++.qr-link { margin-top: 2px; color: var(--muted); font-size: 10px; word-break: break-all; opacity: .7; }
++.qr-warn { margin-top: 8px; color: #f59e0b; font-size: 11px; line-height: 1.4; }
++.qr-warn[hidden] { display: none; }
++
++.video-container { touch-action: none; }
++#video { transform-origin: center; will-change: transform; }
++.zoom-bar { display: flex; align-items: center; gap: 14px; padding: 10px 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--panel); }
++.zoom-mode { flex: 0 0 auto; min-width: 130px; color: var(--muted); font-size: 12px; }
++.zoom-bar input[type=range] { flex: 1; min-width: 0; accent-color: var(--accent); }
++.zoom-bar input[type=range]:disabled { opacity: .4; }
++.zoom-value { min-width: 44px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
++.zoom-reset { min-height: 34px; padding: 0 14px; border-radius: 999px; background: var(--panel); color: var(--text); border: 1px solid var(--border); font-size: 12px; font-weight: 700; }
++
++@media (max-width: 700px) {
++  .room-card { flex-direction: column; align-items: flex-start; }
++  .qr-box { align-self: center; }
++  .zoom-mode { display: none; }
++}
++</style>
+ </head>
+ <body>
+ 
+@@ -75,22 +103,37 @@
+     </header>
+ 
+     <section class="room-card">
+-        <div class="room-label">Код комнаты</div>
+-        <div id="room-code" class="room-code" title="Нажмите, чтобы скопировать">------</div>
+-        <div class="room-hint">Введите этот код на телефоне</div>
+-    </section>
++            <div class="room-info">
++                <div class="room-label">Код комнаты</div>
++                <div id="room-code" class="room-code" title="Нажмите, чтобы скопировать">------</div>
++                <div class="room-hint">Отсканируйте QR-код камерой телефона или введите код вручную</div>
++            </div>
++            <div class="qr-box">
++                <div id="qr"></div>
++                <div class="qr-hint">QR для подключения камеры</div>
++                <div id="qr-link" class="qr-link"></div>
++                <div id="qr-warn" class="qr-warn" hidden></div>
++            </div>
++        </section>
+ 
+     <div class="actions">
+         <button id="copy-btn" class="btn btn-primary">Скопировать код</button>
+         <button id="clean-btn" class="btn btn-secondary">Открыть Clean Output</button>
+     </div>
+ 
+-    <section class="video-container">
++    <section id="video-box" class="video-container">
+         <video id="video" autoplay playsinline muted></video>
+         <div id="video-overlay" class="video-overlay">Ожидание камеры...</div>
+     </section>
+ 
+-    <footer class="footer">
++    <div class="zoom-bar">
++            <div id="zoom-mode" class="zoom-mode">Зум</div>
++            <input id="zoom-range" type="range" min="1" max="4" step="0.05" value="1" disabled aria-label="Зум">
++            <div id="zoom-value" class="zoom-value">1.0×</div>
++            <button id="zoom-reset" class="zoom-reset" type="button">Сброс</button>
++        </div>
++
++        <footer class="footer">
+         <div class="stats">
+             <div class="stat">Качество: <strong id="quality">—</strong></div>
+             <div class="stat">FPS: <strong id="fps">—</strong></div>
+@@ -102,180 +145,376 @@
+ <script>
+ "use strict";
+ 
+-const video = document.getElementById("video");
+-const roomCode = document.getElementById("room-code");
+-const connectionDot = document.getElementById("connection-dot");
+-const connectionText = document.getElementById("connection-text");
+-const overlay = document.getElementById("video-overlay");
+-const copyBtn = document.getElementById("copy-btn");
+-const cleanBtn = document.getElementById("clean-btn");
+-const quality = document.getElementById("quality");
+-const fps = document.getElementById("fps");
++const $ = id => document.getElementById(id);
++
++const video = $("video");
++const videoBox = $("video-box");
++const roomCode = $("room-code");
++const connectionDot = $("connection-dot");
++const connectionText = $("connection-text");
++const overlay = $("video-overlay");
++const copyBtn = $("copy-btn");
++const cleanBtn = $("clean-btn");
++const quality = $("quality");
++const fps = $("fps");
++const qrEl = $("qr");
++const qrLink = $("qr-link");
++const qrWarn = $("qr-warn");
++const zoomBar = $("zoom-bar");
++const zoomRange = $("zoom-range");
++const zoomValue = $("zoom-value");
++const zoomMode = $("zoom-mode");
++const zoomReset = $("zoom-reset");
++
++const ICE_SERVERS = [
++  { urls: "stun:stun.relay.metered.ca:80" },
++  { urls: "turn:standard.relay.metered.ca:80", username: "35162de63b0eb72fbb27f4e3", credential: "ZbW2aJl3WmRUyOss" },
++  { urls: "turn:standard.relay.metered.ca:80?transport=tcp", username: "35162de63b0eb72fbb27f4e3", credential: "ZbW2aJl3WmRUyOss" },
++  { urls: "turn:standard.relay.metered.ca:443", username: "35162de63b0eb72fbb27f4e3", credential: "ZbW2aJl3WmRUyOss" },
++  { urls: "turns:standard.relay.metered.ca:443?transport=tcp", username: "35162de63b0eb72fbb27f4e3", credential: "ZbW2aJl3WmRUyOss" }
++];
+ 
+ let peer = null;
+ let cameraCall = null;
++let ctrlConn = null;
+ let room = null;
+ let activeStream = null;
++let reconnectTimer = null;
++let statsTimer = null;
++let failCount = 0;
++let prevBytes = null;
+ const viewers = new Set();
+ 
++const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
++
+ function generateRoomCode() {
+-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+-    let result = "";
+-    for (let i = 0; i < 6; i++) {
+-        result += chars[Math.floor(Math.random() * chars.length)];
+-    }
+-    return result;
++  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
++  let result = "";
++  for (let i = 0; i < 6; i++) result += chars[Math.floor(Math.random() * chars.length)];
++  return result;
+ }
+ 
+ function setConnection(text, state = "") {
+-    connectionText.textContent = text;
+-    connectionDot.className = "connection-dot " + state;
++  connectionText.textContent = text;
++  connectionDot.className = "connection-dot " + state;
+ }
+ 
+-function createRoom() {
+-    room = generateRoomCode();
+-    roomCode.textContent = room;
+-
+-    peer = new Peer("glz-" + room.toLowerCase(), {
+-        config: {
+-            iceServers: [
+-                {
+-                    urls: "stun:stun.relay.metered.ca:80",
+-                },
+-                {
+-                    urls: "turn:standard.relay.metered.ca:80",
+-                    username: "35162de63b0eb72fbb27f4e3",
+-                    credential: "ZbW2aJl3WmRUyOss",
+-                },
+-                {
+-                    urls: "turn:standard.relay.metered.ca:80?transport=tcp",
+-                    username: "35162de63b0eb72fbb27f4e3",
+-                    credential: "ZbW2aJl3WmRUyOss",
+-                },
+-                {
+-                    urls: "turn:standard.relay.metered.ca:443",
+-                    username: "35162de63b0eb72fbb27f4e3",
+-                    credential: "ZbW2aJl3WmRUyOss",
+-                },
+-                {
+-                    urls: "turns:standard.relay.metered.ca:443?transport=tcp",
+-                    username: "35162de63b0eb72fbb27f4e3",
+-                    credential: "ZbW2aJl3WmRUyOss",
+-                }
+-            ],
+-            sdpSemantics: 'unified-plan'
+-        }
+-    });
++/* ---------- QR ---------- */
+ 
+-    peer.on("open", () => {
+-        setConnection("Ожидание камеры", "ready");
+-    });
++function renderQR() {
++  const url = new URL("./index.html", window.location.href);
++  url.search = "";
++  url.hash = "";
++  url.searchParams.set("room", room);
++
++  qrEl.innerHTML = "";
++  if (typeof QRCode === "undefined") {
++    qrEl.textContent = "QR недоступен";
++  } else {
++    try {
++      new QRCode(qrEl, {
++        text: url.href,
++        width: 320,
++        height: 320,
++        colorDark: "#000000",
++        colorLight: "#ffffff",
++        correctLevel: QRCode.CorrectLevel.M
++      });
++    } catch (error) {
++      console.error("QR error:", error);
++      qrEl.textContent = "QR недоступен";
++    }
++  }
++  qrLink.textContent = url.host + url.pathname;
+ 
+-    peer.on("connection", dataConn => {
+-        dataConn.on("data", data => {
+-            if (data && data.type === "clean-view" && data.viewerId) {
+-                viewers.add(data.viewerId);
+-                if (activeStream) {
+-                    peer.call(data.viewerId, activeStream);
+-                }
+-            }
+-        });
++  const host = url.hostname;
++  const local = host === "localhost" || host === "127.0.0.1" || host === "[::1]" || url.protocol === "file:";
++  qrWarn.hidden = !local;
++  if (local) qrWarn.textContent = "QR ведёт на localhost — телефон его не откроет. Откройте монитор по HTTPS-адресу (например GitHub Pages).";
++}
++
++/* ---------- Комната ---------- */
++
++function destroyPeer() {
++  clearTimeout(reconnectTimer);
++  if (cameraCall) { const c = cameraCall; cameraCall = null; try { c.close(); } catch {} }
++  ctrlConn = null;
++  if (peer) { const p = peer; peer = null; try { p.destroy(); } catch {} }
++}
++
++function scheduleReconnect() {
++  clearTimeout(reconnectTimer);
++  failCount++;
++  const delay = Math.min(1000 * failCount, 8000);
++  reconnectTimer = setTimeout(() => {
++    if (!peer || peer.destroyed) { createRoom(room); return; }
++    if (peer.disconnected) {
++      try { peer.reconnect(); } catch { createRoom(room); }
++    }
++  }, delay);
++}
++
++function createRoom(keepCode) {
++  destroyPeer();
++  room = keepCode || generateRoomCode();
++  roomCode.textContent = room;
++  renderQR();
++  setConnection("Создание комнаты...", "");
++
++  const p = new Peer("glz-" + room.toLowerCase(), {
++    config: { iceServers: ICE_SERVERS, sdpSemantics: "unified-plan" }
++  });
++  peer = p;
++
++  p.on("open", () => {
++    if (peer !== p) return;
++    failCount = 0;
++    if (cameraCall) setConnection("Камера подключена", "live");
++    else setConnection("Ожидание камеры", "ready");
++  });
++
++  p.on("connection", conn => {
++    conn.on("data", data => {
++      if (!data) return;
++      if (data.type === "clean-view" && data.viewerId) {
++        viewers.add(data.viewerId);
++        if (activeStream) p.call(data.viewerId, activeStream);
++      } else if (data.type === "caps") {
++        ctrlConn = conn;
++        applyCaps(data.zoom);
++      } else if (data.type === "zoom-value" && zoomCaps && typeof data.value === "number") {
++        zoomCaps.value = data.value;
++        syncZoomUI();
++      }
+     });
++    conn.on("close", () => {
++      if (ctrlConn === conn) { ctrlConn = null; applyCaps(null); }
++    });
++  });
+ 
+-    peer.on("call", incomingCall => {
+-        if (cameraCall) {
+-            try { cameraCall.close(); } catch {}
+-        }
++  p.on("call", incoming => {
++    if (cameraCall && cameraCall !== incoming) {
++      const old = cameraCall;
++      cameraCall = null;
++      try { old.close(); } catch {}
++    }
++    cameraCall = incoming;
++    incoming.answer();
+ 
+-        cameraCall = incomingCall;
+-        cameraCall.answer();
+-
+-        cameraCall.on("stream", stream => {
+-            activeStream = stream;
+-            video.srcObject = stream;
+-            video.muted = true;
+-            
+-            video.play().then(() => {
+-                if (video.buffered.length > 0) {
+-                    video.currentTime = video.buffered.end(0) - 0.05;
+-                }
+-            }).catch(() => {});
+-
+-            overlay.classList.add("hidden");
+-            setConnection("Камера подключена", "live");
+-            
+-            setTimeout(() => updateVideoInfo(stream), 1000);
+-
+-            viewers.forEach(viewerId => {
+-                peer.call(viewerId, activeStream);
+-            });
+-        });
+-
+-        cameraCall.on("close", () => {
+-            activeStream = null;
+-            video.srcObject = null;
+-            overlay.classList.remove("hidden");
+-            overlay.textContent = "Камера отключена";
+-            setConnection("Ожидание камеры", "ready");
+-            quality.textContent = "—";
+-            fps.textContent = "—";
+-        });
+-
+-        cameraCall.on("error", error => {
+-            console.error("Call error:", error);
+-            overlay.classList.remove("hidden");
+-            overlay.textContent = "Ошибка видеосоединения";
+-        });
++    incoming.on("stream", stream => {
++      if (cameraCall !== incoming) return;
++      activeStream = stream;
++      video.srcObject = stream;
++      video.muted = true;
++      video.play().catch(() => {});
++      overlay.classList.add("hidden");
++      setConnection("Камера подключена", "live");
++      startStats(incoming);
++      updateVideoInfo();
++      zoomRange.disabled = false;
++      viewers.forEach(viewerId => p.call(viewerId, activeStream));
+     });
+ 
+-    peer.on("error", error => {
+-        console.error("PeerJS error:", error);
+-        setConnection("Ошибка соединения", "");
++    incoming.on("close", () => {
++      if (cameraCall !== incoming) return;
++      cameraCall = null;
++      activeStream = null;
++      video.srcObject = null;
++      overlay.classList.remove("hidden");
++      overlay.textContent = "Камера отключена — ждём переподключения…";
++      setConnection("Ожидание камеры", "ready");
++      quality.textContent = "—";
++      fps.textContent = "—";
++      stopStats();
++      zoomRange.disabled = true;
+     });
+ 
+-    peer.on("disconnected", () => {
+-        setConnection("Соединение потеряно", "");
++    incoming.on("error", error => {
++      console.error("Call error:", error);
++      if (cameraCall !== incoming) return;
++      overlay.classList.remove("hidden");
++      overlay.textContent = "Ошибка видеосоединения";
+     });
++  });
++
++  p.on("error", error => {
++    if (peer !== p) return;
++    console.error("PeerJS error:", error);
++    if (error.type === "unavailable-id") {
++      createRoom(); // код занят — берём новый
++    } else if (["network", "server-error", "socket-error", "socket-closed"].includes(error.type)) {
++      setConnection("Нет связи с сервером…", "");
++      scheduleReconnect();
++    } else {
++      setConnection("Ошибка: " + error.type, "");
++    }
++  });
++
++  p.on("disconnected", () => {
++    if (peer !== p) return;
++    setConnection("Соединение потеряно — переподключение…", "");
++    scheduleReconnect();
++  });
+ }
+ 
+-function updateVideoInfo(stream) {
+-    const track = stream.getVideoTracks()[0];
+-    if (!track) return;
+-    
+-    const w = video.videoWidth || track.getSettings().width || 0;
+-    const h = video.videoHeight || track.getSettings().height || 0;
+-    const frameRate = track.getSettings().frameRate || 30;
++/* ---------- Статистика приёма ---------- */
++
++function startStats(call) {
++  stopStats();
++  prevBytes = null;
++  statsTimer = setInterval(async () => {
++    const pc = call.peerConnection;
++    if (!pc || cameraCall !== call) return;
++    try {
++      const reports = await pc.getStats();
++      reports.forEach(r => {
++        if (r.type === "inbound-rtp" && r.kind === "video") {
++          if (typeof r.framesPerSecond === "number") fps.textContent = Math.round(r.framesPerSecond);
++          if (prevBytes !== null) {
++            const kbps = (r.bytesReceived - prevBytes.bytes) * 8 / ((r.timestamp - prevBytes.ts) / 1000) / 1000;
++            if (isFinite(kbps) && kbps >= 0) updateVideoInfo(kbps >= 1000 ? (kbps / 1000).toFixed(1) + " Mbps" : Math.round(kbps) + " Kbps");
++          }
++          prevBytes = { bytes: r.bytesReceived, ts: r.timestamp };
++        }
++      });
++    } catch {}
++  }, 2000);
++}
++
++function stopStats() {
++  if (statsTimer) { clearInterval(statsTimer); statsTimer = null; }
++}
++
++function updateVideoInfo(bitrateText) {
++  const w = video.videoWidth;
++  const h = video.videoHeight;
++  if (!w || !h) return;
++  quality.textContent = `${w}×${h}` + (bitrateText ? ` • ${bitrateText}` : "");
++}
++video.addEventListener("resize", () => updateVideoInfo());
++
++/* ---------- Зум ---------- */
++
++let zoomCaps = null;                       // оптический зум камеры, если поддерживается
++const digital = { scale: 1, x: 0, y: 0 };  // запасной цифровой зум на мониторе
++
++function sendCtrl(message) {
++  if (ctrlConn && ctrlConn.open) { try { ctrlConn.send(message); } catch {} }
++}
++
++function applyTransform() {
++  video.style.transform = `translate(${digital.x}px, ${digital.y}px) scale(${digital.scale})`;
++}
++
++function clampPan() {
++  const r = videoBox.getBoundingClientRect();
++  const maxX = (digital.scale - 1) * r.width / 2;
++  const maxY = (digital.scale - 1) * r.height / 2;
++  digital.x = clamp(digital.x, -maxX, maxX);
++  digital.y = clamp(digital.y, -maxY, maxY);
++}
+ 
+-    if (w && h) quality.textContent = `${w}×${h}`;
+-    if (frameRate) fps.textContent = Math.round(frameRate);
++function setDigital(scale) {
++  digital.scale = clamp(scale, 1, 4);
++  if (digital.scale === 1) { digital.x = 0; digital.y = 0; }
++  clampPan();
++  applyTransform();
+ }
+ 
++function syncZoomUI() {
++  const value = zoomCaps ? zoomCaps.value : digital.scale;
++  zoomRange.value = value;
++  zoomValue.textContent = Number(value).toFixed(1) + "×";
++}
++
++function applyCaps(z) {
++  zoomCaps = z || null;
++  setDigital(1);
++  if (zoomCaps) {
++    zoomRange.min = zoomCaps.min;
++    zoomRange.max = zoomCaps.max;
++    zoomRange.step = zoomCaps.step || 0.1;
++    zoomMode.textContent = "Оптический зум камеры";
++  } else {
++    zoomRange.min = 1;
++    zoomRange.max = 4;
++    zoomRange.step = 0.05;
++    zoomMode.textContent = "Цифровой зум";
++  }
++  zoomRange.disabled = !activeStream;
++  syncZoomUI();
++}
++
++function setZoomValue(value) {
++  if (zoomCaps) {
++    zoomCaps.value = clamp(value, zoomCaps.min, zoomCaps.max);
++    sendCtrl({ type: "zoom", value: zoomCaps.value });
++  } else {
++    setDigital(value);
++  }
++  syncZoomUI();
++}
++
++zoomRange.addEventListener("input", () => setZoomValue(Number(zoomRange.value)));
++zoomReset.addEventListener("click", () => setZoomValue(zoomCaps ? zoomCaps.min : 1));
++videoBox.addEventListener("dblclick", () => setZoomValue(zoomCaps ? zoomCaps.min : 1));
++
++videoBox.addEventListener("wheel", e => {
++  if (!activeStream) return;
++  e.preventDefault();
++  const current = zoomCaps ? zoomCaps.value : digital.scale;
++  setZoomValue(current * (e.deltaY < 0 ? 1.1 : 1 / 1.1));
++}, { passive: false });
++
++/* Перетаскивание кадра при цифровом зуме */
++let drag = null;
++videoBox.addEventListener("pointerdown", e => {
++  if (zoomCaps || digital.scale <= 1) return;
++  drag = { x: e.clientX, y: e.clientY, ox: digital.x, oy: digital.y };
++  videoBox.setPointerCapture(e.pointerId);
++});
++videoBox.addEventListener("pointermove", e => {
++  if (!drag) return;
++  digital.x = drag.ox + (e.clientX - drag.x);
++  digital.y = drag.oy + (e.clientY - drag.y);
++  clampPan();
++  applyTransform();
++});
++videoBox.addEventListener("pointerup", () => { drag = null; });
++videoBox.addEventListener("pointercancel", () => { drag = null; });
++
++/* ---------- Кнопки ---------- */
++
+ async function copyRoom() {
+-    try {
+-        await navigator.clipboard.writeText(room);
+-        copyBtn.textContent = "Скопировано";
+-        setTimeout(() => { copyBtn.textContent = "Скопировать код"; }, 1500);
+-    } catch {
+-        console.log("Room:", room);
+-    }
++  try {
++    await navigator.clipboard.writeText(room);
++    copyBtn.textContent = "Скопировано";
++    setTimeout(() => { copyBtn.textContent = "Скопировать код"; }, 1500);
++  } catch {
++    console.log("Room:", room);
++  }
+ }
+ 
+ function openCleanOutput() {
+-    const url = new URL("./view.html", window.location.href);
+-    url.searchParams.set("room", room);
+-    window.open(url.href, "_blank");
++  const url = new URL("./view.html", window.location.href);
++  url.searchParams.set("room", room);
++  window.open(url.href, "_blank");
+ }
+ 
+ copyBtn.addEventListener("click", copyRoom);
+ cleanBtn.addEventListener("click", openCleanOutput);
+ roomCode.addEventListener("click", copyRoom);
+ 
++window.addEventListener("online", () => { if (peer && peer.disconnected) { failCount = 0; scheduleReconnect(); } });
++
+ window.addEventListener("beforeunload", () => {
+-    if (cameraCall) try { cameraCall.close(); } catch {}
+-    if (peer) try { peer.destroy(); } catch {}
++  stopStats();
++  destroyPeer();
+ });
+ 
++applyCaps(null);
+ createRoom();
++
+ </script>
+ </body>
+ </html>
+\ No newline at end of file
+diff --git a/sw.js b/sw.js
+index 045f3b9..d79d138 100644
+--- a/sw.js
++++ b/sw.js
+@@ -1,6 +1,6 @@
+ "use strict";
+ 
+-const CACHE_NAME = "glazok-studio-v5";
++const CACHE_NAME = "glazok-studio-v6";
+ 
+ const STATIC_ASSETS = [
+   "./",

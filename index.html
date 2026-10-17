@@ -8,6 +8,7 @@
     <link rel="manifest" href="./manifest.webmanifest">
     <link rel="icon" href="./icon.svg">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 
     <style>
         :root {
@@ -305,7 +306,26 @@
             font-size: 12px;
             white-space: nowrap;
         }
-    </style>
+    
+/* QR SCANNER */
+.divider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; }
+.divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+#scanner { position: fixed; inset: 0; z-index: 200; display: none; align-items: center; justify-content: center; background: #000; overflow: hidden; }
+#scanner.active { display: flex; }
+#scan-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.scan-frame { position: relative; width: min(70vw, 300px); aspect-ratio: 1; border: 3px solid rgba(255,255,255,.92); border-radius: 24px; box-shadow: 0 0 0 100vmax rgba(0,0,0,.55); }
+.scan-hint { position: absolute; left: 0; right: 0; bottom: calc(112px + env(safe-area-inset-bottom)); padding: 0 24px; color: #fff; font-size: 14px; text-align: center; }
+.scan-close { position: absolute; left: 50%; bottom: calc(36px + env(safe-area-inset-bottom)); width: min(70%, 260px); transform: translateX(-50%); background: rgba(8,8,12,.82); }
+.scan-close:active { transform: translateX(-50%) scale(.98); }
+
+/* ZOOM */
+#camera-video { touch-action: none; }
+.bottom-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.zoom-panel { width: min(100%, 420px); gap: 12px; }
+.zoom-panel[hidden] { display: none; }
+.zoom-panel input[type=range] { flex: 1; min-width: 0; height: 28px; accent-color: #6366f1; background: transparent; }
+.zoom-label { min-width: 42px; text-align: right; font-variant-numeric: tabular-nums; }
+</style>
 </head>
 
 <body>
@@ -338,9 +358,13 @@
 <section id="screen-camera" class="screen">
     <div id="camera-connect">
         <div class="connect-title">Подключить камеру</div>
-        <div class="connect-description">Введите код комнаты, который показан на компьютере.</div>
+        <div class="connect-description">Отсканируйте QR-код на мониторе или введите код комнаты вручную.</div>
 
-        <input id="connection-code" class="code-input" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text" placeholder="ABC123">
+        <button id="scan-btn" class="btn" type="button">📷 Сканировать QR-код</button>
+
+<div class="divider">или введите код</div>
+
+<input id="connection-code" class="code-input" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text" placeholder="ABC123">
 
         <div class="quality-row">
             <div class="field">
@@ -396,14 +420,40 @@
                 </div>
             </div>
 
-            <div class="bottom">
+            <div class="bottom-wrap">
+
+<div id="zoom-panel" class="pill zoom-panel" hidden>
+
+<span>🔍</span>
+
+<input id="zoom-range" type="range" min="1" max="1" step="0.1" value="1" aria-label="Зум">
+
+<span id="zoom-label" class="zoom-label">1.0×</span>
+
+</div>
+
+<div class="bottom">
                 <button id="torch-btn" class="action" type="button">Вспышка</button>
                 <button id="flip-btn" class="action" type="button">Камера</button>
                 <button id="stop-btn" class="action stop" type="button">Стоп</button>
             </div>
+
+</div>
         </div>
     </div>
 </section>
+
+<div id="scanner">
+
+<video id="scan-video" autoplay playsinline muted></video>
+
+<div class="scan-frame"></div>
+
+<div class="scan-hint">Наведите камеру на QR-код на мониторе</div>
+
+<button id="scan-close" class="btn btn-secondary scan-close" type="button">Отмена</button>
+
+</div>
 
 <div id="toast-container"></div>
 
@@ -426,556 +476,880 @@ const statusText = $("status-text");
 const qualityInfo = $("quality-info");
 const networkInfo = $("network-info");
 const connectButton = $("connect-btn");
+const scannerEl = $("scanner");
+const scanVideo = $("scan-video");
+const zoomPanel = $("zoom-panel");
+const zoomRange = $("zoom-range");
+const zoomLabel = $("zoom-label");
+
+const CODE_RE = /^[a-z0-9]{6}$/i;
+const MAX_REDIALS = 12;
 
 const state = {
-    peer: null,
-    call: null,
-    stream: null,
-    videoTrack: null,
-    facingMode: "environment",
-    torchOn: false,
-    room: null,
-    adaptiveTimer: null,
-    statsTimer: null,
-    lastStats: null,
-    currentLevel: 0,
-    connected: false
+  peer: null,
+  call: null,
+  ctrl: null,
+  stream: null,
+  videoTrack: null,
+  facingMode: "environment",
+  torchOn: false,
+  room: null,
+  statsTimer: null,
+  adaptiveTimer: null,
+  redialTimer: null,
+  dropTimer: null,
+  wakeLock: null,
+  currentLevel: 0,
+  maxLevel: 0,
+  fpsCap: 60,
+  connected: false,
+  stopping: false,
+  starting: false,
+  switching: false,
+  retry: 0,
+  badStreak: 0,
+  goodStreak: 0,
+  prevLoss: null,
+  zoom: null
 };
 
 const PEER_CONFIG = {
-    config: {
-        iceServers: [
-            {
-                urls: "stun:stun.relay.metered.ca:80",
-            },
-            {
-                urls: "turn:standard.relay.metered.ca:80",
-                username: "35162de63b0eb72fbb27f4e3",
-                credential: "ZbW2aJl3WmRUyOss",
-            },
-            {
-                urls: "turn:standard.relay.metered.ca:80?transport=tcp",
-                username: "35162de63b0eb72fbb27f4e3",
-                credential: "ZbW2aJl3WmRUyOss",
-            },
-            {
-                urls: "turn:standard.relay.metered.ca:443",
-                username: "35162de63b0eb72fbb27f4e3",
-                credential: "ZbW2aJl3WmRUyOss",
-            },
-            {
-                urls: "turns:standard.relay.metered.ca:443?transport=tcp",
-                username: "35162de63b0eb72fbb27f4e3",
-                credential: "ZbW2aJl3WmRUyOss",
-            }
-        ],
-        sdpSemantics: 'unified-plan'
-    }
+  config: {
+    iceServers: [
+      { urls: "stun:stun.relay.metered.ca:80" },
+      { urls: "turn:standard.relay.metered.ca:80", username: "35162de63b0eb72fbb27f4e3", credential: "ZbW2aJl3WmRUyOss" },
+      { urls: "turn:standard.relay.metered.ca:80?transport=tcp", username: "35162de63b0eb72fbb27f4e3", credential: "ZbW2aJl3WmRUyOss" },
+      { urls: "turn:standard.relay.metered.ca:443", username: "35162de63b0eb72fbb27f4e3", credential: "ZbW2aJl3WmRUyOss" },
+      { urls: "turns:standard.relay.metered.ca:443?transport=tcp", username: "35162de63b0eb72fbb27f4e3", credential: "ZbW2aJl3WmRUyOss" }
+    ],
+    sdpSemantics: "unified-plan"
+  }
 };
 
+/* Лестница качества. height — короткая сторона кадра. */
 const LEVELS = [
-    { name: "480p30", width: 854, height: 480, fps: 30, bitrate: 900000 },
-    { name: "720p30", width: 1280, height: 720, fps: 30, bitrate: 1800000 },
-    { name: "720p60", width: 1280, height: 720, fps: 60, bitrate: 3000000 },
-    { name: "1080p30", width: 1920, height: 1080, fps: 30, bitrate: 4500000 },
-    { name: "1080p60", width: 1920, height: 1080, fps: 60, bitrate: 7000000 }
+  { name: "480p30",  height: 480,  fps: 30, bitrate: 900000 },
+  { name: "720p30",  height: 720,  fps: 30, bitrate: 1800000 },
+  { name: "720p60",  height: 720,  fps: 60, bitrate: 3000000 },
+  { name: "1080p30", height: 1080, fps: 30, bitrate: 4500000 },
+  { name: "1080p60", height: 1080, fps: 60, bitrate: 7000000 },
+  { name: "1440p30", height: 1440, fps: 30, bitrate: 9000000 },
+  { name: "1440p60", height: 1440, fps: 60, bitrate: 13000000 },
+  { name: "2160p30", height: 2160, fps: 30, bitrate: 18000000 },
+  { name: "2160p60", height: 2160, fps: 60, bitrate: 25000000 }
 ];
 
-function getInitialLevel() {
-    const res = Number(resSelect.value);
-    const fps = Number(fpsSelect.value);
-
-    if (res >= 1080 && fps >= 60) return 4;
-    if (res >= 1080) return 3;
-    if (res >= 720 && fps >= 60) return 2;
-    if (res >= 720) return 1;
-    return 0;
+function levelIndex(height, fps) {
+  const f = fps >= 60 ? 60 : 30;
+  let best = 0;
+  LEVELS.forEach((l, i) => { if (l.height <= height && l.fps <= f) best = i; });
+  return best;
 }
 
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
 function toast(message) {
-    const el = document.createElement("div");
-    el.className = "toast";
-    el.textContent = message;
-    $("toast-container").appendChild(el);
-    setTimeout(() => el.remove(), 2800);
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.textContent = message;
+  $("toast-container").appendChild(el);
+  setTimeout(() => el.remove(), 2800);
 }
 
 function setStatus(text, type = "ok") {
-    statusText.textContent = text;
-    statusDot.className = "dot";
-    if (type === "warning") statusDot.classList.add("warning");
-    if (type === "bad") statusDot.classList.add("bad");
+  statusText.textContent = text;
+  statusDot.className = "dot";
+  if (type === "warning") statusDot.classList.add("warning");
+  if (type === "bad") statusDot.classList.add("bad");
+}
+
+function describeError(error) {
+  switch (error && error.name) {
+    case "NotAllowedError":
+    case "SecurityError": return "Нет доступа к камере — разрешите её в настройках браузера";
+    case "NotFoundError":
+    case "OverconstrainedError": return "Камера не найдена";
+    case "NotReadableError": return "Камера занята другим приложением";
+    case "NotSupportedError": return "Нужен HTTPS и современный браузер";
+    default: return "Не удалось запустить камеру";
+  }
+}
+
+/* ---------- QR ---------- */
+
+function parseRoom(text) {
+  if (!text) return null;
+  text = String(text).trim();
+  try {
+    const url = new URL(text);
+    const r = url.searchParams.get("room");
+    if (r && CODE_RE.test(r)) return r.toUpperCase();
+  } catch {}
+  return CODE_RE.test(text) ? text.toUpperCase() : null;
+}
+
+const scanner = { active: false, stream: null, timer: 0, detector: null, canvas: null };
+
+async function openScanner() {
+  if (scanner.active) return;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    toast("Сканер недоступен: нужен HTTPS");
+    return;
+  }
+  scannerEl.classList.add("active");
+  try {
+    scanner.stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+  } catch (error) {
+    scannerEl.classList.remove("active");
+    toast(describeError(error));
+    return;
+  }
+  scanVideo.srcObject = scanner.stream;
+  await scanVideo.play().catch(() => {});
+  if ("BarcodeDetector" in window) {
+    try { scanner.detector = new BarcodeDetector({ formats: ["qr_code"] }); } catch { scanner.detector = null; }
+  }
+  scanner.canvas = scanner.canvas || document.createElement("canvas");
+  scanner.active = true;
+  scanLoop();
+}
+
+function closeScanner() {
+  scanner.active = false;
+  clearTimeout(scanner.timer);
+  if (scanner.stream) {
+    scanner.stream.getTracks().forEach(t => { try { t.stop(); } catch {} });
+    scanner.stream = null;
+  }
+  scanVideo.srcObject = null;
+  scannerEl.classList.remove("active");
+}
+
+async function scanLoop() {
+  if (!scanner.active) return;
+  let value = null;
+  if (scanVideo.readyState >= 2 && scanVideo.videoWidth) {
+    try {
+      if (scanner.detector) {
+        const found = await scanner.detector.detect(scanVideo);
+        if (found.length) value = found[0].rawValue;
+      } else if (window.jsQR) {
+        const scale = Math.min(1, 720 / scanVideo.videoWidth);
+        const w = Math.round(scanVideo.videoWidth * scale);
+        const h = Math.round(scanVideo.videoHeight * scale);
+        scanner.canvas.width = w;
+        scanner.canvas.height = h;
+        const ctx = scanner.canvas.getContext("2d", { willReadFrequently: true });
+        ctx.drawImage(scanVideo, 0, 0, w, h);
+        const img = ctx.getImageData(0, 0, w, h);
+        const code = window.jsQR(img.data, w, h, { inversionAttempts: "dontInvert" });
+        if (code) value = code.data;
+      }
+    } catch {}
+  }
+  if (!scanner.active) return;
+  const room = parseRoom(value);
+  if (room) {
+    closeScanner();
+    connectionCode.value = room;
+    toast("QR распознан");
+    connectCamera();
+    return;
+  }
+  scanner.timer = setTimeout(scanLoop, 120);
+}
+
+/* ---------- Камера ---------- */
+
+function buildConstraints(levelIdx) {
+  const l = LEVELS[levelIdx];
+  return {
+    audio: false,
+    video: {
+      facingMode: { ideal: state.facingMode },
+      width: { ideal: Math.round(l.height * 16 / 9) },
+      height: { ideal: l.height },
+      frameRate: { ideal: l.fps }
+    }
+  };
+}
+
+async function openStream(levelIdx) {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    const e = new Error("mediaDevices unavailable");
+    e.name = "NotSupportedError";
+    throw e;
+  }
+  const attempts = [
+    buildConstraints(levelIdx),
+    buildConstraints(Math.min(levelIdx, 1)),
+    { audio: false, video: { facingMode: { ideal: state.facingMode } } },
+    { audio: false, video: true }
+  ];
+  let lastError;
+  for (const constraints of attempts) {
+    try {
+      return await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (error) {
+      lastError = error;
+      if (["NotAllowedError", "SecurityError", "NotReadableError"].includes(error.name)) break;
+    }
+  }
+  throw lastError;
 }
 
 function stopStream() {
-    if (state.stream) {
-        state.stream.getTracks().forEach(track => {
-            try { track.stop(); } catch {}
-        });
-        state.stream = null;
-    }
-    state.videoTrack = null;
-    state.torchOn = false;
+  if (state.stream) {
+    state.stream.getTracks().forEach(track => {
+      track.onended = null;
+      try { track.stop(); } catch {}
+    });
+    state.stream = null;
+  }
+  state.videoTrack = null;
+  state.torchOn = false;
 }
 
-function getConstraints(level) {
-    const quality = LEVELS[level];
-    return {
-        audio: false,
-        video: {
-            facingMode: state.facingMode,
-            width: { ideal: quality.width },
-            height: { ideal: quality.height },
-            frameRate: { ideal: quality.fps, max: quality.fps }
-        }
-    };
+function useStream(stream) {
+  state.stream = stream;
+  const track = stream.getVideoTracks()[0];
+  state.videoTrack = track;
+  if (track && "contentHint" in track) track.contentHint = "motion";
+  if (track) track.onended = onTrackEnded;
+  cameraVideo.srcObject = stream;
+  cameraVideo.play().catch(() => {});
+
+  const sender = getVideoSender();
+  if (sender && track) sender.replaceTrack(track).catch(error => console.warn("replaceTrack:", error));
+
+  $("torch-btn").textContent = "Вспышка";
+  setupZoom();
+  setTimeout(() => {
+    capLevelToCapture();
+    updateLocalQuality();
+    applyEncoding(state.currentLevel);
+  }, 400);
 }
 
-async function getCameraStream(level) {
-    stopStream();
-    let stream;
+/* Если телефон не дал выбранное разрешение — не обещаем лишнего. */
+function capLevelToCapture() {
+  if (!state.videoTrack) return;
+  const s = state.videoTrack.getSettings();
+  if (!s.width || !s.height) return;
+  const shortSide = Math.min(s.width, s.height);
+  const cap = levelIndex(shortSide + 8, state.fpsCap);
+  if (cap < state.maxLevel) state.maxLevel = cap;
+  if (state.currentLevel > state.maxLevel) state.currentLevel = state.maxLevel;
+}
+
+async function swapCamera() {
+  stopStream(); // сначала освобождаем камеру — на Android две сразу не открываются
+  const stream = await openStream(state.maxLevel);
+  useStream(stream);
+}
+
+function onTrackEnded() {
+  if (state.stopping || state.switching) return;
+  state.switching = true;
+  setStatus("ВОССТАНОВЛЕНИЕ КАМЕРЫ", "warning");
+  setTimeout(async () => {
     try {
-        stream = await navigator.mediaDevices.getUserMedia(getConstraints(level));
+      await swapCamera();
+      if (state.connected) setStatus("LIVE"); else setStatus("ПОДКЛЮЧЕНИЕ…", "warning");
     } catch (error) {
-        console.warn("Requested camera mode unavailable:", error);
-        stream = await navigator.mediaDevices.getUserMedia(getConstraints(1));
+      console.error("Camera recover failed:", error);
+      setStatus("КАМЕРА НЕДОСТУПНА", "bad");
+      toast(describeError(error));
+    } finally {
+      state.switching = false;
     }
-
-    state.stream = stream;
-    state.videoTrack = stream.getVideoTracks()[0];
-
-    if (state.videoTrack && "contentHint" in state.videoTrack) {
-        state.videoTrack.contentHint = "motion";
-    }
-
-    cameraVideo.srcObject = stream;
-    await cameraVideo.play().then(() => {
-        if (cameraVideo.buffered.length > 0) {
-            cameraVideo.currentTime = cameraVideo.buffered.end(0) - 0.05;
-        }
-    }).catch(() => {});
-
-    setTimeout(() => updateLocalQuality(), 500);
-    return stream;
+  }, 800);
 }
 
 function updateLocalQuality() {
-    if (!state.videoTrack) return;
-    const settings = state.videoTrack.getSettings();
-    const w = cameraVideo.videoWidth || settings.width || 0;
-    const h = cameraVideo.videoHeight || settings.height || 0;
-    const fps = settings.frameRate || 0;
-
-    if (w && h) {
-        qualityInfo.textContent = `${w}×${h} • ${Math.round(fps)} FPS`;
-    }
+  if (!state.videoTrack) return;
+  const settings = state.videoTrack.getSettings();
+  const w = cameraVideo.videoWidth || settings.width || 0;
+  const h = cameraVideo.videoHeight || settings.height || 0;
+  const fps = settings.frameRate || 0;
+  if (w && h) qualityInfo.textContent = `${w}×${h} • ${Math.round(fps)} FPS • ${LEVELS[state.currentLevel].name}`;
 }
+
+async function requestWakeLock() {
+  try {
+    if ("wakeLock" in navigator && !state.wakeLock) {
+      state.wakeLock = await navigator.wakeLock.request("screen");
+      state.wakeLock.addEventListener("release", () => { state.wakeLock = null; });
+    }
+  } catch {}
+}
+
+function releaseWakeLock() {
+  if (state.wakeLock) { try { state.wakeLock.release(); } catch {} state.wakeLock = null; }
+}
+
+/* ---------- Зум ---------- */
+
+function showZoom() {
+  const z = state.zoom;
+  zoomLabel.textContent = z ? z.value.toFixed(1) + "×" : "";
+  if (z) zoomRange.value = z.value;
+}
+
+function setupZoom() {
+  let caps = null;
+  try { caps = state.videoTrack && state.videoTrack.getCapabilities ? state.videoTrack.getCapabilities() : null; } catch {}
+  if (caps && caps.zoom && caps.zoom.max > caps.zoom.min) {
+    const s = state.videoTrack.getSettings();
+    state.zoom = {
+      min: caps.zoom.min,
+      max: caps.zoom.max,
+      step: caps.zoom.step || 0.1,
+      value: s.zoom || caps.zoom.min
+    };
+    zoomRange.min = state.zoom.min;
+    zoomRange.max = state.zoom.max;
+    zoomRange.step = state.zoom.step;
+    zoomPanel.hidden = false;
+    showZoom();
+  } else {
+    state.zoom = null;
+    zoomPanel.hidden = true;
+  }
+  sendCaps();
+}
+
+let zoomPending = null;
+let zoomBusy = false;
+
+async function setZoom(value) {
+  const z = state.zoom;
+  if (!z || !state.videoTrack) return;
+  zoomPending = clamp(value, z.min, z.max);
+  if (zoomBusy) return;
+  zoomBusy = true;
+  while (zoomPending !== null) {
+    const v = zoomPending;
+    zoomPending = null;
+    try {
+      await state.videoTrack.applyConstraints({ advanced: [{ zoom: v }] });
+      z.value = v;
+    } catch (error) {
+      console.warn("zoom failed:", error);
+      toast("Зум недоступен");
+      break;
+    }
+  }
+  zoomBusy = false;
+  showZoom();
+  sendCtrl({ type: "zoom-value", value: z.value });
+}
+
+/* ---------- Канал управления с монитором ---------- */
+
+function sendCtrl(message) {
+  if (state.ctrl && state.ctrl.open) {
+    try { state.ctrl.send(message); } catch {}
+  }
+}
+
+function sendCaps() {
+  sendCtrl({ type: "caps", zoom: state.zoom ? { min: state.zoom.min, max: state.zoom.max, step: state.zoom.step, value: state.zoom.value } : null });
+}
+
+function openControl() {
+  if (state.ctrl) { try { state.ctrl.close(); } catch {} state.ctrl = null; }
+  if (!state.peer || state.peer.destroyed || state.peer.disconnected) return;
+  const conn = state.peer.connect("glz-" + state.room, { reliable: true });
+  state.ctrl = conn;
+  conn.on("open", sendCaps);
+  conn.on("data", data => {
+    if (data && data.type === "zoom" && typeof data.value === "number") setZoom(data.value);
+  });
+  conn.on("close", () => { if (state.ctrl === conn) state.ctrl = null; });
+  conn.on("error", () => {});
+}
+
+/* ---------- Подключение ---------- */
 
 async function connectCamera() {
-    const code = connectionCode.value.trim().toLowerCase();
+  const code = parseRoom(connectionCode.value);
+  if (!code) {
+    toast("Код должен содержать 6 символов");
+    return;
+  }
+  if (state.starting) return;
+  state.starting = true;
+  connectButton.disabled = true;
 
-    if (!code) {
-        toast("Введите код комнаты");
-        return;
-    }
+  state.room = code.toLowerCase();
+  state.stopping = false;
+  state.retry = 0;
+  state.fpsCap = Number(fpsSelect.value) >= 60 ? 60 : 30;
+  state.maxLevel = levelIndex(Number(resSelect.value), state.fpsCap);
+  state.currentLevel = state.maxLevel;
 
-    if (!/^[a-z0-9]{6}$/.test(code)) {
-        toast("Код должен содержать 6 символов");
-        return;
-    }
-
-    connectButton.disabled = true;
-
-    try {
-        state.room = code;
-        state.currentLevel = getInitialLevel();
-        setStatus("КАМЕРА", "warning");
-
-        const stream = await getCameraStream(state.currentLevel);
-
-        state.peer = new Peer(undefined, PEER_CONFIG);
-
-        state.peer.on("open", () => {
-            makeCall("glz-" + code, stream);
-        });
-
-        state.peer.on("error", error => {
-            console.error("PeerJS error:", error);
-            if (error.type === "peer-unavailable") {
-                setStatus("МОНИТОР НЕ НАЙДЕН", "bad");
-                toast("Проверьте код комнаты");
-            } else {
-                setStatus("ОШИБКА PEERJS", "bad");
-            }
-        });
-
-        state.peer.on("disconnected", () => {
-            state.connected = false;
-            setStatus("СВЯЗЬ ПОТЕРЯНА", "bad");
-        });
-
-    } catch (error) {
-        console.error("Camera start error:", error);
-        stopStream();
-        setStatus("КАМЕРА НЕДОСТУПНА", "bad");
-        toast("Не удалось запустить камеру");
-        connectButton.disabled = false;
-    }
-}
-
-function makeCall(target, stream) {
-    if (state.call) {
-        try { state.call.close(); } catch {}
-        state.call = null;
-    }
-
-    state.call = state.peer.call(target, stream);
-
-    if (!state.call) {
-        setStatus("ЗВОНОК НЕ СОЗДАН", "bad");
-        return;
-    }
-
+  try {
+    setStatus("КАМЕРА", "warning");
+    const stream = await openStream(state.maxLevel);
     cameraConnect.style.display = "none";
     cameraView.classList.add("active");
-    setStatus("ПОДКЛЮЧЕНИЕ...", "warning");
-
-    state.call.on("stream", () => {
-        state.connected = true;
-        setStatus("LIVE");
-        startAdaptiveMonitoring();
-    });
-
-    state.call.on("close", () => {
-        state.connected = false;
-        stopAdaptiveMonitoring();
-        setStatus("СОЕДИНЕНИЕ ЗАКРЫТО", "bad");
-    });
-
-    state.call.on("error", error => {
-        console.error("WebRTC call error:", error);
-        state.connected = false;
-        setStatus("ОШИБКА СВЯЗИ", "bad");
-    });
-
-    waitForPeerConnection();
+    useStream(stream);
+    requestWakeLock();
+    createPeer();
+  } catch (error) {
+    console.error("Camera start error:", error);
+    stopStream();
+    setStatus("КАМЕРА НЕДОСТУПНА", "bad");
+    toast(describeError(error));
+    connectButton.disabled = false;
+  } finally {
+    state.starting = false;
+  }
 }
 
-function waitForPeerConnection() {
-    let attempts = 0;
-    const timer = setInterval(() => {
-        attempts++;
-        const pc = state.call && state.call.peerConnection;
-        if (pc) {
-            clearInterval(timer);
-            configureSender();
-            return;
-        }
-        if (attempts >= 100) {
-            clearInterval(timer);
-            console.warn("RTCPeerConnection timeout");
-        }
-    }, 100);
+function destroyPeer() {
+  closeCall();
+  if (state.ctrl) { try { state.ctrl.close(); } catch {} state.ctrl = null; }
+  if (state.peer) {
+    const p = state.peer;
+    state.peer = null;
+    try { p.destroy(); } catch {}
+  }
+}
+
+function createPeer() {
+  destroyPeer();
+  const peer = new Peer(undefined, PEER_CONFIG);
+  state.peer = peer;
+
+  peer.on("open", () => {
+    if (state.peer !== peer || state.stopping) return;
+    if (!state.connected) makeCall();
+  });
+
+  peer.on("disconnected", () => {
+    if (state.peer !== peer || state.stopping) return;
+    setTimeout(() => {
+      if (state.peer === peer && !peer.destroyed && peer.disconnected) {
+        try { peer.reconnect(); } catch { scheduleRedial(true); }
+      }
+    }, 1000);
+  });
+
+  peer.on("error", error => {
+    if (state.peer !== peer || state.stopping) return;
+    console.warn("PeerJS error:", error.type, error);
+    if (error.type === "peer-unavailable") {
+      setStatus("ЖДЁМ МОНИТОР", "warning");
+      scheduleRedial(false);
+    } else if (error.type === "browser-incompatible") {
+      setStatus("БРАУЗЕР НЕ ПОДДЕРЖИВАЕТСЯ", "bad");
+    } else {
+      setStatus("ПЕРЕПОДКЛЮЧЕНИЕ…", "warning");
+      scheduleRedial(true);
+    }
+  });
+}
+
+function closeCall() {
+  clearTimeout(state.dropTimer);
+  stopAdaptiveMonitoring();
+  const call = state.call;
+  state.call = null;
+  state.connected = false;
+  if (call) { try { call.close(); } catch {} }
+}
+
+function scheduleRedial(recreatePeer) {
+  if (state.stopping) return;
+  clearTimeout(state.redialTimer);
+  if (state.retry >= MAX_REDIALS) {
+    setStatus("МОНИТОР НЕ НАЙДЕН", "bad");
+    toast("Проверьте код комнаты и что монитор открыт");
+    return;
+  }
+  state.retry++;
+  const delay = Math.min(1000 * state.retry, 5000);
+  state.redialTimer = setTimeout(() => {
+    if (state.stopping) return;
+    const p = state.peer;
+    if (recreatePeer || !p || p.destroyed) createPeer();
+    else if (p.disconnected) { try { p.reconnect(); } catch { createPeer(); } }
+    else makeCall();
+  }, delay);
+}
+
+function makeCall() {
+  const peer = state.peer;
+  if (!peer || peer.destroyed || !state.stream || state.stopping) return;
+  if (peer.disconnected) { try { peer.reconnect(); } catch {} return; }
+
+  closeCall();
+  const call = peer.call("glz-" + state.room, state.stream);
+  if (!call) {
+    setStatus("ЗВОНОК НЕ СОЗДАН", "bad");
+    scheduleRedial(true);
+    return;
+  }
+  state.call = call;
+  setStatus("ПОДКЛЮЧЕНИЕ…", "warning");
+
+  call.on("stream", () => { if (state.call === call) markLive(); });
+  call.on("close", () => {
+    if (state.call !== call || state.stopping) return;
+    state.connected = false;
+    stopAdaptiveMonitoring();
+    setStatus("ПЕРЕПОДКЛЮЧЕНИЕ…", "warning");
+    scheduleRedial(false);
+  });
+  call.on("error", error => {
+    console.warn("Call error:", error);
+    if (state.call !== call || state.stopping) return;
+    state.connected = false;
+    scheduleRedial(false);
+  });
+
+  openControl();
+  watchConnection(call);
+}
+
+function markLive() {
+  if (!state.connected) { state.connected = true; state.retry = 0; }
+  setStatus("LIVE");
+  if (!state.statsTimer) startAdaptiveMonitoring();
+}
+
+/* Монитор отвечает без видео, поэтому событие "stream" у камеры не приходит —
+   состояние берём напрямую из RTCPeerConnection. */
+function watchConnection(call) {
+  let tries = 0;
+  const timer = setInterval(() => {
+    tries++;
+    const pc = call.peerConnection;
+    if (pc) {
+      clearInterval(timer);
+      if (state.call === call) attachPc(call, pc);
+    } else if (tries > 50) {
+      clearInterval(timer);
+    }
+  }, 100);
+}
+
+function attachPc(call, pc) {
+  configureSender();
+  const onState = () => {
+    if (state.call !== call || state.stopping) return;
+    const s = pc.connectionState || pc.iceConnectionState;
+    clearTimeout(state.dropTimer);
+    if (s === "connected" || s === "completed") {
+      markLive();
+    } else if (s === "disconnected") {
+      state.connected = false;
+      setStatus("СВЯЗЬ НЕСТАБИЛЬНА", "warning");
+      state.dropTimer = setTimeout(() => {
+        if (state.call === call && !state.connected) scheduleRedial(false);
+      }, 6000);
+    } else if (s === "failed" || s === "closed") {
+      state.connected = false;
+      stopAdaptiveMonitoring();
+      setStatus("ПЕРЕПОДКЛЮЧЕНИЕ…", "warning");
+      scheduleRedial(false);
+    }
+  };
+  pc.addEventListener("connectionstatechange", onState);
+  pc.addEventListener("iceconnectionstatechange", onState);
+  onState();
 }
 
 function getVideoSender() {
-    const pc = state.call && state.call.peerConnection;
-    if (!pc) return null;
-    return pc.getSenders().find(s => s.track && s.track.kind === "video") || null;
+  const pc = state.call && state.call.peerConnection;
+  if (!pc) return null;
+  return pc.getSenders().find(s => s.track && s.track.kind === "video") || null;
 }
 
-async function applyEncoding(levelIndex) {
-    const sender = getVideoSender();
-    if (!sender) return false;
+/* ---------- Кодирование и адаптация ---------- */
 
-    const level = LEVELS[levelIndex];
-    const parameters = sender.getParameters();
+async function applyEncoding(levelIndexValue) {
+  const sender = getVideoSender();
+  if (!sender) return false;
+  const level = LEVELS[levelIndexValue];
+  const parameters = sender.getParameters();
+  if (!parameters.encodings || !parameters.encodings.length) parameters.encodings = [{}];
+  const encoding = parameters.encodings[0];
+  encoding.maxBitrate = level.bitrate;
+  encoding.maxFramerate = level.fps;
 
-    if (!parameters.encodings || !parameters.encodings.length) {
-        parameters.encodings = [{}];
-    }
+  const s = state.videoTrack ? state.videoTrack.getSettings() : {};
+  if (s.width && s.height) {
+    encoding.scaleResolutionDownBy = Math.max(1, Math.min(s.width, s.height) / level.height);
+  }
+  parameters.degradationPreference = "balanced";
 
-    const encoding = parameters.encodings[0];
-    encoding.maxBitrate = level.bitrate;
-    encoding.maxFramerate = level.fps;
-    parameters.degradationPreference = "maintain-resolution";
-
-    try {
-        await sender.setParameters(parameters);
-        return true;
-    } catch (error) {
-        console.debug("setParameters failed:", error);
-        return false;
-    }
+  try {
+    await sender.setParameters(parameters);
+    return true;
+  } catch (error) {
+    console.debug("setParameters failed:", error);
+    return false;
+  }
 }
 
 function configureSender() {
-    applyEncoding(state.currentLevel);
-    updateLocalQuality();
+  applyEncoding(state.currentLevel);
+  updateLocalQuality();
 }
 
 function startAdaptiveMonitoring() {
-    stopAdaptiveMonitoring();
-    state.statsTimer = setInterval(collectNetworkStats, 2000);
-    state.adaptiveTimer = setInterval(evaluateNetwork, 4000);
-    collectNetworkStats();
+  stopAdaptiveMonitoring();
+  state.prevLoss = null;
+  state.badStreak = 0;
+  state.goodStreak = 0;
+  state.statsTimer = setInterval(updateNetworkDisplay, 2000);
+  state.adaptiveTimer = setInterval(evaluateNetwork, 4000);
+  updateNetworkDisplay();
 }
 
 function stopAdaptiveMonitoring() {
-    if (state.statsTimer) { clearInterval(state.statsTimer); state.statsTimer = null; }
-    if (state.adaptiveTimer) { clearInterval(state.adaptiveTimer); state.adaptiveTimer = null; }
+  if (state.statsTimer) { clearInterval(state.statsTimer); state.statsTimer = null; }
+  if (state.adaptiveTimer) { clearInterval(state.adaptiveTimer); state.adaptiveTimer = null; }
 }
 
-async function collectNetworkStats() {
-    const pc = state.call && state.call.peerConnection;
-    if (!pc) return;
+async function readStats() {
+  const pc = state.call && state.call.peerConnection;
+  if (!pc) return null;
+  const out = { availableBitrate: null, rtt: null, outbound: null, remoteInbound: null };
+  try {
+    const reports = await pc.getStats();
+    reports.forEach(r => {
+      if (r.type === "candidate-pair" && (r.state === "succeeded" || r.nominated)) {
+        if (typeof r.availableOutgoingBitrate === "number") out.availableBitrate = r.availableOutgoingBitrate;
+        if (typeof r.currentRoundTripTime === "number") out.rtt = r.currentRoundTripTime;
+      }
+      if (r.type === "outbound-rtp" && r.kind === "video") out.outbound = r;
+      if (r.type === "remote-inbound-rtp" && r.kind === "video") out.remoteInbound = r;
+    });
+  } catch { return null; }
+  return out;
+}
 
-    try {
-        const reports = await pc.getStats();
-        let availableBitrate = null;
-        let roundTripTime = null;
-
-        reports.forEach(report => {
-            if (report.type === "candidate-pair" && report.state === "succeeded") {
-                if (typeof report.availableOutgoingBitrate === "number") availableBitrate = report.availableOutgoingBitrate;
-                if (typeof report.currentRoundTripTime === "number") roundTripTime = report.currentRoundTripTime;
-            }
-        });
-
-        if (availableBitrate !== null) networkInfo.textContent = formatBitrate(availableBitrate);
-        state.lastStats = { availableBitrate, roundTripTime };
-    } catch (error) {
-        console.debug("Stats error:", error);
-    }
+async function updateNetworkDisplay() {
+  const s = await readStats();
+  if (s && s.availableBitrate !== null) networkInfo.textContent = formatBitrate(s.availableBitrate);
 }
 
 async function evaluateNetwork() {
-    if (!adaptiveToggle.checked) return;
-    const pc = state.call && state.call.peerConnection;
-    if (!pc) return;
+  if (!adaptiveToggle.checked || !state.connected) return;
+  const s = await readStats();
+  if (!s) return;
+  if (s.availableBitrate !== null) networkInfo.textContent = formatBitrate(s.availableBitrate);
 
-    let availableBitrate = null;
-    let roundTripTime = null;
-    let outbound = null;
-    let remoteInbound = null;
+  const current = LEVELS[state.currentLevel];
+  let bad = false;
+  let veryBad = false;
 
-    try {
-        const reports = await pc.getStats();
-        reports.forEach(report => {
-            if (report.type === "candidate-pair" && report.state === "succeeded") {
-                if (typeof report.availableOutgoingBitrate === "number") availableBitrate = report.availableOutgoingBitrate;
-                if (typeof report.currentRoundTripTime === "number") roundTripTime = report.currentRoundTripTime;
-            }
-            if (report.type === "outbound-rtp" && report.kind === "video") outbound = report;
-            if (report.type === "remote-inbound-rtp" && report.kind === "video") remoteInbound = report;
-        });
-    } catch { return; }
-
-    if (availableBitrate !== null) networkInfo.textContent = formatBitrate(availableBitrate);
-
-    const current = LEVELS[state.currentLevel];
-    let bad = false;
-    let veryBad = false;
-
-    if (availableBitrate !== null) {
-        if (availableBitrate < current.bitrate * 0.65) bad = true;
-        if (availableBitrate < current.bitrate * 0.40) veryBad = true;
+  if (s.availableBitrate !== null) {
+    if (s.availableBitrate < current.bitrate * 0.65) bad = true;
+    if (s.availableBitrate < current.bitrate * 0.40) veryBad = true;
+  }
+  if (s.rtt !== null) {
+    if (s.rtt > 0.40) bad = true;
+    if (s.rtt > 0.80) veryBad = true;
+  }
+  /* Потери считаем за последний интервал, а не за всю сессию. */
+  if (s.remoteInbound && s.outbound) {
+    const lost = Number(s.remoteInbound.packetsLost || 0);
+    const sent = Number(s.outbound.packetsSent || 0);
+    if (state.prevLoss) {
+      const dSent = sent - state.prevLoss.sent;
+      const dLost = lost - state.prevLoss.lost;
+      if (dSent > 50) {
+        const loss = Math.max(0, dLost) / dSent;
+        if (loss > 0.05) bad = true;
+        if (loss > 0.12) veryBad = true;
+      }
     }
+    state.prevLoss = { lost, sent };
+  }
+  if (s.outbound && s.outbound.qualityLimitationReason === "bandwidth") bad = true;
 
-    if (roundTripTime !== null) {
-        if (roundTripTime > 0.40) bad = true;
-        if (roundTripTime > 0.80) veryBad = true;
-    }
+  if (veryBad) {
+    state.badStreak = 0; state.goodStreak = 0;
+    setStatus("ПЛОХАЯ СВЯЗЬ", "warning");
+    await changeLevel(-1);
+    return;
+  }
+  if (bad) {
+    state.goodStreak = 0;
+    state.badStreak++;
+    if (state.badStreak >= 2) { state.badStreak = 0; await changeLevel(-1); }
+    return;
+  }
+  state.badStreak = 0;
+  setStatus("LIVE");
 
-    if (remoteInbound) {
-        const lost = Number(remoteInbound.packetsLost || 0);
-        const received = Number(remoteInbound.packetsReceived || 0);
-        const total = lost + received;
-        if (total > 100) {
-            const loss = lost / total;
-            if (loss > 0.08) bad = true;
-            if (loss > 0.15) veryBad = true;
-        }
-    }
-
-    if (outbound && outbound.qualityLimitationReason === "bandwidth") bad = true;
-
-    if (veryBad) {
-        setStatus("ПЛОХАЯ СВЯЗЬ", "bad");
-        await decreaseQuality();
-        return;
-    }
-
-    if (bad) {
-        setStatus("АДАПТАЦИЯ", "warning");
-        await decreaseQuality();
-        return;
-    }
-
-    if (availableBitrate !== null && availableBitrate > current.bitrate * 1.7 && (roundTripTime === null || roundTripTime < 0.20)) {
-        await increaseQuality();
-    }
-
-    if (state.connected) setStatus("LIVE");
+  const roomy = s.availableBitrate !== null && s.availableBitrate > current.bitrate * 1.7 && (s.rtt === null || s.rtt < 0.20);
+  if (roomy && state.currentLevel < state.maxLevel) {
+    state.goodStreak++;
+    if (state.goodStreak >= 3) { state.goodStreak = 0; await changeLevel(+1); }
+  } else {
+    state.goodStreak = 0;
+  }
 }
 
-async function decreaseQuality() {
-    if (state.currentLevel <= 0) return;
-    const oldLevel = state.currentLevel;
-    state.currentLevel = Math.max(0, state.currentLevel - 1);
-    if (oldLevel === state.currentLevel) return;
-
-    const success = await applyEncoding(state.currentLevel);
-    if (!success) { state.currentLevel = oldLevel; return; }
-
-    toast(`Адаптация: ${LEVELS[state.currentLevel].name}`);
-    updateLocalQuality();
-}
-
-async function increaseQuality() {
-    if (state.currentLevel >= LEVELS.length - 1) return;
-    const oldLevel = state.currentLevel;
-    state.currentLevel++;
-
-    const success = await applyEncoding(state.currentLevel);
-    if (!success) { state.currentLevel = oldLevel; return; }
-
-    toast(`Качество: ${LEVELS[state.currentLevel].name}`);
-    updateLocalQuality();
+async function changeLevel(delta) {
+  const next = clamp(state.currentLevel + delta, 0, state.maxLevel);
+  if (next === state.currentLevel) return;
+  const old = state.currentLevel;
+  state.currentLevel = next;
+  const ok = await applyEncoding(next);
+  if (!ok) { state.currentLevel = old; return; }
+  toast((delta < 0 ? "Адаптация: " : "Качество: ") + LEVELS[next].name);
+  updateLocalQuality();
 }
 
 function formatBitrate(bitrate) {
-    if (bitrate >= 1000000) return (bitrate / 1000000).toFixed(1) + " Mbps";
-    return Math.round(bitrate / 1000) + " Kbps";
+  if (bitrate >= 1000000) return (bitrate / 1000000).toFixed(1) + " Mbps";
+  return Math.round(bitrate / 1000) + " Kbps";
 }
 
+/* ---------- Кнопки ---------- */
+
 async function toggleTorch() {
-    if (!state.videoTrack) return;
-    try {
-        state.torchOn = !state.torchOn;
-        await state.videoTrack.applyConstraints({
-            advanced: [{ torch: state.torchOn }]
-        });
-        $("torch-btn").textContent = state.torchOn ? "Выключить" : "Вспышка";
-    } catch (error) {
-        state.torchOn = false;
-        toast("Вспышка недоступна");
-    }
+  if (!state.videoTrack) return;
+  try {
+    const next = !state.torchOn;
+    await state.videoTrack.applyConstraints({ advanced: [{ torch: next }] });
+    state.torchOn = next;
+    $("torch-btn").textContent = next ? "Выключить" : "Вспышка";
+  } catch {
+    toast("Вспышка недоступна");
+  }
 }
 
 async function flipCamera() {
-    const oldStream = state.stream;
-    const oldTrack = state.videoTrack;
-    const oldFacingMode = state.facingMode;
-
-    state.facingMode = oldFacingMode === "environment" ? "user" : "environment";
-
-    try {
-        const newStream = await navigator.mediaDevices.getUserMedia(getConstraints(state.currentLevel));
-        const newTrack = newStream.getVideoTracks()[0];
-
-        if ("contentHint" in newTrack) newTrack.contentHint = "motion";
-
-        const sender = getVideoSender();
-        if (sender) await sender.replaceTrack(newTrack);
-
-        state.stream = newStream;
-        state.videoTrack = newTrack;
-        cameraVideo.srcObject = newStream;
-        await cameraVideo.play().catch(() => {});
-
-        if (oldStream) {
-            oldStream.getTracks().forEach(track => { try { track.stop(); } catch {} });
-        }
-
-        updateLocalQuality();
-        toast("Камера переключена");
-    } catch (error) {
-        console.error("Flip camera error:", error);
-        state.facingMode = oldFacingMode;
-        toast("Не удалось переключить камеру");
-
-        if (state.stream !== oldStream) {
-            stopStream();
-            state.stream = oldStream;
-            state.videoTrack = oldTrack;
-            cameraVideo.srcObject = oldStream;
-        }
+  if (state.switching) return;
+  state.switching = true;
+  const old = state.facingMode;
+  state.facingMode = old === "environment" ? "user" : "environment";
+  try {
+    await swapCamera();
+    toast("Камера переключена");
+  } catch (error) {
+    console.error("Flip camera error:", error);
+    state.facingMode = old;
+    try { await swapCamera(); } catch {
+      setStatus("КАМЕРА НЕДОСТУПНА", "bad");
     }
+    toast("Не удалось переключить камеру");
+  } finally {
+    state.switching = false;
+  }
 }
 
 function stopCamera() {
-    stopAdaptiveMonitoring();
-    if (state.call) { try { state.call.close(); } catch {} state.call = null; }
-    if (state.peer) { try { state.peer.destroy(); } catch {} state.peer = null; }
-
-    stopStream();
-    cameraVideo.srcObject = null;
-    cameraView.classList.remove("active");
-    cameraConnect.style.display = "flex";
-    connectButton.disabled = false;
-    state.connected = false;
-
-    networkInfo.textContent = "—";
-    qualityInfo.textContent = "—";
-    setStatus("CONNECTING", "warning");
+  state.stopping = true;
+  clearTimeout(state.redialTimer);
+  closeScanner();
+  destroyPeer();
+  stopStream();
+  releaseWakeLock();
+  cameraVideo.srcObject = null;
+  cameraView.classList.remove("active");
+  cameraConnect.style.display = "flex";
+  connectButton.disabled = false;
+  zoomPanel.hidden = true;
+  state.zoom = null;
+  networkInfo.textContent = "—";
+  qualityInfo.textContent = "—";
+  setStatus("CONNECTING", "warning");
 }
 
 function showStart() {
-    stopCamera();
-    cameraScreen.classList.remove("active");
-    startScreen.classList.add("active");
+  stopCamera();
+  cameraScreen.classList.remove("active");
+  startScreen.classList.add("active");
 }
 
 function openMode(mode) {
-    if (mode === "camera") {
-        startScreen.classList.remove("active");
-        cameraScreen.classList.add("active");
-        return;
-    }
-    if (mode === "monitor") {
-        window.location.href = "./monitor.html";
-    }
+  if (mode === "camera") {
+    startScreen.classList.remove("active");
+    cameraScreen.classList.add("active");
+    return;
+  }
+  if (mode === "monitor") window.location.href = "./monitor.html";
 }
 
 document.addEventListener("click", event => {
-    const mode = event.target.closest("[data-mode]");
-    if (mode) openMode(mode.dataset.mode);
+  const mode = event.target.closest("[data-mode]");
+  if (mode) openMode(mode.dataset.mode);
 });
 
 connectButton.addEventListener("click", connectCamera);
+$("scan-btn").addEventListener("click", openScanner);
+$("scan-close").addEventListener("click", closeScanner);
 $("back-btn").addEventListener("click", showStart);
 $("stop-btn").addEventListener("click", stopCamera);
 $("torch-btn").addEventListener("click", toggleTorch);
 $("flip-btn").addEventListener("click", flipCamera);
+zoomRange.addEventListener("input", () => setZoom(Number(zoomRange.value)));
+connectionCode.addEventListener("keydown", event => { if (event.key === "Enter") connectCamera(); });
 
-connectionCode.addEventListener("keydown", event => {
-    if (event.key === "Enter") connectCamera();
+/* Щипок двумя пальцами */
+let pinch = null;
+const touchDist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+cameraView.addEventListener("touchstart", e => {
+  if (e.touches.length === 2 && state.zoom) pinch = { d: touchDist(e.touches), z: state.zoom.value };
+}, { passive: true });
+cameraView.addEventListener("touchmove", e => {
+  if (pinch && e.touches.length === 2) {
+    e.preventDefault();
+    setZoom(pinch.z * touchDist(e.touches) / pinch.d);
+  }
+}, { passive: false });
+cameraView.addEventListener("touchend", e => { if (e.touches.length < 2) pinch = null; });
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && state.stream && !state.stopping) {
+    requestWakeLock();
+    if (!state.connected && state.peer) scheduleRedial(false);
+  }
+});
+
+window.addEventListener("online", () => {
+  if (state.stream && !state.stopping && !state.connected) { state.retry = 0; scheduleRedial(true); }
 });
 
 window.addEventListener("DOMContentLoaded", () => {
-    const params = new URLSearchParams(window.location.search);
-    const mode = params.get("m");
-    const room = params.get("room");
+  const params = new URLSearchParams(window.location.search);
+  const mode = params.get("m");
+  const room = parseRoom(params.get("room"));
 
-    if (mode === "monitor") {
-        window.location.href = "./monitor.html";
-        return;
-    }
-
-    if (mode === "camera" || room) {
-        startScreen.classList.remove("active");
-        cameraScreen.classList.add("active");
-        if (room) connectionCode.value = room.toUpperCase().slice(0, 6);
-    }
+  if (mode === "monitor") {
+    window.location.href = "./monitor.html";
+    return;
+  }
+  if (mode === "camera" || room) {
+    startScreen.classList.remove("active");
+    cameraScreen.classList.add("active");
+  }
+  if (room) {
+    connectionCode.value = room;
+    setTimeout(connectCamera, 300); // QR открыл страницу — подключаемся сразу
+  }
 });
 
 window.addEventListener("beforeunload", () => {
-    stopAdaptiveMonitoring();
-    stopStream();
-    if (state.call) try { state.call.close(); } catch {}
-    if (state.peer) try { state.peer.destroy(); } catch {}
+  state.stopping = true;
+  stopAdaptiveMonitoring();
+  stopStream();
+  closeScanner();
+  destroyPeer();
 });
+
 </script>
 </body>
 </html>

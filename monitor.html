@@ -6,6 +6,7 @@
     <meta name="theme-color" content="#050508">
     <title>Glazok Studio — Monitor</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         :root {
             --bg: #050508;
@@ -58,7 +59,34 @@
             .btn { width: 100%; }
             .footer { display: none; }
         }
-    </style>
+    
+html, body { overflow-y: auto; }
+.app { margin: auto; padding: 20px 0; }
+.room-card { display: flex; align-items: center; justify-content: space-between; gap: 28px; }
+.room-info { min-width: 0; }
+.qr-box { flex: 0 0 auto; width: 190px; text-align: center; }
+#qr { width: 190px; height: 190px; padding: 10px; border-radius: 14px; background: #fff; color: #000; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+#qr img, #qr canvas { width: 100% !important; height: 100% !important; display: block; }
+.qr-hint { margin-top: 8px; color: var(--muted); font-size: 12px; line-height: 1.4; }
+.qr-link { margin-top: 2px; color: var(--muted); font-size: 10px; word-break: break-all; opacity: .7; }
+.qr-warn { margin-top: 8px; color: #f59e0b; font-size: 11px; line-height: 1.4; }
+.qr-warn[hidden] { display: none; }
+
+.video-container { touch-action: none; }
+#video { transform-origin: center; will-change: transform; }
+.zoom-bar { display: flex; align-items: center; gap: 14px; padding: 10px 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--panel); }
+.zoom-mode { flex: 0 0 auto; min-width: 130px; color: var(--muted); font-size: 12px; }
+.zoom-bar input[type=range] { flex: 1; min-width: 0; accent-color: var(--accent); }
+.zoom-bar input[type=range]:disabled { opacity: .4; }
+.zoom-value { min-width: 44px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.zoom-reset { min-height: 34px; padding: 0 14px; border-radius: 999px; background: var(--panel); color: var(--text); border: 1px solid var(--border); font-size: 12px; font-weight: 700; }
+
+@media (max-width: 700px) {
+  .room-card { flex-direction: column; align-items: flex-start; }
+  .qr-box { align-self: center; }
+  .zoom-mode { display: none; }
+}
+</style>
 </head>
 <body>
 
@@ -75,22 +103,37 @@
     </header>
 
     <section class="room-card">
-        <div class="room-label">Код комнаты</div>
-        <div id="room-code" class="room-code" title="Нажмите, чтобы скопировать">------</div>
-        <div class="room-hint">Введите этот код на телефоне</div>
-    </section>
+            <div class="room-info">
+                <div class="room-label">Код комнаты</div>
+                <div id="room-code" class="room-code" title="Нажмите, чтобы скопировать">------</div>
+                <div class="room-hint">Отсканируйте QR-код камерой телефона или введите код вручную</div>
+            </div>
+            <div class="qr-box">
+                <div id="qr"></div>
+                <div class="qr-hint">QR для подключения камеры</div>
+                <div id="qr-link" class="qr-link"></div>
+                <div id="qr-warn" class="qr-warn" hidden></div>
+            </div>
+        </section>
 
     <div class="actions">
         <button id="copy-btn" class="btn btn-primary">Скопировать код</button>
         <button id="clean-btn" class="btn btn-secondary">Открыть Clean Output</button>
     </div>
 
-    <section class="video-container">
+    <section id="video-box" class="video-container">
         <video id="video" autoplay playsinline muted></video>
         <div id="video-overlay" class="video-overlay">Ожидание камеры...</div>
     </section>
 
-    <footer class="footer">
+    <div class="zoom-bar">
+            <div id="zoom-mode" class="zoom-mode">Зум</div>
+            <input id="zoom-range" type="range" min="1" max="4" step="0.05" value="1" disabled aria-label="Зум">
+            <div id="zoom-value" class="zoom-value">1.0×</div>
+            <button id="zoom-reset" class="zoom-reset" type="button">Сброс</button>
+        </div>
+
+        <footer class="footer">
         <div class="stats">
             <div class="stat">Качество: <strong id="quality">—</strong></div>
             <div class="stat">FPS: <strong id="fps">—</strong></div>
@@ -102,180 +145,376 @@
 <script>
 "use strict";
 
-const video = document.getElementById("video");
-const roomCode = document.getElementById("room-code");
-const connectionDot = document.getElementById("connection-dot");
-const connectionText = document.getElementById("connection-text");
-const overlay = document.getElementById("video-overlay");
-const copyBtn = document.getElementById("copy-btn");
-const cleanBtn = document.getElementById("clean-btn");
-const quality = document.getElementById("quality");
-const fps = document.getElementById("fps");
+const $ = id => document.getElementById(id);
+
+const video = $("video");
+const videoBox = $("video-box");
+const roomCode = $("room-code");
+const connectionDot = $("connection-dot");
+const connectionText = $("connection-text");
+const overlay = $("video-overlay");
+const copyBtn = $("copy-btn");
+const cleanBtn = $("clean-btn");
+const quality = $("quality");
+const fps = $("fps");
+const qrEl = $("qr");
+const qrLink = $("qr-link");
+const qrWarn = $("qr-warn");
+const zoomBar = $("zoom-bar");
+const zoomRange = $("zoom-range");
+const zoomValue = $("zoom-value");
+const zoomMode = $("zoom-mode");
+const zoomReset = $("zoom-reset");
+
+const ICE_SERVERS = [
+  { urls: "stun:stun.relay.metered.ca:80" },
+  { urls: "turn:standard.relay.metered.ca:80", username: "35162de63b0eb72fbb27f4e3", credential: "ZbW2aJl3WmRUyOss" },
+  { urls: "turn:standard.relay.metered.ca:80?transport=tcp", username: "35162de63b0eb72fbb27f4e3", credential: "ZbW2aJl3WmRUyOss" },
+  { urls: "turn:standard.relay.metered.ca:443", username: "35162de63b0eb72fbb27f4e3", credential: "ZbW2aJl3WmRUyOss" },
+  { urls: "turns:standard.relay.metered.ca:443?transport=tcp", username: "35162de63b0eb72fbb27f4e3", credential: "ZbW2aJl3WmRUyOss" }
+];
 
 let peer = null;
 let cameraCall = null;
+let ctrlConn = null;
 let room = null;
 let activeStream = null;
+let reconnectTimer = null;
+let statsTimer = null;
+let failCount = 0;
+let prevBytes = null;
 const viewers = new Set();
 
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
 function generateRoomCode() {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    let result = "";
-    for (let i = 0; i < 6; i++) {
-        result += chars[Math.floor(Math.random() * chars.length)];
-    }
-    return result;
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let result = "";
+  for (let i = 0; i < 6; i++) result += chars[Math.floor(Math.random() * chars.length)];
+  return result;
 }
 
 function setConnection(text, state = "") {
-    connectionText.textContent = text;
-    connectionDot.className = "connection-dot " + state;
+  connectionText.textContent = text;
+  connectionDot.className = "connection-dot " + state;
 }
 
-function createRoom() {
-    room = generateRoomCode();
-    roomCode.textContent = room;
+/* ---------- QR ---------- */
 
-    peer = new Peer("glz-" + room.toLowerCase(), {
-        config: {
-            iceServers: [
-                {
-                    urls: "stun:stun.relay.metered.ca:80",
-                },
-                {
-                    urls: "turn:standard.relay.metered.ca:80",
-                    username: "35162de63b0eb72fbb27f4e3",
-                    credential: "ZbW2aJl3WmRUyOss",
-                },
-                {
-                    urls: "turn:standard.relay.metered.ca:80?transport=tcp",
-                    username: "35162de63b0eb72fbb27f4e3",
-                    credential: "ZbW2aJl3WmRUyOss",
-                },
-                {
-                    urls: "turn:standard.relay.metered.ca:443",
-                    username: "35162de63b0eb72fbb27f4e3",
-                    credential: "ZbW2aJl3WmRUyOss",
-                },
-                {
-                    urls: "turns:standard.relay.metered.ca:443?transport=tcp",
-                    username: "35162de63b0eb72fbb27f4e3",
-                    credential: "ZbW2aJl3WmRUyOss",
-                }
-            ],
-            sdpSemantics: 'unified-plan'
+function renderQR() {
+  const url = new URL("./index.html", window.location.href);
+  url.search = "";
+  url.hash = "";
+  url.searchParams.set("room", room);
+
+  qrEl.innerHTML = "";
+  if (typeof QRCode === "undefined") {
+    qrEl.textContent = "QR недоступен";
+  } else {
+    try {
+      new QRCode(qrEl, {
+        text: url.href,
+        width: 320,
+        height: 320,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    } catch (error) {
+      console.error("QR error:", error);
+      qrEl.textContent = "QR недоступен";
+    }
+  }
+  qrLink.textContent = url.host + url.pathname;
+
+  const host = url.hostname;
+  const local = host === "localhost" || host === "127.0.0.1" || host === "[::1]" || url.protocol === "file:";
+  qrWarn.hidden = !local;
+  if (local) qrWarn.textContent = "QR ведёт на localhost — телефон его не откроет. Откройте монитор по HTTPS-адресу (например GitHub Pages).";
+}
+
+/* ---------- Комната ---------- */
+
+function destroyPeer() {
+  clearTimeout(reconnectTimer);
+  if (cameraCall) { const c = cameraCall; cameraCall = null; try { c.close(); } catch {} }
+  ctrlConn = null;
+  if (peer) { const p = peer; peer = null; try { p.destroy(); } catch {} }
+}
+
+function scheduleReconnect() {
+  clearTimeout(reconnectTimer);
+  failCount++;
+  const delay = Math.min(1000 * failCount, 8000);
+  reconnectTimer = setTimeout(() => {
+    if (!peer || peer.destroyed) { createRoom(room); return; }
+    if (peer.disconnected) {
+      try { peer.reconnect(); } catch { createRoom(room); }
+    }
+  }, delay);
+}
+
+function createRoom(keepCode) {
+  destroyPeer();
+  room = keepCode || generateRoomCode();
+  roomCode.textContent = room;
+  renderQR();
+  setConnection("Создание комнаты...", "");
+
+  const p = new Peer("glz-" + room.toLowerCase(), {
+    config: { iceServers: ICE_SERVERS, sdpSemantics: "unified-plan" }
+  });
+  peer = p;
+
+  p.on("open", () => {
+    if (peer !== p) return;
+    failCount = 0;
+    if (cameraCall) setConnection("Камера подключена", "live");
+    else setConnection("Ожидание камеры", "ready");
+  });
+
+  p.on("connection", conn => {
+    conn.on("data", data => {
+      if (!data) return;
+      if (data.type === "clean-view" && data.viewerId) {
+        viewers.add(data.viewerId);
+        if (activeStream) p.call(data.viewerId, activeStream);
+      } else if (data.type === "caps") {
+        ctrlConn = conn;
+        applyCaps(data.zoom);
+      } else if (data.type === "zoom-value" && zoomCaps && typeof data.value === "number") {
+        zoomCaps.value = data.value;
+        syncZoomUI();
+      }
+    });
+    conn.on("close", () => {
+      if (ctrlConn === conn) { ctrlConn = null; applyCaps(null); }
+    });
+  });
+
+  p.on("call", incoming => {
+    if (cameraCall && cameraCall !== incoming) {
+      const old = cameraCall;
+      cameraCall = null;
+      try { old.close(); } catch {}
+    }
+    cameraCall = incoming;
+    incoming.answer();
+
+    incoming.on("stream", stream => {
+      if (cameraCall !== incoming) return;
+      activeStream = stream;
+      video.srcObject = stream;
+      video.muted = true;
+      video.play().catch(() => {});
+      overlay.classList.add("hidden");
+      setConnection("Камера подключена", "live");
+      startStats(incoming);
+      updateVideoInfo();
+      zoomRange.disabled = false;
+      viewers.forEach(viewerId => p.call(viewerId, activeStream));
+    });
+
+    incoming.on("close", () => {
+      if (cameraCall !== incoming) return;
+      cameraCall = null;
+      activeStream = null;
+      video.srcObject = null;
+      overlay.classList.remove("hidden");
+      overlay.textContent = "Камера отключена — ждём переподключения…";
+      setConnection("Ожидание камеры", "ready");
+      quality.textContent = "—";
+      fps.textContent = "—";
+      stopStats();
+      zoomRange.disabled = true;
+    });
+
+    incoming.on("error", error => {
+      console.error("Call error:", error);
+      if (cameraCall !== incoming) return;
+      overlay.classList.remove("hidden");
+      overlay.textContent = "Ошибка видеосоединения";
+    });
+  });
+
+  p.on("error", error => {
+    if (peer !== p) return;
+    console.error("PeerJS error:", error);
+    if (error.type === "unavailable-id") {
+      createRoom(); // код занят — берём новый
+    } else if (["network", "server-error", "socket-error", "socket-closed"].includes(error.type)) {
+      setConnection("Нет связи с сервером…", "");
+      scheduleReconnect();
+    } else {
+      setConnection("Ошибка: " + error.type, "");
+    }
+  });
+
+  p.on("disconnected", () => {
+    if (peer !== p) return;
+    setConnection("Соединение потеряно — переподключение…", "");
+    scheduleReconnect();
+  });
+}
+
+/* ---------- Статистика приёма ---------- */
+
+function startStats(call) {
+  stopStats();
+  prevBytes = null;
+  statsTimer = setInterval(async () => {
+    const pc = call.peerConnection;
+    if (!pc || cameraCall !== call) return;
+    try {
+      const reports = await pc.getStats();
+      reports.forEach(r => {
+        if (r.type === "inbound-rtp" && r.kind === "video") {
+          if (typeof r.framesPerSecond === "number") fps.textContent = Math.round(r.framesPerSecond);
+          if (prevBytes !== null) {
+            const kbps = (r.bytesReceived - prevBytes.bytes) * 8 / ((r.timestamp - prevBytes.ts) / 1000) / 1000;
+            if (isFinite(kbps) && kbps >= 0) updateVideoInfo(kbps >= 1000 ? (kbps / 1000).toFixed(1) + " Mbps" : Math.round(kbps) + " Kbps");
+          }
+          prevBytes = { bytes: r.bytesReceived, ts: r.timestamp };
         }
-    });
-
-    peer.on("open", () => {
-        setConnection("Ожидание камеры", "ready");
-    });
-
-    peer.on("connection", dataConn => {
-        dataConn.on("data", data => {
-            if (data && data.type === "clean-view" && data.viewerId) {
-                viewers.add(data.viewerId);
-                if (activeStream) {
-                    peer.call(data.viewerId, activeStream);
-                }
-            }
-        });
-    });
-
-    peer.on("call", incomingCall => {
-        if (cameraCall) {
-            try { cameraCall.close(); } catch {}
-        }
-
-        cameraCall = incomingCall;
-        cameraCall.answer();
-
-        cameraCall.on("stream", stream => {
-            activeStream = stream;
-            video.srcObject = stream;
-            video.muted = true;
-            
-            video.play().then(() => {
-                if (video.buffered.length > 0) {
-                    video.currentTime = video.buffered.end(0) - 0.05;
-                }
-            }).catch(() => {});
-
-            overlay.classList.add("hidden");
-            setConnection("Камера подключена", "live");
-            
-            setTimeout(() => updateVideoInfo(stream), 1000);
-
-            viewers.forEach(viewerId => {
-                peer.call(viewerId, activeStream);
-            });
-        });
-
-        cameraCall.on("close", () => {
-            activeStream = null;
-            video.srcObject = null;
-            overlay.classList.remove("hidden");
-            overlay.textContent = "Камера отключена";
-            setConnection("Ожидание камеры", "ready");
-            quality.textContent = "—";
-            fps.textContent = "—";
-        });
-
-        cameraCall.on("error", error => {
-            console.error("Call error:", error);
-            overlay.classList.remove("hidden");
-            overlay.textContent = "Ошибка видеосоединения";
-        });
-    });
-
-    peer.on("error", error => {
-        console.error("PeerJS error:", error);
-        setConnection("Ошибка соединения", "");
-    });
-
-    peer.on("disconnected", () => {
-        setConnection("Соединение потеряно", "");
-    });
+      });
+    } catch {}
+  }, 2000);
 }
 
-function updateVideoInfo(stream) {
-    const track = stream.getVideoTracks()[0];
-    if (!track) return;
-    
-    const w = video.videoWidth || track.getSettings().width || 0;
-    const h = video.videoHeight || track.getSettings().height || 0;
-    const frameRate = track.getSettings().frameRate || 30;
-
-    if (w && h) quality.textContent = `${w}×${h}`;
-    if (frameRate) fps.textContent = Math.round(frameRate);
+function stopStats() {
+  if (statsTimer) { clearInterval(statsTimer); statsTimer = null; }
 }
+
+function updateVideoInfo(bitrateText) {
+  const w = video.videoWidth;
+  const h = video.videoHeight;
+  if (!w || !h) return;
+  quality.textContent = `${w}×${h}` + (bitrateText ? ` • ${bitrateText}` : "");
+}
+video.addEventListener("resize", () => updateVideoInfo());
+
+/* ---------- Зум ---------- */
+
+let zoomCaps = null;                       // оптический зум камеры, если поддерживается
+const digital = { scale: 1, x: 0, y: 0 };  // запасной цифровой зум на мониторе
+
+function sendCtrl(message) {
+  if (ctrlConn && ctrlConn.open) { try { ctrlConn.send(message); } catch {} }
+}
+
+function applyTransform() {
+  video.style.transform = `translate(${digital.x}px, ${digital.y}px) scale(${digital.scale})`;
+}
+
+function clampPan() {
+  const r = videoBox.getBoundingClientRect();
+  const maxX = (digital.scale - 1) * r.width / 2;
+  const maxY = (digital.scale - 1) * r.height / 2;
+  digital.x = clamp(digital.x, -maxX, maxX);
+  digital.y = clamp(digital.y, -maxY, maxY);
+}
+
+function setDigital(scale) {
+  digital.scale = clamp(scale, 1, 4);
+  if (digital.scale === 1) { digital.x = 0; digital.y = 0; }
+  clampPan();
+  applyTransform();
+}
+
+function syncZoomUI() {
+  const value = zoomCaps ? zoomCaps.value : digital.scale;
+  zoomRange.value = value;
+  zoomValue.textContent = Number(value).toFixed(1) + "×";
+}
+
+function applyCaps(z) {
+  zoomCaps = z || null;
+  setDigital(1);
+  if (zoomCaps) {
+    zoomRange.min = zoomCaps.min;
+    zoomRange.max = zoomCaps.max;
+    zoomRange.step = zoomCaps.step || 0.1;
+    zoomMode.textContent = "Оптический зум камеры";
+  } else {
+    zoomRange.min = 1;
+    zoomRange.max = 4;
+    zoomRange.step = 0.05;
+    zoomMode.textContent = "Цифровой зум";
+  }
+  zoomRange.disabled = !activeStream;
+  syncZoomUI();
+}
+
+function setZoomValue(value) {
+  if (zoomCaps) {
+    zoomCaps.value = clamp(value, zoomCaps.min, zoomCaps.max);
+    sendCtrl({ type: "zoom", value: zoomCaps.value });
+  } else {
+    setDigital(value);
+  }
+  syncZoomUI();
+}
+
+zoomRange.addEventListener("input", () => setZoomValue(Number(zoomRange.value)));
+zoomReset.addEventListener("click", () => setZoomValue(zoomCaps ? zoomCaps.min : 1));
+videoBox.addEventListener("dblclick", () => setZoomValue(zoomCaps ? zoomCaps.min : 1));
+
+videoBox.addEventListener("wheel", e => {
+  if (!activeStream) return;
+  e.preventDefault();
+  const current = zoomCaps ? zoomCaps.value : digital.scale;
+  setZoomValue(current * (e.deltaY < 0 ? 1.1 : 1 / 1.1));
+}, { passive: false });
+
+/* Перетаскивание кадра при цифровом зуме */
+let drag = null;
+videoBox.addEventListener("pointerdown", e => {
+  if (zoomCaps || digital.scale <= 1) return;
+  drag = { x: e.clientX, y: e.clientY, ox: digital.x, oy: digital.y };
+  videoBox.setPointerCapture(e.pointerId);
+});
+videoBox.addEventListener("pointermove", e => {
+  if (!drag) return;
+  digital.x = drag.ox + (e.clientX - drag.x);
+  digital.y = drag.oy + (e.clientY - drag.y);
+  clampPan();
+  applyTransform();
+});
+videoBox.addEventListener("pointerup", () => { drag = null; });
+videoBox.addEventListener("pointercancel", () => { drag = null; });
+
+/* ---------- Кнопки ---------- */
 
 async function copyRoom() {
-    try {
-        await navigator.clipboard.writeText(room);
-        copyBtn.textContent = "Скопировано";
-        setTimeout(() => { copyBtn.textContent = "Скопировать код"; }, 1500);
-    } catch {
-        console.log("Room:", room);
-    }
+  try {
+    await navigator.clipboard.writeText(room);
+    copyBtn.textContent = "Скопировано";
+    setTimeout(() => { copyBtn.textContent = "Скопировать код"; }, 1500);
+  } catch {
+    console.log("Room:", room);
+  }
 }
 
 function openCleanOutput() {
-    const url = new URL("./view.html", window.location.href);
-    url.searchParams.set("room", room);
-    window.open(url.href, "_blank");
+  const url = new URL("./view.html", window.location.href);
+  url.searchParams.set("room", room);
+  window.open(url.href, "_blank");
 }
 
 copyBtn.addEventListener("click", copyRoom);
 cleanBtn.addEventListener("click", openCleanOutput);
 roomCode.addEventListener("click", copyRoom);
 
+window.addEventListener("online", () => { if (peer && peer.disconnected) { failCount = 0; scheduleReconnect(); } });
+
 window.addEventListener("beforeunload", () => {
-    if (cameraCall) try { cameraCall.close(); } catch {}
-    if (peer) try { peer.destroy(); } catch {}
+  stopStats();
+  destroyPeer();
 });
 
+applyCaps(null);
 createRoom();
+
 </script>
 </body>
 </html>
