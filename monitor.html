@@ -6,8 +6,8 @@
     <meta name="theme-color" content="#050508">
     <title>Glazok Studio — Monitor</title>
     <script src="./config.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         :root {
             --bg: #050508;
@@ -21,14 +21,104 @@
             --radius: 18px;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
+        
         html, body {
             width: 100%; height: 100%;
-            overflow: hidden;
+            overflow-y: auto;
             background: var(--bg); color: var(--text);
             font-family: system-ui, -apple-system, sans-serif;
-            display: flex; align-items: center; justify-content: center;
         }
-        .app { width: min(900px, 92vw); display: flex; flex-direction: column; gap: 22px; }
+
+        /* Боковая панель устройств слева */
+        #devices-sidebar {
+            position: fixed;
+            left: 24px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 260px;
+            background: linear-gradient(145deg, rgba(255,255,255,.07), rgba(255,255,255,.025));
+            backdrop-filter: blur(30px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 18px;
+            color: var(--text);
+            z-index: 100;
+        }
+
+        #devices-sidebar h3 {
+            font-size: 13px;
+            margin-bottom: 12px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: .08em;
+        }
+
+        .device-item {
+            background: var(--panel);
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 8px;
+            border: 1px solid var(--border);
+            transition: transform .15s ease;
+        }
+
+        .device-item.active {
+            border-left: 4px solid var(--green);
+            background: rgba(16, 185, 129, 0.08);
+        }
+
+        .device-item:not(.active) {
+            opacity: 0.75;
+            cursor: pointer;
+        }
+
+        .device-item:not(.active):hover {
+            opacity: 1;
+            transform: translateY(-1px);
+        }
+
+        .device-title {
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .device-info {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+
+        .device-info span {
+            color: var(--green);
+        }
+
+        .device-info span.waiting {
+            color: #f59e0b;
+        }
+
+        .device-btn {
+            margin-top: 8px;
+            width: 100%;
+            background: var(--panel);
+            color: var(--text);
+            border: 1px solid var(--border);
+            padding: 6px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* Основной контейнер приложения */
+        .app { 
+            width: min(900px, 92vw); 
+            margin: auto; 
+            padding: 30px 0; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 22px; 
+        }
+
         .header { display: flex; align-items: center; justify-content: space-between; }
         .brand { display: flex; align-items: center; gap: 12px; font-size: 20px; font-weight: 700; }
         .brand-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 20px rgba(99,102,241,.7); }
@@ -37,71 +127,118 @@
         .connection-dot.ready { background: var(--green); box-shadow: 0 0 10px rgba(16,185,129,.8); }
         .connection-dot.live { background: var(--red); box-shadow: 0 0 10px rgba(239,68,68,.8); animation: pulse 1.5s infinite; }
         @keyframes pulse { 50% { opacity: .45; } }
-        .room-card { padding: 32px; border: 1px solid var(--border); border-radius: var(--radius); background: linear-gradient(145deg, rgba(255,255,255,.07), rgba(255,255,255,.025)); backdrop-filter: blur(30px); }
+
+        .room-card { 
+            padding: 32px; 
+            border: 1px solid var(--border); 
+            border-radius: var(--radius); 
+            background: linear-gradient(145deg, rgba(255,255,255,.07), rgba(255,255,255,.025)); 
+            backdrop-filter: blur(30px); 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            gap: 28px; 
+        }
+        .room-info { min-width: 0; }
         .room-label { margin-bottom: 10px; color: var(--muted); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; }
-        .room-code { font-family: monospace; font-size: clamp(42px, 8vw, 72px); font-weight: 700; letter-spacing: .12em; color: var(--text); cursor: pointer; user-select: all; }
+        .room-code { font-family: monospace; font-size: clamp(36px, 7vw, 64px); font-weight: 700; letter-spacing: .12em; color: var(--text); cursor: pointer; user-select: all; }
         .room-hint { margin-top: 10px; color: var(--muted); font-size: 13px; }
-        .actions { display: flex; gap: 10px; }
+
+        .qr-box { flex: 0 0 auto; width: 190px; text-align: center; }
+        #qr { width: 190px; height: 190px; padding: 10px; border-radius: 14px; background: #fff; color: #000; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+        #qr img, #qr canvas { width: 100% !important; height: 100% !important; display: block; }
+        .qr-hint { margin-top: 8px; color: var(--muted); font-size: 12px; line-height: 1.4; }
+        .qr-link { margin-top: 2px; color: var(--muted); font-size: 10px; word-break: break-all; opacity: .7; }
+        .qr-warn { margin-top: 8px; color: #f59e0b; font-size: 11px; line-height: 1.4; }
+        .qr-warn[hidden] { display: none; }
+
+        .actions { display: flex; gap: 10px; flex-wrap: wrap; }
         button { border: 0; outline: 0; cursor: pointer; font: inherit; }
         .btn { min-height: 46px; padding: 0 20px; border-radius: 999px; font-size: 14px; font-weight: 700; transition: transform .15s ease; }
         .btn:hover { transform: translateY(-1px); }
+        .btn:disabled { opacity: .45; cursor: default; transform: none; }
         .btn-primary { background: #fff; color: #000; }
         .btn-secondary { background: var(--panel); color: var(--text); border: 1px solid var(--border); }
-        .video-container { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border-radius: var(--radius); background: #000; border: 1px solid var(--border); }
-        #video { width: 100%; height: 100%; display: block; object-fit: cover; background: #000; }
+        .rec-on { background: var(--red) !important; color: #fff !important; border-color: transparent !important; }
+
+        .video-container { 
+            position: relative; 
+            width: 100%; 
+            aspect-ratio: 16 / 9; 
+            overflow: hidden; 
+            border-radius: var(--radius); 
+            background: #000; 
+            border: 1px solid var(--border); 
+            touch-action: none;
+            margin-left: auto; 
+            margin-right: auto;
+        }
+        #video { 
+            width: 100%; 
+            height: 100%; 
+            display: block; 
+            object-fit: contain; 
+            background: #000; 
+            transform-origin: center; 
+            will-change: transform; 
+        }
         .video-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; color: var(--muted); font-size: 14px; }
         .video-overlay.hidden { display: none; }
+        .video-container:fullscreen { width: 100vw !important; height: 100vh !important; max-height: none; aspect-ratio: auto !important; border: 0; border-radius: 0; }
+
+        .zoom-bar { display: flex; align-items: center; gap: 14px; padding: 10px 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--panel); }
+        .zoom-mode { flex: 0 0 auto; min-width: 130px; color: var(--muted); font-size: 12px; }
+        .zoom-bar input[type=range] { flex: 1; min-width: 0; accent-color: var(--accent); }
+        .zoom-bar input[type=range]:disabled { opacity: .4; }
+        .zoom-value { min-width: 44px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .zoom-reset { min-height: 34px; padding: 0 14px; border-radius: 999px; background: var(--panel); color: var(--text); border: 1px solid var(--border); font-size: 12px; font-weight: 700; }
+
+        .approve { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 18px; border: 1px solid rgba(99,102,241,.5); border-radius: 14px; background: rgba(99,102,241,.12); font-size: 14px; }
+        .approve[hidden] { display: none; }
+        .approve span { flex: 1 1 220px; }
+
         .footer { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 12px; }
         .stats { display: flex; gap: 18px; }
         .stat strong { color: var(--text); }
+
+        .toast { position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 20px); padding: 11px 18px; border-radius: 999px; background: rgba(15,15,20,.95); border: 1px solid var(--border); font-size: 13px; opacity: 0; pointer-events: none; transition: .2s; z-index: 50; }
+        .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+        /* Автоматическое скрытие сайдбара на узких мониторах/ноутбуках */
+        @media (max-width: 1350px) {
+            #devices-sidebar {
+                display: none;
+            }
+        }
+
         @media (max-width: 600px) {
-            .room-card { padding: 24px; }
+            .room-card { padding: 24px; flex-direction: column; align-items: flex-start; }
+            .qr-box { align-self: center; }
+            .zoom-mode { display: none; }
             .actions { flex-direction: column; }
             .btn { width: 100%; }
             .footer { display: none; }
         }
-    
-html, body { overflow-y: auto; }
-.app { margin: auto; padding: 20px 0; }
-.room-card { display: flex; align-items: center; justify-content: space-between; gap: 28px; }
-.room-info { min-width: 0; }
-.qr-box { flex: 0 0 auto; width: 190px; text-align: center; }
-#qr { width: 190px; height: 190px; padding: 10px; border-radius: 14px; background: #fff; color: #000; font-size: 12px; display: flex; align-items: center; justify-content: center; }
-#qr img, #qr canvas { width: 100% !important; height: 100% !important; display: block; }
-.qr-hint { margin-top: 8px; color: var(--muted); font-size: 12px; line-height: 1.4; }
-.qr-link { margin-top: 2px; color: var(--muted); font-size: 10px; word-break: break-all; opacity: .7; }
-.qr-warn { margin-top: 8px; color: #f59e0b; font-size: 11px; line-height: 1.4; }
-.qr-warn[hidden] { display: none; }
-
-.video-container { touch-action: none; }
-#video { transform-origin: center; will-change: transform; }
-.zoom-bar { display: flex; align-items: center; gap: 14px; padding: 10px 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--panel); }
-.zoom-mode { flex: 0 0 auto; min-width: 130px; color: var(--muted); font-size: 12px; }
-.zoom-bar input[type=range] { flex: 1; min-width: 0; accent-color: var(--accent); }
-.zoom-bar input[type=range]:disabled { opacity: .4; }
-.zoom-value { min-width: 44px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
-.zoom-reset { min-height: 34px; padding: 0 14px; border-radius: 999px; background: var(--panel); color: var(--text); border: 1px solid var(--border); font-size: 12px; font-weight: 700; }
-
-@media (max-width: 700px) {
-  .room-card { flex-direction: column; align-items: flex-start; }
-  .qr-box { align-self: center; }
-  .zoom-mode { display: none; }
-}
-
-.actions { flex-wrap: wrap; }
-.btn:disabled { opacity: .45; cursor: default; transform: none; }
-.rec-on { background: var(--red) !important; color: #fff !important; border-color: transparent !important; }
-.approve { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 18px; border: 1px solid rgba(99,102,241,.5); border-radius: 14px; background: rgba(99,102,241,.12); font-size: 14px; }
-.approve[hidden] { display: none; }
-.approve span { flex: 1 1 220px; }
-.toast { position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 20px); padding: 11px 18px; border-radius: 999px; background: rgba(15,15,20,.95); border: 1px solid var(--border); font-size: 13px; opacity: 0; pointer-events: none; transition: .2s; z-index: 50; }
-.toast.show { opacity: 1; transform: translate(-50%, 0); }
-#video { object-fit: contain; }
-.video-container { margin-left: auto; margin-right: auto; }
-.video-container:fullscreen { width: 100vw !important; height: 100vh !important; max-height: none; aspect-ratio: auto !important; border: 0; border-radius: 0; }
-</style>
+    </style>
 </head>
 <body>
+
+<!-- Панель устройств слева -->
+<div id="devices-sidebar">
+    <h3>Подключенные камеры</h3>
+    <div id="devices-list">
+        <!-- Сюда в дальнейшем будут динамически добавляться устройства -->
+        <div class="device-item active">
+            <div class="device-title">Телефон 1 (Основной)</div>
+            <div class="device-info">⚡ 85% • <span>В эфире</span></div>
+        </div>
+        <div class="device-item" onclick="switchDevice('peer_id_2')">
+            <div class="device-title">Телефон 2</div>
+            <div class="device-info">🔋 42% • <span class="waiting">Ожидание</span></div>
+            <button class="device-btn" type="button">Включить</button>
+        </div>
+    </div>
+</div>
 
 <div class="app">
     <header class="header">
@@ -116,32 +253,32 @@ html, body { overflow-y: auto; }
     </header>
 
     <div id="approve" class="approve" hidden>
-            <span id="approve-text"></span>
-            <button id="approve-yes" class="btn btn-primary" type="button">Разрешить</button>
-            <button id="approve-no" class="btn btn-secondary" type="button">Отклонить</button>
-        </div>
+        <span id="approve-text"></span>
+        <button id="approve-yes" class="btn btn-primary" type="button">Разрешить</button>
+        <button id="approve-no" class="btn btn-secondary" type="button">Отклонить</button>
+    </div>
 
-        <section class="room-card">
-            <div class="room-info">
-                <div class="room-label">Код комнаты</div>
-                <div id="room-code" class="room-code" title="Нажмите, чтобы скопировать">------</div>
-                <div class="room-hint">Отсканируйте QR-код камерой телефона или введите код вручную</div>
-            </div>
-            <div class="qr-box">
-                <div id="qr"></div>
-                <div class="qr-hint">QR для подключения камеры</div>
-                <div id="qr-link" class="qr-link"></div>
-                <div id="qr-warn" class="qr-warn" hidden></div>
-            </div>
-        </section>
+    <section class="room-card">
+        <div class="room-info">
+            <div class="room-label">Код комнаты</div>
+            <div id="room-code" class="room-code" title="Нажмите, чтобы скопировать">------</div>
+            <div class="room-hint">Отсканируйте QR-код камерой телефона или введите код вручную</div>
+        </div>
+        <div class="qr-box">
+            <div id="qr"></div>
+            <div class="qr-hint">QR для подключения камеры</div>
+            <div id="qr-link" class="qr-link"></div>
+            <div id="qr-warn" class="qr-warn" hidden></div>
+        </div>
+    </section>
 
     <div class="actions">
         <button id="copy-btn" class="btn btn-primary">Скопировать код</button>
         <button id="clean-btn" class="btn btn-secondary">Открыть Clean Output</button>
-            <button id="sound-btn" class="btn btn-secondary" type="button" disabled>🔇 Нет звука</button>
-            <button id="shot-btn" class="btn btn-secondary" type="button">📸 Скриншот</button>
-            <button id="rec-btn" class="btn btn-secondary" type="button">⏺ Запись</button>
-            <button id="fs-btn" class="btn btn-secondary" type="button">⛶ Во весь экран</button>
+        <button id="sound-btn" class="btn btn-secondary" type="button" disabled>🔇 Нет звука</button>
+        <button id="shot-btn" class="btn btn-secondary" type="button">📸 Скриншот</button>
+        <button id="rec-btn" class="btn btn-secondary" type="button">⏺ Запись</button>
+        <button id="fs-btn" class="btn btn-secondary" type="button">⛶ Во весь экран</button>
     </div>
 
     <section id="video-box" class="video-container">
@@ -150,13 +287,13 @@ html, body { overflow-y: auto; }
     </section>
 
     <div class="zoom-bar">
-            <div id="zoom-mode" class="zoom-mode">Зум</div>
-            <input id="zoom-range" type="range" min="1" max="4" step="0.05" value="1" disabled aria-label="Зум">
-            <div id="zoom-value" class="zoom-value">1.0×</div>
-            <button id="zoom-reset" class="zoom-reset" type="button">Сброс</button>
-        </div>
+        <div id="zoom-mode" class="zoom-mode">Зум</div>
+        <input id="zoom-range" type="range" min="1" max="4" step="0.05" value="1" disabled aria-label="Зум">
+        <div id="zoom-value" class="zoom-value">1.0×</div>
+        <button id="zoom-reset" class="zoom-reset" type="button">Сброс</button>
+    </div>
 
-        <footer class="footer">
+    <footer class="footer">
         <div class="stats">
             <div class="stat">Качество: <strong id="quality">—</strong></div>
             <div class="stat">FPS: <strong id="fps">—</strong></div>
@@ -202,7 +339,6 @@ const shotBtn = $("shot-btn");
 const recBtn = $("rec-btn");
 const fsBtn = $("fs-btn");
 const toastEl = $("toast");
-
 
 let peer = null;
 let cameraCall = null;
@@ -328,7 +464,7 @@ function createRoom(keepCode) {
         return;
       }
       const cid = conn.metadata && conn.metadata.cid;
-      if (!cid || !approved.has(cid)) return; // управление — только от подтверждённой камеры
+      if (!cid || !approved.has(cid)) return;
       if (data.type === "caps") {
         ctrlConn = conn;
         applyCaps(data.zoom);
@@ -353,7 +489,7 @@ function createRoom(keepCode) {
     }
     console.error("PeerJS error:", error);
     if (error.type === "unavailable-id") {
-      createRoom(); // код занят — берём новый
+      createRoom();
     } else if (["network", "server-error", "socket-error", "socket-closed"].includes(error.type)) {
       setConnection("Нет связи с сервером…", "");
       scheduleReconnect();
@@ -373,10 +509,10 @@ function createRoom(keepCode) {
 
 function handleIncoming(incoming) {
   const md = incoming.metadata || {};
-  if (md.token && md.token === roomToken) {      // подключились по QR — доверяем
+  if (md.token && md.token === roomToken) {
     if (md.cid) approved.add(md.cid);
     acceptCall(incoming);
-  } else if (md.cid && approved.has(md.cid)) {   // уже разрешали в этой сессии
+  } else if (md.cid && approved.has(md.cid)) {
     acceptCall(incoming);
   } else {
     askApproval(incoming, md.cid);
@@ -459,7 +595,6 @@ function acceptCall(incoming) {
   });
 }
 
-/* Пересылка на «Чистый вывод» с высоким битрейтом */
 function callViewer(viewerId) {
   if (!peer || !activeStream) return;
   const old = viewerCalls.get(viewerId);
@@ -499,7 +634,6 @@ function stopStats() {
   if (statsTimer) { clearInterval(statsTimer); statsTimer = null; }
 }
 
-/* Рамка повторяет пропорции кадра: вертикальное видео не обрезается */
 function fitBox() {
   const w = video.videoWidth;
   const h = video.videoHeight;
@@ -529,8 +663,8 @@ video.addEventListener("loadedmetadata", () => updateVideoInfo());
 
 /* ---------- Зум ---------- */
 
-let zoomCaps = null;                       // оптический зум камеры, если поддерживается
-const digital = { scale: 1, x: 0, y: 0 };  // запасной цифровой зум на мониторе
+let zoomCaps = null;
+const digital = { scale: 1, x: 0, y: 0 };
 
 function sendCtrl(message) {
   if (ctrlConn && ctrlConn.open) { try { ctrlConn.send(message); } catch {} }
@@ -600,7 +734,6 @@ videoBox.addEventListener("wheel", e => {
   setZoomValue(current * (e.deltaY < 0 ? 1.1 : 1 / 1.1));
 }, { passive: false });
 
-/* Перетаскивание кадра при цифровом зуме */
 let drag = null;
 videoBox.addEventListener("pointerdown", e => {
   if (zoomCaps || digital.scale <= 1) return;
@@ -728,7 +861,6 @@ createRoom();
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   navigator.serviceWorker.register("./sw.js").catch(() => {});
 }
-
 </script>
 </body>
 </html>
