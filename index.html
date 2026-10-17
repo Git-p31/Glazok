@@ -478,6 +478,11 @@
 <script>
 "use strict";
 
+if (!window.GLAZOK) {
+  document.body.innerHTML = '<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;color:#f8fafc;background:#050508;font:16px system-ui">Не найден config.js — загрузите его в репозиторий рядом с этим файлом и обновите страницу.</div>';
+  throw new Error("config.js missing");
+}
+
 const $ = id => document.getElementById(id);
 
 const startScreen = $("screen-start");

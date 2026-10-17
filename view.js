@@ -1,5 +1,23 @@
 "use strict";
 
+/* Если config.js не подключён в view.html (или не загрузился) — догружаем сам. */
+(function boot() {
+  const statusEl = document.getElementById("status");
+  const fail = text => {
+    statusEl.style.display = "block";
+    statusEl.classList.remove("hidden");
+    statusEl.textContent = text;
+  };
+  if (window.GLAZOK) return main();
+  const script = document.createElement("script");
+  script.src = "./config.js?v=" + Date.now();
+  script.onload = () => (window.GLAZOK ? main() : fail("Ошибка: config.js повреждён"));
+  script.onerror = () => fail("Не найден config.js — загрузите его в репозиторий рядом с view.html");
+  document.head.appendChild(script);
+})();
+
+function main() {
+
 const video = document.getElementById("video");
 const statusEl = document.getElementById("status");
 
@@ -161,3 +179,4 @@ if (!room) {
 window.addEventListener("beforeunload", () => {
   if (peer) try { peer.destroy(); } catch {}
 });
+}
