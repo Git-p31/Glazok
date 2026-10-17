@@ -7,7 +7,8 @@
     <title>Glazok Studio</title>
     <link rel="manifest" href="./manifest.webmanifest">
     <link rel="icon" href="./icon.svg">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+    <script src="./config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 
     <style>
@@ -389,6 +390,23 @@
             </div>
         </div>
 
+        <div class="quality-row">
+            <div class="field">
+                <div class="field-label">Приоритет</div>
+                <select id="priority-select" class="select">
+                    <option value="detail" selected>Чёткость</option>
+                    <option value="motion">Плавность</option>
+                </select>
+            </div>
+            <div class="field">
+                <div class="field-label">Звук</div>
+                <select id="audio-select" class="select">
+                    <option value="0" selected>Выкл</option>
+                    <option value="1">Вкл</option>
+                </select>
+            </div>
+        </div>
+
         <div class="adaptive-box">
             <div class="adaptive-text">
                 <strong>Adaptive Quality</strong>
@@ -481,6 +499,8 @@ const scanVideo = $("scan-video");
 const zoomPanel = $("zoom-panel");
 const zoomRange = $("zoom-range");
 const zoomLabel = $("zoom-label");
+const prioritySelect = $("priority-select");
+const audioSelect = $("audio-select");
 
 const CODE_RE = /^[a-z0-9]{6}$/i;
 const MAX_REDIALS = 12;
@@ -510,33 +530,28 @@ const state = {
   badStreak: 0,
   goodStreak: 0,
   prevLoss: null,
-  zoom: null
+  zoom: null,
+  warmupUntil: 0,
+  upBlockedUntil: 0,
+  audioTrack: null,
+  token: null,
+  priority: "detail",
+  cid: GLAZOK.randomId(10)
 };
 
-const PEER_CONFIG = {
-  config: {
-    iceServers: [
-      { urls: "stun:stun.relay.metered.ca:80" },
-      { urls: "turn:standard.relay.metered.ca:80", username: "35162de63b0eb72fbb27f4e3", credential: "ZbW2aJl3WmRUyOss" },
-      { urls: "turn:standard.relay.metered.ca:80?transport=tcp", username: "35162de63b0eb72fbb27f4e3", credential: "ZbW2aJl3WmRUyOss" },
-      { urls: "turn:standard.relay.metered.ca:443", username: "35162de63b0eb72fbb27f4e3", credential: "ZbW2aJl3WmRUyOss" },
-      { urls: "turns:standard.relay.metered.ca:443?transport=tcp", username: "35162de63b0eb72fbb27f4e3", credential: "ZbW2aJl3WmRUyOss" }
-    ],
-    sdpSemantics: "unified-plan"
-  }
-};
+const PEER_CONFIG = GLAZOK.peerOptions();
 
 /* Лестница качества. height — короткая сторона кадра. */
 const LEVELS = [
-  { name: "480p30",  height: 480,  fps: 30, bitrate: 900000 },
-  { name: "720p30",  height: 720,  fps: 30, bitrate: 1800000 },
-  { name: "720p60",  height: 720,  fps: 60, bitrate: 3000000 },
-  { name: "1080p30", height: 1080, fps: 30, bitrate: 4500000 },
-  { name: "1080p60", height: 1080, fps: 60, bitrate: 7000000 },
-  { name: "1440p30", height: 1440, fps: 30, bitrate: 9000000 },
-  { name: "1440p60", height: 1440, fps: 60, bitrate: 13000000 },
-  { name: "2160p30", height: 2160, fps: 30, bitrate: 18000000 },
-  { name: "2160p60", height: 2160, fps: 60, bitrate: 25000000 }
+  { name: "480p30",  height: 480,  fps: 30, bitrate: 1200000 },
+  { name: "720p30",  height: 720,  fps: 30, bitrate: 2800000 },
+  { name: "720p60",  height: 720,  fps: 60, bitrate: 4500000 },
+  { name: "1080p30", height: 1080, fps: 30, bitrate: 7000000 },
+  { name: "1080p60", height: 1080, fps: 60, bitrate: 10000000 },
+  { name: "1440p30", height: 1440, fps: 30, bitrate: 13000000 },
+  { name: "1440p60", height: 1440, fps: 60, bitrate: 18000000 },
+  { name: "2160p30", height: 2160, fps: 30, bitrate: 25000000 },
+  { name: "2160p60", height: 2160, fps: 60, bitrate: 35000000 }
 ];
 
 function levelIndex(height, fps) {
@@ -586,6 +601,17 @@ function parseRoom(text) {
     if (r && CODE_RE.test(r)) return r.toUpperCase();
   } catch {}
   return CODE_RE.test(text) ? text.toUpperCase() : null;
+}
+
+function parseScan(text) {
+  if (!text) return null;
+  text = String(text).trim();
+  try {
+    const url = new URL(text);
+    const r = url.searchParams.get("room");
+    if (r && CODE_RE.test(r)) return { room: r.toUpperCase(), token: url.searchParams.get("k") || null };
+  } catch {}
+  return CODE_RE.test(text) ? { room: text.toUpperCase(), token: null } : null;
 }
 
 const scanner = { active: false, stream: null, timer: 0, detector: null, canvas: null };
@@ -651,10 +677,11 @@ async function scanLoop() {
     } catch {}
   }
   if (!scanner.active) return;
-  const room = parseRoom(value);
-  if (room) {
+  const scan = parseScan(value);
+  if (scan) {
     closeScanner();
-    connectionCode.value = room;
+    connectionCode.value = scan.room;
+    state.token = scan.token;
     toast("QR распознан");
     connectCamera();
     return;
@@ -717,7 +744,7 @@ function useStream(stream) {
   state.stream = stream;
   const track = stream.getVideoTracks()[0];
   state.videoTrack = track;
-  if (track && "contentHint" in track) track.contentHint = "motion";
+  if (track && "contentHint" in track) track.contentHint = state.priority === "detail" ? "detail" : "motion";
   if (track) track.onended = onTrackEnded;
   cameraVideo.srcObject = stream;
   cameraVideo.play().catch(() => {});
@@ -863,7 +890,7 @@ function sendCaps() {
 function openControl() {
   if (state.ctrl) { try { state.ctrl.close(); } catch {} state.ctrl = null; }
   if (!state.peer || state.peer.destroyed || state.peer.disconnected) return;
-  const conn = state.peer.connect("glz-" + state.room, { reliable: true });
+  const conn = state.peer.connect("glz-" + state.room, { reliable: true, metadata: { cid: state.cid } });
   state.ctrl = conn;
   conn.on("open", sendCaps);
   conn.on("data", data => {
@@ -891,6 +918,7 @@ async function connectCamera() {
   state.fpsCap = Number(fpsSelect.value) >= 60 ? 60 : 30;
   state.maxLevel = levelIndex(Number(resSelect.value), state.fpsCap);
   state.currentLevel = state.maxLevel;
+  state.priority = prioritySelect.value;
 
   try {
     setStatus("КАМЕРА", "warning");
@@ -898,6 +926,7 @@ async function connectCamera() {
     cameraConnect.style.display = "none";
     cameraView.classList.add("active");
     useStream(stream);
+    if (audioSelect.value === "1") await openAudio();
     requestWakeLock();
     createPeer();
   } catch (error) {
@@ -909,6 +938,31 @@ async function connectCamera() {
   } finally {
     state.starting = false;
   }
+}
+
+async function openAudio() {
+  try {
+    const mic = await navigator.mediaDevices.getUserMedia({
+      video: false,
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+    });
+    state.audioTrack = mic.getAudioTracks()[0] || null;
+  } catch (error) {
+    console.warn("Mic unavailable:", error);
+    state.audioTrack = null;
+    toast("Микрофон недоступен — трансляция без звука");
+  }
+}
+
+function stopAudio() {
+  if (state.audioTrack) { try { state.audioTrack.stop(); } catch {} state.audioTrack = null; }
+}
+
+function buildOutStream() {
+  const tracks = [];
+  if (state.videoTrack) tracks.push(state.videoTrack);
+  if (state.audioTrack && state.audioTrack.readyState === "live") tracks.push(state.audioTrack);
+  return new MediaStream(tracks);
 }
 
 function destroyPeer() {
@@ -989,7 +1043,9 @@ function makeCall() {
   if (peer.disconnected) { try { peer.reconnect(); } catch {} return; }
 
   closeCall();
-  const call = peer.call("glz-" + state.room, state.stream);
+  const call = peer.call("glz-" + state.room, buildOutStream(), {
+    metadata: { token: state.token, cid: state.cid }
+  });
   if (!call) {
     setStatus("ЗВОНОК НЕ СОЗДАН", "bad");
     scheduleRedial(true);
@@ -1013,13 +1069,20 @@ function makeCall() {
     scheduleRedial(false);
   });
 
-  openControl();
   watchConnection(call);
 }
 
 function markLive() {
-  if (!state.connected) { state.connected = true; state.retry = 0; }
+  if (!state.connected) {
+    state.connected = true;
+    state.retry = 0;
+    state.warmupUntil = Date.now() + 20000;   // 20 с без адаптации после (пере)подключения
+    state.currentLevel = state.maxLevel;      // начинаем с выбранного вами качества
+    applyEncoding(state.currentLevel);
+    updateLocalQuality();
+  }
   setStatus("LIVE");
+  if (!state.ctrl) openControl();
   if (!state.statsTimer) startAdaptiveMonitoring();
 }
 
@@ -1087,7 +1150,7 @@ async function applyEncoding(levelIndexValue) {
   if (s.width && s.height) {
     encoding.scaleResolutionDownBy = Math.max(1, Math.min(s.width, s.height) / level.height);
   }
-  parameters.degradationPreference = "balanced";
+  parameters.degradationPreference = state.priority === "detail" ? "maintain-resolution" : "balanced";
 
   try {
     await sender.setParameters(parameters);
@@ -1147,18 +1210,15 @@ async function evaluateNetwork() {
   if (!s) return;
   if (s.availableBitrate !== null) networkInfo.textContent = formatBitrate(s.availableBitrate);
 
+  /* Первые секунды оценка скорости сети занижена — не трогаем качество. */
+  const now = Date.now();
+  if (now < state.warmupUntil) { updateLocalQuality(); return; }
+
   const current = LEVELS[state.currentLevel];
+  const reason = s.outbound ? s.outbound.qualityLimitationReason : "none";
   let bad = false;
   let veryBad = false;
 
-  if (s.availableBitrate !== null) {
-    if (s.availableBitrate < current.bitrate * 0.65) bad = true;
-    if (s.availableBitrate < current.bitrate * 0.40) veryBad = true;
-  }
-  if (s.rtt !== null) {
-    if (s.rtt > 0.40) bad = true;
-    if (s.rtt > 0.80) veryBad = true;
-  }
   /* Потери считаем за последний интервал, а не за всю сессию. */
   if (s.remoteInbound && s.outbound) {
     const lost = Number(s.remoteInbound.packetsLost || 0);
@@ -1174,27 +1234,39 @@ async function evaluateNetwork() {
     }
     state.prevLoss = { lost, sent };
   }
-  if (s.outbound && s.outbound.qualityLimitationReason === "bandwidth") bad = true;
+  if (s.rtt !== null) {
+    if (s.rtt > 0.50) bad = true;
+    if (s.rtt > 1.00) veryBad = true;
+  }
+  /* Браузер сам говорит, что упёрся в сеть или в процессор телефона. */
+  if (reason === "bandwidth" || reason === "cpu") bad = true;
+  /* Оценка скорости — только как крайний признак, и сильно ниже нужного. */
+  if (s.availableBitrate !== null && s.availableBitrate < current.bitrate * 0.25) veryBad = true;
 
   if (veryBad) {
     state.badStreak = 0; state.goodStreak = 0;
     setStatus("ПЛОХАЯ СВЯЗЬ", "warning");
+    state.upBlockedUntil = now + 25000;
     await changeLevel(-1);
     return;
   }
   if (bad) {
     state.goodStreak = 0;
     state.badStreak++;
-    if (state.badStreak >= 2) { state.badStreak = 0; await changeLevel(-1); }
+    if (state.badStreak >= 3) {
+      state.badStreak = 0;
+      state.upBlockedUntil = now + 25000;
+      await changeLevel(-1);
+    }
     return;
   }
   state.badStreak = 0;
   setStatus("LIVE");
 
-  const roomy = s.availableBitrate !== null && s.availableBitrate > current.bitrate * 1.7 && (s.rtt === null || s.rtt < 0.20);
-  if (roomy && state.currentLevel < state.maxLevel) {
+  /* Всё спокойно: потерь нет, задержка низкая, браузер ничем не ограничен — поднимаем качество. */
+  if (state.currentLevel < state.maxLevel && now >= state.upBlockedUntil) {
     state.goodStreak++;
-    if (state.goodStreak >= 3) { state.goodStreak = 0; await changeLevel(+1); }
+    if (state.goodStreak >= 2) { state.goodStreak = 0; await changeLevel(+1); }
   } else {
     state.goodStreak = 0;
   }
@@ -1256,6 +1328,7 @@ function stopCamera() {
   closeScanner();
   destroyPeer();
   stopStream();
+  stopAudio();
   releaseWakeLock();
   cameraVideo.srcObject = null;
   cameraView.classList.remove("active");
@@ -1296,6 +1369,7 @@ $("stop-btn").addEventListener("click", stopCamera);
 $("torch-btn").addEventListener("click", toggleTorch);
 $("flip-btn").addEventListener("click", flipCamera);
 zoomRange.addEventListener("input", () => setZoom(Number(zoomRange.value)));
+connectionCode.addEventListener("input", () => { state.token = null; }); // ввод вручную — без ключа из QR
 connectionCode.addEventListener("keydown", event => { if (event.key === "Enter") connectCamera(); });
 
 /* Щипок двумя пальцами */
@@ -1327,6 +1401,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const params = new URLSearchParams(window.location.search);
   const mode = params.get("m");
   const room = parseRoom(params.get("room"));
+  state.token = params.get("k") || null;
 
   if (mode === "monitor") {
     window.location.href = "./monitor.html";
@@ -1346,9 +1421,14 @@ window.addEventListener("beforeunload", () => {
   state.stopping = true;
   stopAdaptiveMonitoring();
   stopStream();
+  stopAudio();
   closeScanner();
   destroyPeer();
 });
+
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  navigator.serviceWorker.register("./sw.js").catch(() => {});
+}
 
 </script>
 </body>
