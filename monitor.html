@@ -259,7 +259,7 @@
             <div class="stat">Качество: <strong id="quality">—</strong></div>
             <div class="stat">FPS: <strong id="fps">—</strong></div>
         </div>
-        <div>Glazok WebRTC (Ultra-Low Latency)</div>
+        <div id="app-version">Glazok v10</div>
     </footer>
 </div>
 
@@ -800,6 +800,28 @@ createRoom();
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   navigator.serviceWorker.register("./sw.js").catch(() => {});
 }
+
+// Автоматический счётчик версий (начинает с v10 и добавляет +1 при каждом обновлении)
+(function initVersion() {
+  const versionEl = document.getElementById("app-version");
+  if (!versionEl) return;
+
+  // Получаем сохранённую версию или ставим начальную (10)
+  let currentVersion = parseInt(localStorage.getItem("glazok_version"), 10);
+  
+  if (isNaN(currentVersion)) {
+    currentVersion = 10; // Стартовая версия v10
+  } else {
+    currentVersion += 1; // Добавляем +1 при каждом перезапуске/обновлении
+  }
+
+  // Сохраняем новое значение
+  localStorage.setItem("glazok_version", currentVersion);
+
+  // Выводим в футер
+  versionEl.textContent = `Glazok v${currentVersion}`;
+})();
+
 </script>
 </body>
 </html>
