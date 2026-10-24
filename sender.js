@@ -1,41 +1,37 @@
-// Функция для инициализации отслеживания реальной батареи
-async function setupRealBattery(callback) {
-  if ('getBattery' in navigator) {
-    try {
-      const battery = await navigator.getBattery();
-      
-      // Функция отправки актуальных данных
-      const updateData = () => {
-        const level = Math.round(battery.level * 100); // Переводим в проценты (0-100)
-        const charging = battery.charging;             // Статус зарядки (true/false)
-        callback(level, charging);
-      };
+// === ОТПРАВКА РЕАЛЬНОГО ЗАРЯДА БАТАРЕИ ===
+async function initBatterySender(dataConnection) {
+  if (!('getBattery' in navigator)) {
+    console.warn("Battery API не поддерживается на этом устройстве");
+    return;
+  }
 
-      // Отправляем сразу при запуске
-      updateData();
+  try {
+    const battery = await navigator.getBattery();
 
-      // Подписываемся на события изменения уровня или статуса зарядки
-      battery.addEventListener('levelchange', updateData);
-      battery.addEventListener('chargingchange', updateData);
-    } catch (e) {
-      console.error("Не удалось получить доступ к Battery API", e);
-    }
-  } else {
-    console.warn("Battery Status API не поддерживается этим браузером");
+    const sendBattery = () => {
+      if (dataConnection && dataConnection.open) {
+        dataConnection.send({
+          type: "battery-update",
+          level: Math.round(battery.level * 100), // Реальные 0-100%
+          charging: battery.charging               // true / false
+        });
+      }
+    };
+
+    // Отправляем сразу после соединения
+    sendBattery();
+
+    // Слушаем изменение уровня заряда и подключение к сети
+    battery.addEventListener("levelchange", sendBattery);
+    battery.addEventListener("chargingchange", sendBattery);
+
+    // Дополнительный интервал каждые 5 секунд
+    setInterval(sendBattery, 5000);
+
+  } catch (err) {
+    console.error("Ошибка Battery API:", err);
   }
 }
 
-// Пример интеграции в ваш цикл отправки статуса камеры:
-setupRealBattery((batteryLevel, isCharging) => {
-  // Эту структуру данных вы отправляете через WebSocket / WebRTC / сигнальный сервер
-  const payload = {
-    type: 'status_update',
-    battery: batteryLevel, // Реальный процент заряда!
-    charging: isCharging
-  };
-  
-  // Пример отправки (замените на ваш метод передачи данных, например, dataChannel.send или socket.send)
-  if (typeof sendDataToPeer === 'function') {
-    sendDataToPeer(payload);
-  }
-});
+// Вызови эту функцию в месте, где у тебя открывается DataConnection (канал управления):
+// conn.on("open", () => { initBatterySender(conn); });

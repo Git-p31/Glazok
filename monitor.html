@@ -67,16 +67,6 @@
             background: rgba(16, 185, 129, 0.08);
         }
 
-        .device-item:not(.active) {
-            opacity: 0.75;
-            cursor: pointer;
-        }
-
-        .device-item:not(.active):hover {
-            opacity: 1;
-            transform: translateY(-1px);
-        }
-
         .device-title {
             font-size: 13px;
             font-weight: 700;
@@ -94,19 +84,6 @@
 
         .device-info span.waiting {
             color: #f59e0b;
-        }
-
-        .device-btn {
-            margin-top: 8px;
-            width: 100%;
-            background: var(--panel);
-            color: var(--text);
-            border: 1px solid var(--border);
-            padding: 6px;
-            border-radius: 8px;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
         }
 
         /* Основной контейнер приложения */
@@ -159,7 +136,6 @@
         .btn:disabled { opacity: .45; cursor: default; transform: none; }
         .btn-primary { background: #fff; color: #000; }
         .btn-secondary { background: var(--panel); color: var(--text); border: 1px solid var(--border); }
-        .rec-on { background: var(--red) !important; color: #fff !important; border-color: transparent !important; }
 
         .video-container { 
             position: relative; 
@@ -184,7 +160,6 @@
         }
         .video-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; color: var(--muted); font-size: 14px; }
         .video-overlay.hidden { display: none; }
-        .video-container:fullscreen { width: 100vw !important; height: 100vh !important; max-height: none; aspect-ratio: auto !important; border: 0; border-radius: 0; }
 
         .zoom-bar { display: flex; align-items: center; gap: 14px; padding: 10px 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--panel); }
         .zoom-mode { flex: 0 0 auto; min-width: 130px; color: var(--muted); font-size: 12px; }
@@ -204,11 +179,8 @@
         .toast { position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 20px); padding: 11px 18px; border-radius: 999px; background: rgba(15,15,20,.95); border: 1px solid var(--border); font-size: 13px; opacity: 0; pointer-events: none; transition: .2s; z-index: 50; }
         .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
-        /* Автоматическое скрытие сайдбара на узких мониторах/ноутбуках */
         @media (max-width: 1350px) {
-            #devices-sidebar {
-                display: none;
-            }
+            #devices-sidebar { display: none; }
         }
 
         @media (max-width: 600px) {
@@ -223,19 +195,12 @@
 </head>
 <body>
 
-<!-- Панель устройств слева -->
+<!-- Динамическая панель подключенных устройств -->
 <div id="devices-sidebar">
     <h3>Подключенные камеры</h3>
     <div id="devices-list">
-        <!-- Сюда в дальнейшем будут динамически добавляться устройства -->
         <div class="device-item active">
-            <div class="device-title">Телефон 1 (Основной)</div>
-            <div class="device-info">⚡ 85% • <span>В эфире</span></div>
-        </div>
-        <div class="device-item" onclick="switchDevice('peer_id_2')">
-            <div class="device-title">Телефон 2</div>
-            <div class="device-info">🔋 42% • <span class="waiting">Ожидание</span></div>
-            <button class="device-btn" type="button">Включить</button>
+            <div class="device-title">Ожидание подключения...</div>
         </div>
     </div>
 </div>
@@ -275,10 +240,6 @@
     <div class="actions">
         <button id="copy-btn" class="btn btn-primary">Скопировать код</button>
         <button id="clean-btn" class="btn btn-secondary">Открыть Clean Output</button>
-        <button id="sound-btn" class="btn btn-secondary" type="button" disabled>🔇 Нет звука</button>
-        <button id="shot-btn" class="btn btn-secondary" type="button">📸 Скриншот</button>
-        <button id="rec-btn" class="btn btn-secondary" type="button">⏺ Запись</button>
-        <button id="fs-btn" class="btn btn-secondary" type="button">⛶ Во весь экран</button>
     </div>
 
     <section id="video-box" class="video-container">
@@ -334,10 +295,6 @@ const zoomMode = $("zoom-mode");
 const zoomReset = $("zoom-reset");
 const approveBox = $("approve");
 const approveText = $("approve-text");
-const soundBtn = $("sound-btn");
-const shotBtn = $("shot-btn");
-const recBtn = $("rec-btn");
-const fsBtn = $("fs-btn");
 const toastEl = $("toast");
 
 let peer = null;
@@ -350,11 +307,43 @@ let statsTimer = null;
 let failCount = 0;
 let roomToken = null;
 let pendingCall = null;
-let recorder = null;
 const approved = new Set();
 const viewerCalls = new Map();
 let prevBytes = null;
 const viewers = new Set();
+
+// Динамическое хранилище подключенных камер
+const connectedCameras = new Map();
+
+function updateDevicesUI() {
+  const list = document.getElementById("devices-list");
+  if (!list) return;
+
+  if (connectedCameras.size === 0) {
+    list.innerHTML = `
+      <div class="device-item active">
+        <div class="device-title">Ожидание подключений...</div>
+      </div>`;
+    return;
+  }
+
+  let html = "";
+  connectedCameras.forEach((cam) => {
+    const isActive = (cam.status === "live");
+    const icon = cam.charging ? "⚡" : "🔋";
+    const statusText = isActive 
+      ? `<span>В эфире</span>` 
+      : `<span class="waiting">Ожидание</span>`;
+
+    html += `
+      <div class="device-item ${isActive ? "active" : ""}">
+        <div class="device-title">${cam.name}</div>
+        <div class="device-info">${icon} ${cam.battery ?? "—"}% • ${statusText}</div>
+      </div>`;
+  });
+
+  list.innerHTML = html;
+}
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
@@ -452,8 +441,33 @@ function createRoom(keepCode) {
   });
 
   p.on("connection", conn => {
+    const cid = (conn.metadata && conn.metadata.cid) || conn.peer;
+
+    // Добавляем камеру при сопряжении
+    if (!connectedCameras.has(cid)) {
+      connectedCameras.set(cid, {
+        name: "Телефон " + (connectedCameras.size + 1),
+        battery: null,
+        charging: false,
+        status: "live"
+      });
+      updateDevicesUI();
+    }
+
     conn.on("data", data => {
       if (!data) return;
+
+      // Обработка данных аккумулятора с телефона
+      if (data.type === "battery-update" || data.type === "battery-status" || data.type === "status") {
+        const cam = connectedCameras.get(cid);
+        if (cam) {
+          cam.battery = data.level ?? data.battery;
+          cam.charging = !!data.charging;
+          updateDevicesUI();
+        }
+        return;
+      }
+
       if (data.type === "clean-view" && data.viewerId) {
         if (data.token !== roomToken) {
           try { conn.send({ type: "denied" }); } catch {}
@@ -463,8 +477,8 @@ function createRoom(keepCode) {
         callViewer(data.viewerId);
         return;
       }
-      const cid = conn.metadata && conn.metadata.cid;
-      if (!cid || !approved.has(cid)) return;
+
+      if (!approved.has(cid)) return;
       if (data.type === "caps") {
         ctrlConn = conn;
         applyCaps(data.zoom);
@@ -473,7 +487,10 @@ function createRoom(keepCode) {
         syncZoomUI();
       }
     });
+
     conn.on("close", () => {
+      connectedCameras.delete(cid);
+      updateDevicesUI();
       if (ctrlConn === conn) { ctrlConn = null; applyCaps(null); }
     });
   });
@@ -566,7 +583,6 @@ function acceptCall(incoming) {
     setConnection("Камера подключена", "live");
     startStats(incoming);
     updateVideoInfo();
-    updateSoundBtn();
     zoomRange.disabled = false;
     viewers.forEach(callViewer);
   });
@@ -575,7 +591,6 @@ function acceptCall(incoming) {
     if (cameraCall !== incoming) return;
     cameraCall = null;
     activeStream = null;
-    if (recorder) recorder.stop();
     video.srcObject = null;
     overlay.classList.remove("hidden");
     overlay.textContent = "Камера отключена — ждём переподключения…";
@@ -583,7 +598,6 @@ function acceptCall(incoming) {
     quality.textContent = "—";
     fps.textContent = "—";
     stopStats();
-    updateSoundBtn();
     zoomRange.disabled = true;
   });
 
@@ -769,80 +783,6 @@ function openCleanOutput() {
   window.open(url.href, "_blank");
 }
 
-function updateSoundBtn() {
-  const hasAudio = !!activeStream && activeStream.getAudioTracks().length > 0;
-  soundBtn.disabled = !hasAudio;
-  soundBtn.textContent = !hasAudio ? "🔇 Нет звука" : video.muted ? "🔇 Включить звук" : "🔊 Звук включён";
-}
-
-soundBtn.addEventListener("click", () => {
-  video.muted = !video.muted;
-  if (!video.muted) video.play().catch(() => {});
-  updateSoundBtn();
-});
-
-function stamp() {
-  const d = new Date();
-  const p = n => String(n).padStart(2, "0");
-  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
-}
-
-function download(blob, name) {
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = name;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-}
-
-shotBtn.addEventListener("click", () => {
-  if (!activeStream || !video.videoWidth) { toast("Нет изображения"); return; }
-  const canvas = document.createElement("canvas");
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  canvas.getContext("2d").drawImage(video, 0, 0);
-  canvas.toBlob(blob => {
-    if (blob) { download(blob, `glazok-${stamp()}.png`); toast("Скриншот сохранён"); }
-  }, "image/png");
-});
-
-recBtn.addEventListener("click", () => {
-  if (recorder) { recorder.stop(); return; }
-  if (!activeStream) { toast("Нет изображения"); return; }
-  if (typeof MediaRecorder === "undefined") { toast("Запись не поддерживается"); return; }
-  const types = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm", "video/mp4"];
-  const mime = types.find(t => MediaRecorder.isTypeSupported(t)) || "";
-  const chunks = [];
-  let rec;
-  try {
-    rec = new MediaRecorder(activeStream, mime ? { mimeType: mime, videoBitsPerSecond: 12000000 } : { videoBitsPerSecond: 12000000 });
-  } catch {
-    toast("Не удалось начать запись");
-    return;
-  }
-  rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
-  rec.onstop = () => {
-    const type = rec.mimeType || "video/webm";
-    download(new Blob(chunks, { type }), `glazok-${stamp()}.${type.includes("mp4") ? "mp4" : "webm"}`);
-    recorder = null;
-    recBtn.textContent = "⏺ Запись";
-    recBtn.classList.remove("rec-on");
-    toast("Запись сохранена");
-  };
-  rec.start(1000);
-  recorder = rec;
-  recBtn.textContent = "⏹ Остановить запись";
-  recBtn.classList.add("rec-on");
-});
-
-fsBtn.addEventListener("click", () => {
-  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-  else videoBox.requestFullscreen().catch(() => toast("Полный экран недоступен"));
-});
-document.addEventListener("fullscreenchange", () => { clampPan(); applyTransform(); });
-
 copyBtn.addEventListener("click", copyRoom);
 cleanBtn.addEventListener("click", openCleanOutput);
 roomCode.addEventListener("click", copyRoom);
@@ -855,7 +795,6 @@ window.addEventListener("beforeunload", () => {
 });
 
 applyCaps(null);
-updateSoundBtn();
 createRoom();
 
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
