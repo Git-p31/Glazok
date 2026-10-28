@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "glazok-studio-v10";
+const CACHE_NAME = "glazok-studio-v11";
 
 const STATIC_ASSETS = [
   "./",
@@ -42,6 +42,9 @@ self.addEventListener("fetch", event => {
 
   // Для внешних CDN-ресурсов (например, PeerJS) не используем локальный кэш
   if (url.origin !== location.origin) return;
+
+  // Данные TURN никогда не кэшируем (даже если прокси размещён на этом же домене)
+  if (/\/(turn|api)(\/|$)/.test(url.pathname)) return;
 
   event.respondWith(
     fetch(event.request)

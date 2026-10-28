@@ -59,8 +59,18 @@
             border-radius: 12px;
             margin-bottom: 8px;
             border: 1px solid var(--border);
-            transition: transform .15s ease;
+            transition: transform .15s ease, border-color .15s ease;
+            cursor: pointer;
         }
+        .device-item.selected { border-color: rgba(99,102,241,.8); box-shadow: 0 0 0 1px rgba(99,102,241,.35); }
+        .device-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .device-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .icon-btn { flex: 0 0 auto; width: 26px; height: 26px; border-radius: 8px; background: transparent; color: var(--muted); font-size: 14px; }
+        .icon-btn:hover { background: var(--panel); color: var(--text); }
+        .dev-btn { width: 100%; margin-top: 10px; min-height: 34px; border-radius: 999px; font-size: 12px; font-weight: 700; background: #fff; color: #000; }
+        .dev-btn.stop { background: rgba(239,68,68,.16); color: #fca5a5; border: 1px solid rgba(239,68,68,.45); }
+        .dev-btn.switch { background: var(--accent); color: #fff; }
+        .device-empty { color: var(--muted); font-size: 12px; line-height: 1.5; }
 
         .device-item.active {
             border-left: 4px solid var(--green);
@@ -180,8 +190,15 @@
         .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
         @media (max-width: 1350px) {
-            #devices-sidebar { display: none; }
+            /* Список камер не прячем: на узком экране он идёт блоком над основной областью */
+            #devices-sidebar { position: static; transform: none; width: min(900px, 92vw); margin: 20px auto 0; }
         }
+
+        .btn-live { background: var(--green); color: #04130d; }
+        .btn-live.stop { background: var(--red); color: #fff; }
+        .turn-status { font-size: 12px; line-height: 1.5; color: var(--muted); }
+        .turn-status.ok { color: var(--green); }
+        .turn-status.warn { color: #f59e0b; }
 
         @media (max-width: 600px) {
             .room-card { padding: 24px; flex-direction: column; align-items: flex-start; }
@@ -199,9 +216,7 @@
 <div id="devices-sidebar">
     <h3>Подключенные камеры</h3>
     <div id="devices-list">
-        <div class="device-item active">
-            <div class="device-title">Ожидание подключения...</div>
-        </div>
+        <div class="device-empty">Ожидание подключений...</div>
     </div>
 </div>
 
@@ -238,9 +253,12 @@
     </section>
 
     <div class="actions">
+        <button id="live-btn" class="btn btn-live" type="button" disabled>Запустить эфир</button>
         <button id="copy-btn" class="btn btn-primary">Скопировать код</button>
         <button id="clean-btn" class="btn btn-secondary">Открыть Clean Output</button>
+        <button id="turn-btn" class="btn btn-secondary" type="button">Проверить TURN</button>
     </div>
+    <div id="turn-status" class="turn-status">TURN: проверка…</div>
 
     <section id="video-box" class="video-container">
         <video id="video" autoplay playsinline muted></video>
@@ -258,6 +276,7 @@
         <div class="stats">
             <div class="stat">Качество: <strong id="quality">—</strong></div>
             <div class="stat">FPS: <strong id="fps">—</strong></div>
+            <div class="stat">Связь: <strong id="route">—</strong></div>
         </div>
         <div id="app-version">Glazok v10</div>
     </footer>
@@ -283,69 +302,50 @@ const connectionText = $("connection-text");
 const overlay = $("video-overlay");
 const copyBtn = $("copy-btn");
 const cleanBtn = $("clean-btn");
+const liveBtn = $("live-btn");
+const turnBtn = $("turn-btn");
+const turnStatus = $("turn-status");
 const quality = $("quality");
 const fps = $("fps");
+const routeEl = $("route");
 const qrEl = $("qr");
 const qrLink = $("qr-link");
 const qrWarn = $("qr-warn");
-const zoomBar = $("zoom-bar");
 const zoomRange = $("zoom-range");
 const zoomValue = $("zoom-value");
 const zoomMode = $("zoom-mode");
 const zoomReset = $("zoom-reset");
 const approveBox = $("approve");
 const approveText = $("approve-text");
+const devicesList = $("devices-list");
 const toastEl = $("toast");
 
 let peer = null;
-let cameraCall = null;
-let ctrlConn = null;
+let peerOpen = false;
+let cameraCall = null;       // единственный входящий видеозвонок
 let room = null;
 let activeStream = null;
 let reconnectTimer = null;
 let statsTimer = null;
 let failCount = 0;
 let roomToken = null;
-let pendingCall = null;
-const approved = new Set();
-const viewerCalls = new Map();
+let pending = null;          // { conn, md } — камера ждёт ручного подтверждения
+let liveCid = null;          // телефон, которому велено транслировать (или уже транслирует)
+let selectedCid = null;      // телефон, выбранный в списке
+let graceTimer = null;
+let startTimer = null;
 let prevBytes = null;
+let lastViewMsg = null;
+
+const approved = new Set();           // cid камер, которым разрешено подключение
+const cams = new Map();               // cid -> описание подключённой камеры (одна запись на телефон)
+const indexByCid = new Map();         // cid -> порядковый номер для названия «Телефон N»
+const viewerCalls = new Map();        // viewerId -> MediaConnection
+const viewerConns = new Map();        // viewerId -> DataConnection
 const viewers = new Set();
 
-// Динамическое хранилище подключенных камер
-const connectedCameras = new Map();
-
-function updateDevicesUI() {
-  const list = document.getElementById("devices-list");
-  if (!list) return;
-
-  if (connectedCameras.size === 0) {
-    list.innerHTML = `
-      <div class="device-item active">
-        <div class="device-title">Ожидание подключений...</div>
-      </div>`;
-    return;
-  }
-
-  let html = "";
-  connectedCameras.forEach((cam) => {
-    const isActive = (cam.status === "live");
-    const icon = cam.charging ? "⚡" : "🔋";
-    const statusText = isActive 
-      ? `<span>В эфире</span>` 
-      : `<span class="waiting">Ожидание</span>`;
-
-    html += `
-      <div class="device-item ${isActive ? "active" : ""}">
-        <div class="device-title">${cam.name}</div>
-        <div class="device-info">${icon} ${cam.battery ?? "—"}% • ${statusText}</div>
-      </div>`;
-  });
-
-  list.innerHTML = html;
-}
-
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const escapeHtml = text => String(text).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 function generateRoomCode() {
   return GLAZOK.randomId(6, "ABCDEFGHJKLMNPQRSTUVWXYZ23456789");
@@ -362,6 +362,199 @@ function toast(message) {
 function setConnection(text, state = "") {
   connectionText.textContent = text;
   connectionDot.className = "connection-dot " + state;
+}
+
+/* ---------- Названия камер ---------- */
+
+const NAMES_KEY = "glazok_cam_names";
+function loadNames() { try { return JSON.parse(localStorage.getItem(NAMES_KEY) || "{}") || {}; } catch { return {}; } }
+function saveName(cid, name) {
+  const names = loadNames();
+  if (name) names[cid] = name; else delete names[cid];
+  try { localStorage.setItem(NAMES_KEY, JSON.stringify(names)); } catch {}
+}
+
+/* Приоритет: имя, заданное на мониторе → имя, введённое на телефоне → модель из браузера → «Телефон N» */
+function camTitle(cam) {
+  return cam.customLabel || cam.name || cam.model || ("Телефон " + cam.index);
+}
+
+function batteryText(cam) {
+  if (typeof cam.battery === "number") return Math.round(cam.battery) + "%";
+  return cam.hasBattery === false ? "н/д" : "…";
+}
+
+/* ---------- Список камер ---------- */
+
+function camState(cam) {
+  if (liveCid === cam.cid) return activeStream ? "live" : "starting";
+  return "waiting";
+}
+
+function renderDevices() {
+  if (cams.size === 0) {
+    devicesList.innerHTML = '<div class="device-empty">Ожидание подключений...<br>Подключённые телефоны ждут команды «Запустить эфир» и видео не передают.</div>';
+    return;
+  }
+  let html = "";
+  cams.forEach(cam => {
+    const st = camState(cam);
+    const icon = cam.charging ? "⚡" : "🔋";
+    const statusText = st === "live" ? "<span>В эфире</span>"
+      : st === "starting" ? '<span class="waiting">Запуск…</span>'
+      : '<span class="waiting">Ожидание</span>';
+    const batteryTip = cam.hasBattery === false ? ' title="Браузер этого телефона не сообщает заряд (iPhone/Safari, Firefox)"' : "";
+
+    let action, label, cls = "";
+    if (!liveCid) { action = "start"; label = "Запустить эфир"; }
+    else if (liveCid === cam.cid) { action = "stop"; label = "Остановить эфир"; cls = "stop"; }
+    else { action = "start"; label = "Переключить сюда"; cls = "switch"; }
+
+    html += `
+      <div class="device-item ${st === "live" ? "active" : ""} ${selectedCid === cam.cid ? "selected" : ""}" data-cid="${escapeHtml(cam.cid)}">
+        <div class="device-head">
+          <div class="device-title">${escapeHtml(camTitle(cam))}</div>
+          <button class="icon-btn" data-act="rename" title="Переименовать" type="button">✎</button>
+        </div>
+        <div class="device-info"${batteryTip}>${icon} ${batteryText(cam)} • ${statusText}</div>
+        <button class="dev-btn ${cls}" data-act="${action}" type="button">${label}</button>
+      </div>`;
+  });
+  devicesList.innerHTML = html;
+}
+
+devicesList.addEventListener("click", event => {
+  const item = event.target.closest(".device-item");
+  if (!item) return;
+  const cid = item.dataset.cid;
+  const act = event.target.closest("[data-act]");
+  if (act && act.dataset.act === "rename") { renameCam(cid); return; }
+  if (act && act.dataset.act === "start") { startLive(cid); return; }
+  if (act && act.dataset.act === "stop") { stopLive(); return; }
+  selectedCid = cid;     // просто выбор: эфир не запускается и не переключается
+  refreshAll();
+});
+
+function renameCam(cid) {
+  const cam = cams.get(cid);
+  if (!cam) return;
+  const value = prompt("Название телефона (пусто — вернуть автоматическое):", camTitle(cam));
+  if (value === null) return;
+  cam.customLabel = value.trim().slice(0, 40);
+  saveName(cid, cam.customLabel);
+  refreshAll();
+}
+
+/* ---------- Состояние интерфейса ---------- */
+
+function updateHeader() {
+  if (!peerOpen) return;
+  const live = liveCid && cams.get(liveCid);
+  if (live && activeStream) setConnection("В эфире: " + camTitle(live), "live");
+  else if (liveCid) setConnection("Запуск эфира…", "ready");
+  else if (cams.size) setConnection("Камер: " + cams.size + " • эфир выключен", "ready");
+  else setConnection("Ожидание камеры", "ready");
+}
+
+function updateOverlay() {
+  if (activeStream) { overlay.classList.add("hidden"); return; }
+  overlay.classList.remove("hidden");
+  if (liveCid) overlay.textContent = cams.has(liveCid) ? "Запуск эфира…" : "Камера отключилась — ждём возврата…";
+  else if (cams.size) overlay.textContent = "Выберите телефон и нажмите «Запустить эфир»";
+  else overlay.textContent = "Ожидание камеры...";
+}
+
+function updateLiveBtn() {
+  const sel = cams.get(selectedCid);
+  liveBtn.classList.remove("stop");
+  if (!sel) { liveBtn.textContent = "Запустить эфир"; liveBtn.disabled = true; return; }
+  liveBtn.disabled = false;
+  if (!liveCid) liveBtn.textContent = "Запустить эфир на «" + camTitle(sel) + "»";
+  else if (liveCid !== sel.cid) liveBtn.textContent = "Переключить эфир на «" + camTitle(sel) + "»";
+  else { liveBtn.textContent = "Остановить эфир"; liveBtn.classList.add("stop"); }
+}
+
+function refreshAll() {
+  renderDevices();
+  updateLiveBtn();
+  updateOverlay();
+  updateHeader();
+}
+
+liveBtn.addEventListener("click", () => {
+  const sel = cams.get(selectedCid);
+  if (!sel) return;
+  if (liveCid === sel.cid) stopLive(); else startLive(sel.cid);
+});
+
+/* ---------- Эфир: старт, стоп, переключение ---------- */
+
+function sendTo(cam, message) {
+  if (cam && cam.conn && cam.conn.open) { try { cam.conn.send(message); return true; } catch {} }
+  return false;
+}
+
+/*
+ * Запускает эфир на телефоне cid. Если эфир уже идёт на другом телефоне — сначала
+ * останавливаем его (команда go-idle + закрытие звонка), и только потом даём go-live новому.
+ */
+function startLive(cid) {
+  const cam = cams.get(cid);
+  if (!cam || !cam.conn.open) { toast("Телефон недоступен"); return; }
+  if (liveCid === cid && (activeStream || cameraCall)) return;
+  if (liveCid && liveCid !== cid) stopLive(true);
+
+  clearTimeout(graceTimer);
+  liveCid = cid;
+  selectedCid = cid;
+  applyCaps();                       // зум: берём возможности именно этой камеры
+  sendTo(cam, { type: "go-live" });
+
+  clearTimeout(startTimer);
+  startTimer = setTimeout(() => {
+    if (liveCid === cid && !activeStream) toast("Телефон не отвечает — проверьте связь");
+  }, 20000);
+  refreshAll();
+}
+
+function stopLive(silent) {
+  clearTimeout(graceTimer);
+  clearTimeout(startTimer);
+  const cam = cams.get(liveCid);
+  liveCid = null;
+  if (cam) sendTo(cam, { type: "go-idle" });
+  teardownMedia();
+  applyCaps();
+  if (!silent) refreshAll();
+}
+
+function closeViewerCalls() {
+  viewerCalls.forEach(call => { try { call.close(); } catch {} });
+  viewerCalls.clear();
+}
+
+function teardownMedia() {
+  if (cameraCall) { const c = cameraCall; cameraCall = null; try { c.close(); } catch {} }
+  activeStream = null;
+  video.srcObject = null;
+  stopStats();
+  quality.textContent = "—";
+  fps.textContent = "—";
+  routeEl.textContent = "—";
+  zoomRange.disabled = true;
+  closeViewerCalls();
+}
+
+/* Если эфирная камера пропала — ждём её возврата 45 секунд, потом снимаем её с эфира. */
+function startGrace() {
+  clearTimeout(graceTimer);
+  const cid = liveCid;
+  graceTimer = setTimeout(() => {
+    if (liveCid === cid && !activeStream) {
+      stopLive();
+      toast("Камера не вернулась — эфир остановлен");
+    }
+  }, 45000);
 }
 
 /* ---------- QR ---------- */
@@ -403,10 +596,10 @@ function renderQR() {
 
 function destroyPeer() {
   clearTimeout(reconnectTimer);
-  if (cameraCall) { const c = cameraCall; cameraCall = null; try { c.close(); } catch {} }
-  ctrlConn = null;
-  viewerCalls.clear();
+  peerOpen = false;
   if (peer) { const p = peer; peer = null; try { p.destroy(); } catch {} }
+  teardownMedia();
+  viewerConns.clear();
 }
 
 function scheduleReconnect() {
@@ -425,7 +618,13 @@ function createRoom(keepCode) {
   destroyPeer();
   room = keepCode || generateRoomCode();
   if (!keepCode || !roomToken) roomToken = GLAZOK.randomId(12);
-  if (!keepCode) approved.clear();
+  if (!keepCode) {
+    approved.clear();
+    cams.clear();
+    liveCid = null;
+    selectedCid = null;
+    refreshAll();
+  }
   roomCode.textContent = room;
   renderQR();
   setConnection("Создание комнаты...", "");
@@ -436,63 +635,14 @@ function createRoom(keepCode) {
   p.on("open", () => {
     if (peer !== p) return;
     failCount = 0;
-    if (cameraCall) setConnection("Камера подключена", "live");
-    else setConnection("Ожидание камеры", "ready");
+    peerOpen = true;
+    refreshAll();
   });
 
   p.on("connection", conn => {
-    const cid = (conn.metadata && conn.metadata.cid) || conn.peer;
-
-    // Добавляем камеру при сопряжении
-    if (!connectedCameras.has(cid)) {
-      connectedCameras.set(cid, {
-        name: "Телефон " + (connectedCameras.size + 1),
-        battery: null,
-        charging: false,
-        status: "live"
-      });
-      updateDevicesUI();
-    }
-
-    conn.on("data", data => {
-      if (!data) return;
-
-      // Обработка данных аккумулятора с телефона
-      if (data.type === "battery-update" || data.type === "battery-status" || data.type === "status") {
-        const cam = connectedCameras.get(cid);
-        if (cam) {
-          cam.battery = data.level ?? data.battery;
-          cam.charging = !!data.charging;
-          updateDevicesUI();
-        }
-        return;
-      }
-
-      if (data.type === "clean-view" && data.viewerId) {
-        if (data.token !== roomToken) {
-          try { conn.send({ type: "denied" }); } catch {}
-          return;
-        }
-        viewers.add(data.viewerId);
-        callViewer(data.viewerId);
-        return;
-      }
-
-      if (!approved.has(cid)) return;
-      if (data.type === "caps") {
-        ctrlConn = conn;
-        applyCaps(data.zoom);
-      } else if (data.type === "zoom-value" && zoomCaps && typeof data.value === "number") {
-        zoomCaps.value = data.value;
-        syncZoomUI();
-      }
-    });
-
-    conn.on("close", () => {
-      connectedCameras.delete(cid);
-      updateDevicesUI();
-      if (ctrlConn === conn) { ctrlConn = null; applyCaps(null); }
-    });
+    if (peer !== p) return;
+    const md = conn.metadata || {};
+    if (md.cid) handleCameraConn(conn, md); else handleViewerConn(conn);
   });
 
   p.on("call", handleIncoming);
@@ -501,13 +651,14 @@ function createRoom(keepCode) {
     if (peer !== p) return;
     if (error.type === "peer-unavailable") {
       const m = /(glz-view-\w+)/.exec(error.message || "");
-      if (m) { viewers.delete(m[1]); viewerCalls.delete(m[1]); }
+      if (m) { viewers.delete(m[1]); viewerCalls.delete(m[1]); viewerConns.delete(m[1]); }
       return;
     }
     console.error("PeerJS error:", error);
     if (error.type === "unavailable-id") {
       createRoom();
     } else if (["network", "server-error", "socket-error", "socket-closed"].includes(error.type)) {
+      peerOpen = false;
       setConnection("Нет связи с сервером…", "");
       scheduleReconnect();
     } else {
@@ -517,54 +668,191 @@ function createRoom(keepCode) {
 
   p.on("disconnected", () => {
     if (peer !== p) return;
+    peerOpen = false;
     setConnection("Соединение потеряно — переподключение…", "");
     scheduleReconnect();
   });
 }
 
-/* ---------- Входящая камера: подтверждение ---------- */
+/* ---------- Камеры (каналы управления) ---------- */
 
-function handleIncoming(incoming) {
-  const md = incoming.metadata || {};
-  if (md.token && md.token === roomToken) {
-    if (md.cid) approved.add(md.cid);
-    acceptCall(incoming);
-  } else if (md.cid && approved.has(md.cid)) {
-    acceptCall(incoming);
-  } else {
-    askApproval(incoming, md.cid);
-  }
+function whenOpen(conn, fn) {
+  if (conn.open) fn(); else conn.once("open", fn);
 }
 
-function askApproval(incoming, cid) {
-  if (pendingCall && pendingCall !== incoming) { try { pendingCall.close(); } catch {} }
-  pendingCall = incoming;
-  approveText.textContent = "Камера" + (cid ? " «" + cid.slice(0, 4) + "»" : "") + " хочет подключиться по коду комнаты";
+function handleCameraConn(conn, md) {
+  const cid = md.cid;
+  const trusted = approved.has(cid) || (md.token && md.token === roomToken);
+
+  if (trusted) {
+    approved.add(cid);
+    registerCamera(conn, md);
+  } else {
+    askApproval(conn, md);   // в список камера попадёт только после «Разрешить»
+  }
+
+  conn.on("data", data => {
+    if (!data || typeof data !== "object" || !approved.has(cid)) return;
+
+    let cam = cams.get(cid);
+    if (!cam) {                      // камеру убрали как «молчащую», а она жива — возвращаем
+      cam = registerCamera(conn, md);
+    } else if (cam.conn !== conn) {
+      return;                        // сообщение от старого соединения (телефон обновил страницу)
+    }
+    cam.lastSeen = Date.now();
+
+    switch (data.type) {
+      case "status":
+      case "battery-update":         // старое имя сообщения
+        if (typeof data.model === "string" && data.model) cam.model = data.model;
+        if (typeof data.name === "string") cam.name = data.name;
+        if (typeof data.battery === "number") cam.battery = data.battery;
+        else if (typeof data.level === "number") cam.battery = data.level;
+        if (data.hasBattery === false) cam.hasBattery = false;
+        else if (typeof cam.battery === "number") cam.hasBattery = true;
+        cam.charging = !!data.charging;
+        refreshAll();
+        break;
+      case "caps":
+        cam.zoomCaps = data.zoom && typeof data.zoom.min === "number" ? data.zoom : null;
+        if (cid === liveCid) applyCaps();
+        break;
+      case "zoom-value":
+        if (cam.zoomCaps && typeof data.value === "number") {
+          cam.zoomCaps.value = data.value;
+          if (cid === liveCid) syncZoomUI();
+        }
+        break;
+      case "zoom-failed":            // оптический зум не сработал — переходим на цифровой
+        cam.zoomCaps = null;
+        if (cid === liveCid) { applyCaps(); toast("Оптический зум недоступен — цифровое увеличение"); }
+        break;
+      case "bye":
+        removeCam(cid, conn);
+        break;
+    }
+  });
+
+  const gone = () => {
+    if (pending && pending.conn === conn) hideApproval();
+    removeCam(cid, conn);
+  };
+  conn.on("close", gone);
+  conn.on("error", gone);
+}
+
+/* Одна запись на телефон. Повторное подключение того же телефона заменяет старое — дублей нет. */
+function registerCamera(conn, md) {
+  const cid = md.cid;
+  let cam = cams.get(cid);
+
+  if (cam && cam.conn !== conn) {
+    const old = cam.conn;
+    cam.conn = conn;
+    try { old.close(); } catch {}
+  }
+
+  if (!cam) {
+    if (!indexByCid.has(cid)) indexByCid.set(cid, indexByCid.size + 1);
+    cam = {
+      cid, conn,
+      index: indexByCid.get(cid),
+      model: "", name: "",
+      customLabel: loadNames()[cid] || "",
+      battery: null, charging: false, hasBattery: null,
+      zoomCaps: null,
+      lastSeen: Date.now()
+    };
+    cams.set(cid, cam);
+  }
+  if (typeof md.model === "string" && md.model) cam.model = md.model;
+  if (typeof md.name === "string") cam.name = md.name;
+  cam.lastSeen = Date.now();
+
+  if (!selectedCid || !cams.has(selectedCid)) selectedCid = cid;
+
+  whenOpen(conn, () => {
+    if (cam.conn !== conn) return;
+    sendTo(cam, { type: "need-caps" });
+    // телефон, который уже был в эфире, вернулся после обрыва — продолжаем эфир
+    if (liveCid === cid) { clearTimeout(graceTimer); sendTo(cam, { type: "go-live" }); }
+  });
+
+  refreshAll();
+  return cam;
+}
+
+function removeCam(cid, conn) {
+  const cam = cams.get(cid);
+  if (!cam || (conn && cam.conn !== conn)) return;   // закрылось старое соединение — запись не трогаем
+  cams.delete(cid);
+  if (selectedCid === cid) selectedCid = liveCid && cams.has(liveCid) ? liveCid : (cams.keys().next().value || null);
+  if (liveCid === cid) {
+    teardownMedia();
+    applyCaps();
+    startGrace();
+    toast("Камера в эфире отключилась — ждём возврата");
+  }
+  refreshAll();
+}
+
+/* Убираем «молчащие» камеры: закрытие страницы не всегда сообщает о себе сразу. */
+setInterval(() => {
+  const now = Date.now();
+  Array.from(cams.values()).forEach(cam => {
+    if (cam.cid === liveCid && activeStream) return;     // видео идёт — камера жива
+    const silent = now - cam.lastSeen;
+    if (silent > 30000 || (!cam.conn.open && silent > 10000)) removeCam(cam.cid);
+  });
+}, 5000);
+
+/* ---------- Подтверждение камеры, подключившейся по коду ---------- */
+
+function askApproval(conn, md) {
+  if (pending && pending.conn !== conn) { try { pending.conn.close(); } catch {} }
+  pending = { conn, md };
+  const name = md.name || md.model || ("«" + String(md.cid).slice(0, 4) + "»");
+  approveText.textContent = "Телефон " + name + " хочет подключиться по коду комнаты";
   approveBox.hidden = false;
-  incoming.on("close", () => { if (pendingCall === incoming) hideApproval(); });
 }
 
 function hideApproval() {
-  pendingCall = null;
+  pending = null;
   approveBox.hidden = true;
 }
 
 $("approve-yes").addEventListener("click", () => {
-  const call = pendingCall;
-  if (!call) return;
-  const cid = call.metadata && call.metadata.cid;
-  if (cid) approved.add(cid);
+  const p = pending;
+  if (!p) return;
   hideApproval();
-  acceptCall(call);
+  approved.add(p.md.cid);
+  registerCamera(p.conn, p.md);
 });
 
 $("approve-no").addEventListener("click", () => {
-  const call = pendingCall;
+  const p = pending;
   hideApproval();
-  if (call) { try { call.close(); } catch {} }
+  if (!p) return;
+  try { p.conn.send({ type: "denied" }); } catch {}
+  setTimeout(() => { try { p.conn.close(); } catch {} }, 300);
 });
 
-function acceptCall(incoming) {
+/* ---------- Входящее видео ---------- */
+
+/* Принимаем видео только от телефона, которому мы сами дали «go-live». Остальные отклоняем. */
+function handleIncoming(incoming) {
+  const cid = incoming.metadata && incoming.metadata.cid;
+  const cam = cid ? cams.get(cid) : null;
+  if (!cam || cid !== liveCid) {
+    try { incoming.close(); } catch {}
+    if (cam) sendTo(cam, { type: "go-idle" });    // чтобы телефон не пытался дозвониться снова
+    return;
+  }
+  acceptCall(incoming, cid);
+}
+
+function acceptCall(incoming, cid) {
   if (cameraCall && cameraCall !== incoming) {
     const old = cameraCall;
     cameraCall = null;
@@ -574,17 +862,17 @@ function acceptCall(incoming) {
   incoming.answer(undefined, { sdpTransform: GLAZOK.sdpHighBitrate(35000, 4000, 800) });
 
   incoming.on("stream", stream => {
-    if (cameraCall !== incoming) return;
+    if (cameraCall !== incoming || liveCid !== cid) return;
+    clearTimeout(graceTimer);
     GLAZOK.tuneReceivers(incoming.peerConnection);
     activeStream = stream;
     video.srcObject = stream;
     video.play().catch(() => {});
-    overlay.classList.add("hidden");
-    setConnection("Камера подключена", "live");
     startStats(incoming);
     updateVideoInfo();
     zoomRange.disabled = false;
-    viewers.forEach(callViewer);
+    viewers.forEach(callViewer);      // Clean Output получает новый поток (в том числе после переключения)
+    refreshAll();
   });
 
   incoming.on("close", () => {
@@ -592,13 +880,14 @@ function acceptCall(incoming) {
     cameraCall = null;
     activeStream = null;
     video.srcObject = null;
-    overlay.classList.remove("hidden");
-    overlay.textContent = "Камера отключена — ждём переподключения…";
-    setConnection("Ожидание камеры", "ready");
+    stopStats();
     quality.textContent = "—";
     fps.textContent = "—";
-    stopStats();
+    routeEl.textContent = "—";
     zoomRange.disabled = true;
+    closeViewerCalls();
+    if (liveCid === cid) startGrace();   // телефон сам попробует дозвониться снова
+    refreshAll();
   });
 
   incoming.on("error", error => {
@@ -607,6 +896,25 @@ function acceptCall(incoming) {
     overlay.classList.remove("hidden");
     overlay.textContent = "Ошибка видеосоединения";
   });
+}
+
+/* ---------- Clean Output (зрители) ---------- */
+
+function handleViewerConn(conn) {
+  let viewerId = null;
+  conn.on("data", data => {
+    if (!data || data.type !== "clean-view" || !data.viewerId) return;
+    if (data.token !== roomToken) {
+      try { conn.send({ type: "denied" }); } catch {}
+      return;
+    }
+    viewerId = data.viewerId;
+    viewers.add(viewerId);
+    viewerConns.set(viewerId, conn);
+    callViewer(viewerId);
+    if (lastViewMsg) { try { conn.send(lastViewMsg); } catch {} }
+  });
+  conn.on("close", () => { if (viewerId && viewerConns.get(viewerId) === conn) viewerConns.delete(viewerId); });
 }
 
 function callViewer(viewerId) {
@@ -640,6 +948,8 @@ function startStats(call) {
           prevBytes = { bytes: r.bytesReceived, ts: r.timestamp };
         }
       });
+      const route = await GLAZOK.routeType(pc);
+      if (route && cameraCall === call) routeEl.textContent = GLAZOK.routeLabel(route);
     } catch {}
   }, 2000);
 }
@@ -677,15 +987,47 @@ video.addEventListener("loadedmetadata", () => updateVideoInfo());
 
 /* ---------- Зум ---------- */
 
-let zoomCaps = null;
+/*
+ * Оптический зум: монитор шлёт телефону {type:"zoom", value} по каналу управления
+ * ЭФИРНОГО телефона, телефон применяет его к камере и возвращает фактическое значение.
+ * Если у камеры нет оптического зума (или он не сработал) — цифровое увеличение:
+ * кадр масштабируется на мониторе и то же самое передаётся в Clean Output (view-transform).
+ */
+
 const digital = { scale: 1, x: 0, y: 0 };
 
+function liveCam() { return liveCid ? cams.get(liveCid) || null : null; }
+function currentCaps() { const cam = liveCam(); return cam && cam.zoomCaps ? cam.zoomCaps : null; }
+
 function sendCtrl(message) {
-  if (ctrlConn && ctrlConn.open) { try { ctrlConn.send(message); } catch {} }
+  sendTo(liveCam(), message);
+}
+
+let zoomSendTimer = null;
+let zoomPendingValue = null;
+function sendZoomThrottled(value) {
+  zoomPendingValue = value;
+  if (zoomSendTimer) return;
+  zoomSendTimer = setTimeout(() => {
+    zoomSendTimer = null;
+    sendCtrl({ type: "zoom", value: zoomPendingValue });
+  }, 40);
+}
+
+function broadcastView() {
+  const r = videoBox.getBoundingClientRect();
+  lastViewMsg = {
+    type: "view-transform",
+    scale: digital.scale,
+    x: r.width ? digital.x / r.width : 0,
+    y: r.height ? digital.y / r.height : 0
+  };
+  viewerConns.forEach(conn => { if (conn.open) { try { conn.send(lastViewMsg); } catch {} } });
 }
 
 function applyTransform() {
   video.style.transform = `translate(${digital.x}px, ${digital.y}px) scale(${digital.scale})`;
+  broadcastView();
 }
 
 function clampPan() {
@@ -704,33 +1046,36 @@ function setDigital(scale) {
 }
 
 function syncZoomUI() {
-  const value = zoomCaps ? zoomCaps.value : digital.scale;
+  const caps = currentCaps();
+  const value = caps ? caps.value : digital.scale;
   zoomRange.value = value;
   zoomValue.textContent = Number(value).toFixed(1) + "×";
 }
 
-function applyCaps(z) {
-  zoomCaps = z || null;
+/* Вызывается при смене камеры в эфире, при получении её возможностей и при отказе оптики. */
+function applyCaps() {
+  const caps = currentCaps();
   setDigital(1);
-  if (zoomCaps) {
-    zoomRange.min = zoomCaps.min;
-    zoomRange.max = zoomCaps.max;
-    zoomRange.step = zoomCaps.step || 0.1;
+  if (caps) {
+    zoomRange.min = caps.min;
+    zoomRange.max = caps.max;
+    zoomRange.step = caps.step || 0.1;
     zoomMode.textContent = "Оптический зум камеры";
   } else {
     zoomRange.min = 1;
     zoomRange.max = 4;
     zoomRange.step = 0.05;
-    zoomMode.textContent = "Цифровой зум";
+    zoomMode.textContent = liveCid ? "Цифровой зум" : "Зум";
   }
   zoomRange.disabled = !activeStream;
   syncZoomUI();
 }
 
 function setZoomValue(value) {
-  if (zoomCaps) {
-    zoomCaps.value = clamp(value, zoomCaps.min, zoomCaps.max);
-    sendCtrl({ type: "zoom", value: zoomCaps.value });
+  const caps = currentCaps();
+  if (caps) {
+    caps.value = clamp(value, caps.min, caps.max);
+    sendZoomThrottled(caps.value);
   } else {
     setDigital(value);
   }
@@ -738,19 +1083,20 @@ function setZoomValue(value) {
 }
 
 zoomRange.addEventListener("input", () => setZoomValue(Number(zoomRange.value)));
-zoomReset.addEventListener("click", () => setZoomValue(zoomCaps ? zoomCaps.min : 1));
-videoBox.addEventListener("dblclick", () => setZoomValue(zoomCaps ? zoomCaps.min : 1));
+zoomReset.addEventListener("click", () => { const caps = currentCaps(); setZoomValue(caps ? caps.min : 1); });
+videoBox.addEventListener("dblclick", () => { const caps = currentCaps(); setZoomValue(caps ? caps.min : 1); });
 
 videoBox.addEventListener("wheel", e => {
   if (!activeStream) return;
   e.preventDefault();
-  const current = zoomCaps ? zoomCaps.value : digital.scale;
+  const caps = currentCaps();
+  const current = caps ? caps.value : digital.scale;
   setZoomValue(current * (e.deltaY < 0 ? 1.1 : 1 / 1.1));
 }, { passive: false });
 
 let drag = null;
 videoBox.addEventListener("pointerdown", e => {
-  if (zoomCaps || digital.scale <= 1) return;
+  if (currentCaps() || digital.scale <= 1) return;
   drag = { x: e.clientX, y: e.clientY, ox: digital.x, oy: digital.y };
   videoBox.setPointerCapture(e.pointerId);
 });
@@ -763,6 +1109,30 @@ videoBox.addEventListener("pointermove", e => {
 });
 videoBox.addEventListener("pointerup", () => { drag = null; });
 videoBox.addEventListener("pointercancel", () => { drag = null; });
+
+/* ---------- TURN ---------- */
+
+function showTurnStatus(text, kind) {
+  turnStatus.textContent = text;
+  turnStatus.className = "turn-status" + (kind ? " " + kind : "");
+}
+
+async function runTurnCheck() {
+  turnBtn.disabled = true;
+  showTurnStatus("TURN: проверка…", "");
+  const r = await GLAZOK.testTurn();
+  turnBtn.disabled = false;
+  const relayMode = GLAZOK.forceRelay ? " Включён режим ?relay=1: всё идёт только через TURN." : "";
+  if (r.relay > 0) {
+    showTurnStatus("✅ TURN работает (источник: " + r.source + ", relay-кандидатов: " + r.relay + ", " + r.ms + " мс). Видео пройдёт и в одной Wi‑Fi сети, и между разными сетями." + relayMode, "ok");
+  } else if (r.source === "stun-only") {
+    showTurnStatus("⚠ TURN не подключён: " + (r.error || "нет данных") + ". В одной Wi‑Fi сети всё будет работать, между разными сетями (мобильный интернет ↔ Wi‑Fi) видео может не пройти.", "warn");
+  } else {
+    showTurnStatus("⚠ TURN получен (" + r.source + "), но relay-кандидатов нет: проверьте, что учётные данные Metered не отозваны и не истекли." + (r.error ? " " + r.error : ""), "warn");
+  }
+}
+
+turnBtn.addEventListener("click", runTurnCheck);
 
 /* ---------- Кнопки ---------- */
 
@@ -780,6 +1150,7 @@ function openCleanOutput() {
   const url = new URL("./view.html", window.location.href);
   url.searchParams.set("room", room);
   url.searchParams.set("k", roomToken);
+  if (GLAZOK.forceRelay) url.searchParams.set("relay", "1");
   window.open(url.href, "_blank");
 }
 
@@ -794,8 +1165,12 @@ window.addEventListener("beforeunload", () => {
   destroyPeer();
 });
 
-applyCaps(null);
-createRoom();
+applyCaps();
+refreshAll();
+GLAZOK.initIce().then(() => {
+  createRoom();
+  runTurnCheck();
+});
 
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   navigator.serviceWorker.register("./sw.js").catch(() => {});
@@ -808,7 +1183,7 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
 
   // Получаем сохранённую версию или ставим начальную (10)
   let currentVersion = parseInt(localStorage.getItem("glazok_version"), 10);
-  
+
   if (isNaN(currentVersion)) {
     currentVersion = 10; // Стартовая версия v10
   } else {

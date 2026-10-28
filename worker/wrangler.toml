@@ -1,0 +1,10 @@
+name = "glazok-turn"
+main = "turn-proxy.js"
+compatibility_date = "2024-11-01"
+
+[vars]
+METERED_APP = "ВАШЕ-ИМЯ-ПРИЛОЖЕНИЯ"
+# Адреса, с которых открывается Glazok (без слэша в конце)
+ALLOWED_ORIGINS = "https://ВАШ-ЛОГИН.github.io,http://localhost:8080"
+
+# Секретный ключ НЕ пишем сюда. Команда:  npx wrangler secret put METERED_SECRET_KEY

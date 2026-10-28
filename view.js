@@ -50,11 +50,21 @@ function scheduleConnect(delay = 3000) {
   retryTimer = setTimeout(connectToMonitor, delay);
 }
 
+/* Цифровое увеличение, заданное на мониторе (если у камеры нет оптического зума).
+   x и y передаются долями размера окна, поэтому одинаково работают при любом разрешении. */
+function applyViewTransform(t) {
+  const scale = Math.min(4, Math.max(1, Number(t.scale) || 1));
+  const x = (Number(t.x) || 0) * window.innerWidth;
+  const y = (Number(t.y) || 0) * window.innerHeight;
+  video.style.transformOrigin = "center";
+  video.style.transform = scale === 1 && !x && !y ? "" : `translate(${x}px, ${y}px) scale(${scale})`;
+}
+
 function connectToMonitor() {
   if (!peer || peer.destroyed || peer.disconnected) return;
   if (conn) { try { conn.close(); } catch {} }
 
-  conn = peer.connect("glz-" + room, { reliable: true });
+  conn = peer.connect("glz-" + room, { reliable: true, metadata: { role: "viewer" } });
   const current = conn;
 
   current.on("open", () => {
@@ -62,7 +72,9 @@ function connectToMonitor() {
     if (!hasStream) show("Ожидание видеосигнала...");
   });
   current.on("data", data => {
-    if (data && data.type === "denied") show("Неверная ссылка: нет ключа доступа");
+    if (!data) return;
+    if (data.type === "denied") show("Неверная ссылка: нет ключа доступа");
+    else if (data.type === "view-transform") applyViewTransform(data);
   });
   current.on("close", () => { if (conn === current) scheduleConnect(); });
   current.on("error", () => { if (conn === current) scheduleConnect(); });
@@ -173,7 +185,8 @@ if (wantAudio) {
 if (!room) {
   show("Не указан код комнаты");
 } else {
-  startPeer();
+  show("Подключение к монитору...");
+  GLAZOK.initIce().then(startPeer);   // сначала получаем данные TURN, потом создаём Peer
 }
 
 window.addEventListener("beforeunload", () => {

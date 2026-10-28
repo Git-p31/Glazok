@@ -266,6 +266,25 @@
         .dot { width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 10px var(--green); }
         .dot.warning { background: var(--yellow); box-shadow: 0 0 10px var(--yellow); }
         .dot.bad { background: var(--red); box-shadow: 0 0 10px var(--red); }
+        .dot.idle { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+
+        .name-input {
+            width: 100%;
+            height: 48px;
+            padding: 0 16px;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: #fff;
+            font-size: 15px;
+            text-align: center;
+        }
+        .name-input::placeholder { color: #4b5563; }
+        .field-hint { margin-top: -6px; color: var(--muted); font-size: 11px; line-height: 1.4; text-align: center; }
+
+        .standby-note { align-self: center; max-width: 320px; padding: 14px 18px; border-radius: 16px; background: rgba(8,8,12,.72); border: 1px solid rgba(255,255,255,.12); backdrop-filter: blur(20px); color: #fff; font-size: 13px; line-height: 1.5; text-align: center; }
+        .standby-note[hidden] { display: none; }
+        .standby-note strong { display: block; margin-bottom: 4px; font-size: 14px; }
 
         .bottom { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
 
@@ -367,6 +386,9 @@
 
 <input id="connection-code" class="code-input" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text" placeholder="ABC123">
 
+        <input id="device-name" class="name-input" maxlength="40" autocomplete="off" spellcheck="false" placeholder="Название телефона">
+        <div id="device-name-hint" class="field-hint">Покажется на мониторе. Если пусто — будет использована модель, определённая браузером.</div>
+
         <div class="quality-row">
             <div class="field">
                 <div class="field-label">Разрешение</div>
@@ -439,6 +461,11 @@
                 </div>
             </div>
 
+            <div id="standby-note" class="standby-note" hidden>
+                <strong>Ожидание эфира</strong>
+                Телефон подключён. Видео не передаётся, пока оператор не нажмёт «Запустить эфир» на мониторе.
+            </div>
+
             <div class="bottom-wrap">
 
 <div id="zoom-panel" class="pill zoom-panel" hidden>
@@ -507,9 +534,10 @@ const zoomRange = $("zoom-range");
 const zoomLabel = $("zoom-label");
 const prioritySelect = $("priority-select");
 const audioSelect = $("audio-select");
+const deviceNameInput = $("device-name");
+const standbyNote = $("standby-note");
 
 const CODE_RE = /^[a-z0-9]{6}$/i;
-const MAX_REDIALS = 12;
 
 const state = {
   peer: null,
@@ -542,10 +570,18 @@ const state = {
   audioTrack: null,
   token: null,
   priority: "detail",
-  cid: GLAZOK.randomId(10)
+  cid: GLAZOK.deviceId(),     // постоянный ID: не меняется при обновлении страницы
+  model: "",
+  customName: "",
+  battery: null,
+  charging: false,
+  hasBattery: false,
+  wantLive: false,            // монитор велел транслировать именно с этого телефона
+  denied: false,
+  statusTimer: null,
+  linkTimer: null,
+  callStartedAt: 0
 };
-
-const PEER_CONFIG = GLAZOK.peerOptions();
 
 /* Лестница качества. height — короткая сторона кадра. */
 const LEVELS = [
@@ -582,6 +618,7 @@ function setStatus(text, type = "ok") {
   statusDot.className = "dot";
   if (type === "warning") statusDot.classList.add("warning");
   if (type === "bad") statusDot.classList.add("bad");
+  if (type === "idle") statusDot.classList.add("idle");
 }
 
 function describeError(error) {
@@ -873,7 +910,12 @@ async function setZoom(value) {
     } catch (error) {
       console.warn("zoom failed:", error);
       toast("Зум недоступен");
-      break;
+      state.zoom = null;
+      zoomPanel.hidden = true;
+      sendCtrl({ type: "zoom-failed" });   // монитор переключится на цифровое увеличение
+      zoomPending = null;
+      zoomBusy = false;
+      return;
     }
   }
   zoomBusy = false;
@@ -882,6 +924,14 @@ async function setZoom(value) {
 }
 
 /* ---------- Канал управления с монитором ---------- */
+
+/*
+ * Схема работы:
+ *  1. Телефон подключается к монитору ТОЛЬКО каналом управления (данные, без видео)
+ *     и переходит в режим ожидания.
+ *  2. Видеозвонок создаётся лишь после команды "go-live" от монитора и закрывается
+ *     по команде "go-idle". Поэтому одновременно видео шлёт максимум один телефон.
+ */
 
 function sendCtrl(message) {
   if (state.ctrl && state.ctrl.open) {
@@ -893,17 +943,131 @@ function sendCaps() {
   sendCtrl({ type: "caps", zoom: state.zoom ? { min: state.zoom.min, max: state.zoom.max, step: state.zoom.step, value: state.zoom.value } : null });
 }
 
-function openControl() {
-  if (state.ctrl) { try { state.ctrl.close(); } catch {} state.ctrl = null; }
-  if (!state.peer || state.peer.destroyed || state.peer.disconnected) return;
-  const conn = state.peer.connect("glz-" + state.room, { reliable: true, metadata: { cid: state.cid } });
-  state.ctrl = conn;
-  conn.on("open", sendCaps);
-  conn.on("data", data => {
-    if (data && data.type === "zoom" && typeof data.value === "number") setZoom(data.value);
+function sendStatus() {
+  sendCtrl({
+    type: "status",
+    cid: state.cid,
+    model: state.model,
+    name: state.customName,
+    battery: state.battery,
+    charging: state.charging,
+    hasBattery: state.hasBattery,
+    live: state.wantLive
   });
-  conn.on("close", () => { if (state.ctrl === conn) state.ctrl = null; });
-  conn.on("error", () => {});
+}
+
+function startStatusTimer() {
+  stopStatusTimer();
+  state.statusTimer = setInterval(sendStatus, 4000);
+}
+
+function stopStatusTimer() {
+  if (state.statusTimer) { clearInterval(state.statusTimer); state.statusTimer = null; }
+}
+
+function showStandby() {
+  if (state.stopping) return;
+  standbyNote.hidden = state.wantLive;
+  if (!state.wantLive) setStatus("ОЖИДАНИЕ", "idle");
+}
+
+async function initBattery() {
+  if (!navigator.getBattery) return;       // iPhone/Safari и Firefox: API нет — монитор покажет «н/д»
+  try {
+    const battery = await navigator.getBattery();
+    state.hasBattery = true;
+    const update = () => {
+      state.battery = Math.round(battery.level * 100);
+      state.charging = !!battery.charging;
+      sendStatus();
+    };
+    update();
+    battery.addEventListener("levelchange", update);
+    battery.addEventListener("chargingchange", update);
+  } catch (error) {
+    console.warn("Battery API:", error);
+  }
+}
+
+function openControl() {
+  if (state.ctrl) { const old = state.ctrl; state.ctrl = null; try { old.close(); } catch {} }
+  const peer = state.peer;
+  if (!peer || peer.destroyed || peer.disconnected || !peer.open) return;
+
+  const conn = peer.connect("glz-" + state.room, {
+    reliable: true,
+    metadata: { role: "camera", cid: state.cid, token: state.token, model: state.model, name: state.customName }
+  });
+  state.ctrl = conn;
+
+  conn.on("open", () => {
+    if (state.ctrl !== conn) return;
+    state.retry = 0;
+    sendStatus();
+    sendCaps();
+    startStatusTimer();
+    if (state.wantLive && !state.connected) makeCall(); else showStandby();
+  });
+
+  conn.on("data", data => { if (state.ctrl === conn) onCtrlData(data); });
+
+  const lost = () => {
+    if (state.ctrl !== conn) return;
+    state.ctrl = null;
+    stopStatusTimer();
+    if (state.stopping || state.denied) return;
+    if (!state.wantLive) setStatus("ПОДКЛЮЧЕНИЕ К МОНИТОРУ", "warning");
+    scheduleRedial(false);
+  };
+  conn.on("close", lost);
+  conn.on("error", lost);
+}
+
+function onCtrlData(data) {
+  if (!data || typeof data !== "object") return;
+  switch (data.type) {
+    case "zoom":
+      if (typeof data.value === "number") setZoom(data.value);
+      break;
+    case "go-live":
+      state.wantLive = true;
+      standbyNote.hidden = true;
+      if (!state.connected || !state.call) makeCall();
+      break;
+    case "go-idle":
+      state.wantLive = false;
+      clearTimeout(state.redialTimer);
+      closeCall();
+      showStandby();
+      sendStatus();
+      break;
+    case "need-caps":
+      sendCaps();
+      sendStatus();
+      break;
+    case "denied":
+      state.denied = true;
+      state.wantLive = false;
+      closeCall();
+      setStatus("МОНИТОР ОТКЛОНИЛ ПОДКЛЮЧЕНИЕ", "bad");
+      toast("Монитор отклонил подключение");
+      break;
+  }
+}
+
+/* Проверяет всё по кругу: peer → канал управления → (если велено) видеозвонок. */
+function ensureLink() {
+  if (state.stopping || state.denied || !state.stream) return;
+  const peer = state.peer;
+  if (!peer || peer.destroyed) { createPeer(); return; }
+  if (peer.disconnected) { try { peer.reconnect(); } catch { createPeer(); } return; }
+  if (!peer.open) return;
+  if (!state.ctrl || !state.ctrl.open) {
+    // канал ещё устанавливается — не трогаем его первые 8 секунд
+    if (!state.ctrl || Date.now() - (state.ctrlStartedAt || 0) > 8000) { state.ctrlStartedAt = Date.now(); openControl(); }
+    return;
+  }
+  if (state.wantLive && !state.connected && (!state.call || Date.now() - state.callStartedAt > 20000)) makeCall();
 }
 
 /* ---------- Подключение ---------- */
@@ -920,11 +1084,15 @@ async function connectCamera() {
 
   state.room = code.toLowerCase();
   state.stopping = false;
+  state.denied = false;
+  state.wantLive = false;
   state.retry = 0;
   state.fpsCap = Number(fpsSelect.value) >= 60 ? 60 : 30;
   state.maxLevel = levelIndex(Number(resSelect.value), state.fpsCap);
   state.currentLevel = state.maxLevel;
   state.priority = prioritySelect.value;
+  state.customName = deviceNameInput.value.trim().slice(0, 40);
+  try { localStorage.setItem("glazok_device_name", state.customName); } catch {}
 
   try {
     setStatus("КАМЕРА", "warning");
@@ -934,7 +1102,12 @@ async function connectCamera() {
     useStream(stream);
     if (audioSelect.value === "1") await openAudio();
     requestWakeLock();
+    setStatus("ПОДКЛЮЧЕНИЕ К МОНИТОРУ", "warning");
+    await GLAZOK.initIce();          // данные TURN должны быть получены до создания Peer
+    await state.modelReady;
     createPeer();
+    clearInterval(state.linkTimer);
+    state.linkTimer = setInterval(ensureLink, 5000);
   } catch (error) {
     console.error("Camera start error:", error);
     stopStream();
@@ -973,7 +1146,8 @@ function buildOutStream() {
 
 function destroyPeer() {
   closeCall();
-  if (state.ctrl) { try { state.ctrl.close(); } catch {} state.ctrl = null; }
+  stopStatusTimer();
+  if (state.ctrl) { const c = state.ctrl; state.ctrl = null; try { c.close(); } catch {} }
   if (state.peer) {
     const p = state.peer;
     state.peer = null;
@@ -983,12 +1157,12 @@ function destroyPeer() {
 
 function createPeer() {
   destroyPeer();
-  const peer = new Peer(undefined, PEER_CONFIG);
+  const peer = new Peer(undefined, GLAZOK.peerOptions());
   state.peer = peer;
 
   peer.on("open", () => {
     if (state.peer !== peer || state.stopping) return;
-    if (!state.connected) makeCall();
+    ensureLink();
   });
 
   peer.on("disconnected", () => {
@@ -1025,27 +1199,21 @@ function closeCall() {
 }
 
 function scheduleRedial(recreatePeer) {
-  if (state.stopping) return;
+  if (state.stopping || state.denied) return;
   clearTimeout(state.redialTimer);
-  if (state.retry >= MAX_REDIALS) {
-    setStatus("МОНИТОР НЕ НАЙДЕН", "bad");
-    toast("Проверьте код комнаты и что монитор открыт");
-    return;
-  }
   state.retry++;
   const delay = Math.min(1000 * state.retry, 5000);
   state.redialTimer = setTimeout(() => {
-    if (state.stopping) return;
+    if (state.stopping || state.denied) return;
     const p = state.peer;
     if (recreatePeer || !p || p.destroyed) createPeer();
-    else if (p.disconnected) { try { p.reconnect(); } catch { createPeer(); } }
-    else makeCall();
+    else ensureLink();
   }, delay);
 }
 
 function makeCall() {
   const peer = state.peer;
-  if (!peer || peer.destroyed || !state.stream || state.stopping) return;
+  if (!state.wantLive || !peer || peer.destroyed || !state.stream || state.stopping) return;
   if (peer.disconnected) { try { peer.reconnect(); } catch {} return; }
 
   closeCall();
@@ -1058,27 +1226,32 @@ function makeCall() {
     return;
   }
   state.call = call;
-  setStatus("ПОДКЛЮЧЕНИЕ…", "warning");
+  state.callStartedAt = Date.now();
+  setStatus("ЗАПУСК ЭФИРА…", "warning");
 
   call.on("stream", () => { if (state.call === call) markLive(); });
   call.on("close", () => {
     if (state.call !== call || state.stopping) return;
+    state.call = null;
     state.connected = false;
     stopAdaptiveMonitoring();
+    if (!state.wantLive) return;
     setStatus("ПЕРЕПОДКЛЮЧЕНИЕ…", "warning");
     scheduleRedial(false);
   });
   call.on("error", error => {
     console.warn("Call error:", error);
     if (state.call !== call || state.stopping) return;
+    state.call = null;
     state.connected = false;
-    scheduleRedial(false);
+    if (state.wantLive) scheduleRedial(false);
   });
 
   watchConnection(call);
 }
 
 function markLive() {
+  if (!state.wantLive) return;
   if (!state.connected) {
     state.connected = true;
     state.retry = 0;
@@ -1088,7 +1261,8 @@ function markLive() {
     updateLocalQuality();
   }
   setStatus("LIVE");
-  if (!state.ctrl) openControl();
+  standbyNote.hidden = true;
+  sendStatus();
   if (!state.statsTimer) startAdaptiveMonitoring();
 }
 
@@ -1111,7 +1285,7 @@ function watchConnection(call) {
 function attachPc(call, pc) {
   configureSender();
   const onState = () => {
-    if (state.call !== call || state.stopping) return;
+    if (state.call !== call || state.stopping || !state.wantLive) return;
     const s = pc.connectionState || pc.iceConnectionState;
     clearTimeout(state.dropTimer);
     if (s === "connected" || s === "completed") {
@@ -1120,12 +1294,13 @@ function attachPc(call, pc) {
       state.connected = false;
       setStatus("СВЯЗЬ НЕСТАБИЛЬНА", "warning");
       state.dropTimer = setTimeout(() => {
-        if (state.call === call && !state.connected) scheduleRedial(false);
+        if (state.call === call && !state.connected && state.wantLive) scheduleRedial(false);
       }, 6000);
     } else if (s === "failed" || s === "closed") {
       state.connected = false;
       stopAdaptiveMonitoring();
       setStatus("ПЕРЕПОДКЛЮЧЕНИЕ…", "warning");
+      closeCall();
       scheduleRedial(false);
     }
   };
@@ -1211,7 +1386,7 @@ async function updateNetworkDisplay() {
 }
 
 async function evaluateNetwork() {
-  if (!adaptiveToggle.checked || !state.connected) return;
+  if (!adaptiveToggle.checked || !state.connected || !state.wantLive) return;
   const s = await readStats();
   if (!s) return;
   if (s.availableBitrate !== null) networkInfo.textContent = formatBitrate(s.availableBitrate);
@@ -1329,8 +1504,13 @@ async function flipCamera() {
 }
 
 function stopCamera() {
+  sendCtrl({ type: "bye" });      // монитор сразу уберёт телефон из списка
   state.stopping = true;
+  state.wantLive = false;
   clearTimeout(state.redialTimer);
+  clearInterval(state.linkTimer);
+  state.linkTimer = null;
+  standbyNote.hidden = true;
   closeScanner();
   destroyPeer();
   stopStream();
@@ -1395,15 +1575,25 @@ cameraView.addEventListener("touchend", e => { if (e.touches.length < 2) pinch =
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible" && state.stream && !state.stopping) {
     requestWakeLock();
-    if (!state.connected && state.peer) scheduleRedial(false);
+    state.retry = 0;
+    ensureLink();
   }
 });
 
 window.addEventListener("online", () => {
-  if (state.stream && !state.stopping && !state.connected) { state.retry = 0; scheduleRedial(true); }
+  if (state.stream && !state.stopping) { state.retry = 0; ensureLink(); }
 });
 
 window.addEventListener("DOMContentLoaded", () => {
+  GLAZOK.initIce();   // заранее запрашиваем TURN, пока пользователь вводит код
+  initBattery();
+  try { deviceNameInput.value = localStorage.getItem("glazok_device_name") || ""; } catch {}
+  state.modelReady = GLAZOK.detectModel().then(model => {
+    state.model = model;
+    if (model) deviceNameInput.placeholder = model + " (определено автоматически)";
+    else deviceNameInput.placeholder = "Например: iPhone 15 Pro";
+  });
+
   const params = new URLSearchParams(window.location.search);
   const mode = params.get("m");
   const room = parseRoom(params.get("room"));
@@ -1424,6 +1614,7 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 
 window.addEventListener("beforeunload", () => {
+  sendCtrl({ type: "bye" });
   state.stopping = true;
   stopAdaptiveMonitoring();
   stopStream();

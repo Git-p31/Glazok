@@ -2,17 +2,42 @@
 
 /*
  * Общие настройки Glazok. Подключается во всех страницах перед основным скриптом.
+ *
+ * ВАЖНО ПРО TURN: в этом файле НЕТ логинов и паролей TURN — репозиторий публичный.
+ * Данные TURN запрашиваются при запуске страницы одним из двух способов (см. TURN ниже):
+ *   1) через свой прокси (Cloudflare Worker из папки worker/) — секретный ключ хранится
+ *      только в настройках Worker, наружу выдаются временные логин/пароль;
+ *   2) напрямую из Metered по apiKey учётных данных (Metered считает его безопасным
+ *      для фронтенда, но он даёт доступ к вашей квоте трафика).
+ * Если не настроено ничего — работает только STUN: связь внутри одной Wi-Fi сети есть,
+ * а между разными сетями (мобильный интернет ↔ Wi-Fi) может не соединиться.
  */
 window.GLAZOK = {
-  /* ВАЖНО: ключи TURN лежат в публичном репозитории. Перевыпустите их в панели Metered
-     и по возможности выдавайте временные ключи с сервера. */
-  ICE_SERVERS: [
+  TURN: {
+    /* Способ 1 (рекомендуется): адрес вашего Worker, например
+       "https://glazok-turn.your-name.workers.dev/turn" */
+    endpoint: "",
+
+    /* Способ 2: имя приложения Metered (до ".metered.live") и apiKey УЧЁТНЫХ ДАННЫХ
+       (Dashboard → TURN Server → credential → apiKey). Это не secretKey! */
+    meteredApp: "",
+    meteredApiKey: "",
+
+    /* Сколько минут держать полученные данные в sessionStorage */
+    cacheMinutes: 20,
+    timeoutMs: 6000
+  },
+
+  /* Запасной вариант без TURN */
+  ICE_FALLBACK: [
     { urls: "stun:stun.relay.metered.ca:80" },
-    { urls: "turn:standard.relay.metered.ca:80", username: "35162de63b0eb72fbb27f4e3", credential: "ZbW2aJl3WmRUyOss" },
-    { urls: "turn:standard.relay.metered.ca:80?transport=tcp", username: "35162de63b0eb72fbb27f4e3", credential: "ZbW2aJl3WmRUyOss" },
-    { urls: "turn:standard.relay.metered.ca:443", username: "35162de63b0eb72fbb27f4e3", credential: "ZbW2aJl3WmRUyOss" },
-    { urls: "turns:standard.relay.metered.ca:443?transport=tcp", username: "35162de63b0eb72fbb27f4e3", credential: "ZbW2aJl3WmRUyOss" }
+    { urls: "stun:stun.l.google.com:19302" }
   ],
+
+  /* Заполняются в initIce() */
+  ICE_SERVERS: null,
+  iceSource: "none",       // "endpoint" | "metered" | "cache" | "stun-only"
+  iceError: "",
 
   /* Свой PeerServer (надёжнее публичного облака). Пример:
      { host: "peer.example.com", port: 443, path: "/", secure: true }
@@ -22,10 +47,187 @@ window.GLAZOK = {
   /* Битрейт, с которым монитор пересылает видео на «Чистый вывод» (OBS), бит/с */
   VIEWER_BITRATE: 15000000,
 
+  /* ?relay=1 в адресе страницы — принудительно гнать всё через TURN (проверка «разные сети») */
+  forceRelay: /[?&]relay=1\b/.test(location.search),
+
+  /* ---------- ICE / TURN ---------- */
+
+  _icePromise: null,
+
+  /* Вызывать и ждать ПЕРЕД созданием Peer. Повторные вызовы возвращают тот же результат. */
+  initIce() {
+    if (this._icePromise) return this._icePromise;
+    this._icePromise = this._loadIce();
+    return this._icePromise;
+  },
+
+  async _loadIce() {
+    const cfg = this.TURN;
+    const cacheKey = "glazok_ice_v1";
+    try {
+      const cached = JSON.parse(sessionStorage.getItem(cacheKey) || "null");
+      if (cached && cached.expires > Date.now() && Array.isArray(cached.servers) && cached.servers.length) {
+        this.ICE_SERVERS = cached.servers;
+        this.iceSource = "cache";
+        return this.ICE_SERVERS;
+      }
+    } catch {}
+
+    let url = "";
+    let source = "";
+    if (cfg.endpoint) { url = cfg.endpoint; source = "endpoint"; }
+    else if (cfg.meteredApp && cfg.meteredApiKey) {
+      url = "https://" + cfg.meteredApp + ".metered.live/api/v1/turn/credentials?apiKey=" + encodeURIComponent(cfg.meteredApiKey);
+      source = "metered";
+    }
+
+    if (!url) {
+      this.ICE_SERVERS = this.ICE_FALLBACK;
+      this.iceSource = "stun-only";
+      this.iceError = "TURN не настроен (см. config.js → TURN)";
+      return this.ICE_SERVERS;
+    }
+
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), cfg.timeoutMs || 6000);
+      const response = await fetch(url, { cache: "no-store", signal: ctrl.signal });
+      clearTimeout(timer);
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      let data = await response.json();
+      if (data && !Array.isArray(data) && Array.isArray(data.iceServers)) data = data.iceServers;
+      if (!Array.isArray(data) || !data.length) throw new Error("пустой ответ");
+      const hasTurn = data.some(s => [].concat(s.urls || []).some(u => /^turns?:/i.test(u)));
+      if (!hasTurn) throw new Error("в ответе нет TURN-серверов");
+      this.ICE_SERVERS = data;
+      this.iceSource = source;
+      this.iceError = "";
+      try {
+        sessionStorage.setItem(cacheKey, JSON.stringify({
+          servers: data,
+          expires: Date.now() + (cfg.cacheMinutes || 20) * 60000
+        }));
+      } catch {}
+    } catch (error) {
+      console.warn("TURN: не удалось получить данные:", error);
+      this.ICE_SERVERS = this.ICE_FALLBACK;
+      this.iceSource = "stun-only";
+      this.iceError = "TURN недоступен: " + (error && error.message ? error.message : error);
+    }
+    return this.ICE_SERVERS;
+  },
+
   peerOptions() {
-    const options = { config: { iceServers: this.ICE_SERVERS, sdpSemantics: "unified-plan" } };
+    const config = {
+      iceServers: this.ICE_SERVERS || this.ICE_FALLBACK,
+      sdpSemantics: "unified-plan",
+      iceCandidatePoolSize: 2
+    };
+    if (this.forceRelay) config.iceTransportPolicy = "relay";
+    const options = { config };
     if (this.PEER_SERVER) Object.assign(options, this.PEER_SERVER);
     return options;
+  },
+
+  /*
+   * Проверка TURN: собираем ICE-кандидаты и смотрим, появились ли relay-кандидаты.
+   * relay > 0  → TURN работает (логин/пароль приняты), видео пройдёт между любыми сетями.
+   * relay = 0  → TURN недоступен или ключи недействительны.
+   */
+  async testTurn(timeoutMs) {
+    await this.initIce();
+    const result = { source: this.iceSource, host: 0, srflx: 0, relay: 0, error: this.iceError || "", ms: 0 };
+    const started = performance.now();
+    let pc = null;
+    try {
+      pc = new RTCPeerConnection({ iceServers: this.ICE_SERVERS });
+      pc.createDataChannel("probe");
+      await new Promise(async resolve => {
+        const done = () => resolve();
+        const timer = setTimeout(done, timeoutMs || 7000);
+        pc.onicecandidate = e => {
+          if (!e.candidate) { clearTimeout(timer); done(); return; }
+          const m = / typ (host|srflx|relay|prflx) /.exec(e.candidate.candidate);
+          if (m && result[m[1]] !== undefined) result[m[1]]++;
+          if (result.relay > 0) { clearTimeout(timer); done(); }
+        };
+        try { await pc.setLocalDescription(await pc.createOffer()); } catch (error) { result.error = String(error); done(); }
+      });
+    } catch (error) {
+      result.error = String(error && error.message || error);
+    } finally {
+      if (pc) try { pc.close(); } catch {}
+    }
+    result.ms = Math.round(performance.now() - started);
+    return result;
+  },
+
+  /* Как реально идёт видео: "host" (локальная сеть), "srflx" (напрямую через интернет), "relay" (через TURN) */
+  async routeType(pc) {
+    try {
+      const reports = await pc.getStats();
+      let pairId = null;
+      reports.forEach(r => { if (r.type === "transport" && r.selectedCandidatePairId) pairId = r.selectedCandidatePairId; });
+      let pair = pairId ? reports.get(pairId) : null;
+      if (!pair) reports.forEach(r => { if (r.type === "candidate-pair" && r.nominated && r.state === "succeeded") pair = r; });
+      if (!pair) return null;
+      const local = reports.get(pair.localCandidateId);
+      const remote = reports.get(pair.remoteCandidateId);
+      const types = [local && local.candidateType, remote && remote.candidateType];
+      if (types.includes("relay")) return "relay";
+      if (types.includes("srflx") || types.includes("prflx")) return "srflx";
+      return "host";
+    } catch { return null; }
+  },
+
+  routeLabel(type) {
+    return { host: "Wi‑Fi / локальная сеть", srflx: "напрямую через интернет", relay: "через TURN" }[type] || "—";
+  },
+
+  /* ---------- Устройство ---------- */
+
+  /* Постоянный ID телефона: переживает обновление страницы, поэтому монитор не плодит дубликаты. */
+  deviceId() {
+    try {
+      let id = localStorage.getItem("glazok_device_id");
+      if (!id || !/^[a-z0-9]{10,}$/.test(id)) {
+        id = this.randomId(12);
+        localStorage.setItem("glazok_device_id", id);
+      }
+      return id;
+    } catch {
+      return this.randomId(12);
+    }
+  },
+
+  /*
+   * Модель телефона. Браузеры почти не отдают её сами:
+   *  • Chrome/Edge на Android — через userAgentData.getHighEntropyValues("model");
+   *  • iPhone/Safari и Firefox — модель недоступна (Apple и Mozilla это скрывают).
+   * Поэтому пользователь может ввести название вручную (поле на экране камеры),
+   * а на мониторе его можно переименовать кнопкой ✎.
+   */
+  async detectModel() {
+    let model = "";
+    try {
+      const uad = navigator.userAgentData;
+      if (uad && uad.getHighEntropyValues) {
+        const high = await uad.getHighEntropyValues(["model"]);
+        model = String(high.model || "").trim();
+      }
+    } catch {}
+    const ua = navigator.userAgent || "";
+    if (!model || model.length < 2) {
+      const m = /Android[^;)]*;\s*([^;)]+?)(?:\s+Build\/[^;)]*)?[;)]/.exec(ua);
+      const guess = m ? m[1].trim() : "";
+      model = guess.length >= 2 && !/^(K|Android|Linux)$/i.test(guess) ? guess : "";
+    }
+    if (!model) {
+      if (/iPhone/.test(ua)) model = "iPhone";
+      else if (/iPad/.test(ua)) model = "iPad";
+      else if (/Android/.test(ua)) model = "Android-телефон";
+    }
+    return model;
   },
 
   randomId(length, alphabet) {
