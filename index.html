@@ -1,504 +1,252 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-    <meta name="theme-color" content="#050508">
-    <title>Glazok Studio</title>
-    <link rel="manifest" href="./manifest.webmanifest">
-    <link rel="icon" href="./icon.svg">
-    <script src="./config.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#07080d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Glazok — камера</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+<link rel="stylesheet" href="./glazok.css">
+<script src="./config.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<style>
+  body { overflow-x: hidden; }
+  .screen { display: none; min-height: 100dvh; padding: max(22px, env(safe-area-inset-top)) 22px max(22px, env(safe-area-inset-bottom)); flex-direction: column; }
+  .screen.active { display: flex; }
 
-    <style>
-        :root {
-            --bg: #050508;
-            --surface: rgba(255,255,255,.055);
-            --surface-strong: rgba(15,15,22,.92);
-            --border: rgba(255,255,255,.10);
-            --text: #f8fafc;
-            --muted: #788195;
-            --accent: #6366f1;
-            --green: #10b981;
-            --red: #ef4444;
-            --yellow: #f59e0b;
-            --radius: 18px;
-            --pill: 999px;
-        }
+  /* Старт */
+  #screen-start { justify-content: center; align-items: center; gap: 34px; }
+  .hero { text-align: center; }
+  .logo-mark { width: 76px; height: 76px; margin: 0 auto 18px; border-radius: 24px; background: var(--grad); display: grid; place-items: center; color: #0b0c14; box-shadow: 0 16px 50px rgba(124, 131, 255, .45); }
+  .logo-mark .icon { width: 38px; height: 38px; }
+  .logo-name { font-size: 34px; font-weight: 800; letter-spacing: -.03em; }
+  .tagline { margin-top: 6px; color: var(--muted); font-size: 14.5px; }
+  .modes { width: min(420px, 100%); display: flex; flex-direction: column; gap: 12px; }
+  .mode { display: flex; align-items: center; gap: 16px; width: 100%; padding: 18px; text-align: left; border-radius: 20px; background: linear-gradient(160deg, var(--card-2), var(--card)); border: 1px solid var(--line); transition: transform .18s var(--ease), border-color .18s, background .18s; }
+  .mode:hover { border-color: var(--line-2); }
+  .mode:active { transform: scale(.98); }
+  .mode-icon { width: 50px; height: 50px; flex: 0 0 50px; border-radius: 16px; display: grid; place-items: center; background: rgba(124, 131, 255, .14); color: var(--accent-2); }
+  .mode-title { font-size: 16px; font-weight: 700; }
+  .mode-description { margin-top: 2px; color: var(--muted); font-size: 12.5px; line-height: 1.4; }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            -webkit-tap-highlight-color: transparent;
-        }
+  /* Подключение */
+  #camera-connect { display: flex; flex-direction: column; gap: 16px; width: min(460px, 100%); margin: 0 auto; flex: 1; }
+  .connect-top { display: flex; align-items: center; gap: 10px; }
+  .connect-title { font-size: 24px; font-weight: 800; letter-spacing: -.02em; }
+  .connect-description { margin-top: -6px; color: var(--muted); font-size: 13.5px; }
+  #scan-btn { min-height: 62px; font-size: 16px; }
+  .divider { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 12px; }
+  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+  .code-input { text-align: center; text-transform: uppercase; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 28px; font-weight: 800; letter-spacing: .32em; min-height: 62px; padding-left: calc(16px + .32em); }
+  .code-input::placeholder { letter-spacing: .32em; }
+  .name-input { text-align: center; }
+  details.adv { border-radius: var(--radius); background: var(--card); border: 1px solid var(--line); }
+  details.adv summary { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; cursor: pointer; list-style: none; font-weight: 650; }
+  details.adv summary::-webkit-details-marker { display: none; }
+  details.adv summary::after { content: ""; width: 8px; height: 8px; margin-left: 10px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); transition: transform .2s; flex: 0 0 auto; }
+  details.adv[open] summary::after { transform: rotate(-135deg); }
+  details.adv summary span { margin-left: auto; }
+  details.adv summary span { color: var(--muted); font-weight: 500; font-size: 12.5px; }
+  .adv-body { display: flex; flex-direction: column; gap: 12px; padding: 0 16px 16px; }
+  .quality-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .adaptive-box { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 14px; border-radius: var(--radius-sm); background: rgba(255, 255, 255, .04); border: 1px solid var(--line); }
+  .adaptive-text strong { display: block; font-size: 13.5px; }
+  .adaptive-text span { color: var(--muted); font-size: 12px; line-height: 1.4; }
+  .connect-actions { display: flex; flex-direction: column; gap: 10px; margin-top: auto; padding-top: 6px; }
 
-        html, body {
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background: var(--bg);
-            color: var(--text);
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, Arial, sans-serif;
-        }
+  /* Камера */
+  #camera-view { display: none; position: fixed; inset: 0; z-index: 10; background: #000; }
+  #camera-view.active { display: block; }
+  #camera-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .camera-ui { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; padding: max(14px, env(safe-area-inset-top)) 14px max(16px, env(safe-area-inset-bottom)); background: linear-gradient(180deg, rgba(0, 0, 0, .55), transparent 22%, transparent 62%, rgba(0, 0, 0, .7)); }
+  .top-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .stats { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 13px; border-radius: var(--pill); background: rgba(8, 9, 14, .62); border: 1px solid rgba(255, 255, 255, .13); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); font-size: 12px; font-weight: 700; letter-spacing: .02em; white-space: nowrap; }
+  .standby-note { align-self: center; max-width: 330px; padding: 18px 20px; border-radius: 22px; background: rgba(8, 9, 14, .72); border: 1px solid rgba(255, 255, 255, .13); backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px); font-size: 13px; line-height: 1.55; color: #cbd2e1; text-align: center; }
+  .standby-note strong { display: block; margin-bottom: 4px; font-size: 16px; color: #fff; }
+  .bottom-wrap { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+  .zoom-panel { width: min(440px, 100%); gap: 12px; padding: 0 16px; min-height: 44px; }
+  .zoom-panel input[type=range] { flex: 1; accent-color: var(--accent-2); }
+  .zoom-label { min-width: 42px; text-align: right; font-variant-numeric: tabular-nums; }
+  .bottom { display: flex; gap: 10px; width: min(440px, 100%); }
+  .action { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-height: 64px; border-radius: 20px; background: rgba(8, 9, 14, .62); border: 1px solid rgba(255, 255, 255, .13); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); font-size: 11.5px; font-weight: 700; transition: transform .15s var(--ease), background .15s; }
+  .action:active { transform: scale(.95); }
+  .action.on { background: rgba(251, 191, 36, .22); border-color: rgba(251, 191, 36, .55); color: #fde68a; }
+  .action.stop { background: rgba(248, 113, 113, .2); border-color: rgba(248, 113, 113, .5); color: #fecaca; }
 
-        button, input, select {
-            font: inherit;
-            color: inherit;
-            border: 0;
-            outline: 0;
-        }
+  /* Сканер */
+  #scanner { display: none; position: fixed; inset: 0; z-index: 50; background: #000; }
+  #scanner.active { display: block; }
+  #scan-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .scan-frame { position: absolute; left: 50%; top: 46%; width: min(68vw, 300px); aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 28px; box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .62); border: 2px solid rgba(255, 255, 255, .85); }
+  .scan-hint { position: absolute; left: 0; right: 0; top: calc(46% + min(34vw, 150px) + 28px); text-align: center; font-weight: 650; padding: 0 24px; }
+  .scan-close { position: absolute; left: 50%; bottom: max(30px, env(safe-area-inset-bottom)); transform: translateX(-50%); }
 
-        button { cursor: pointer; }
-
-        .screen {
-            position: fixed;
-            inset: 0;
-            display: none;
-            width: 100%;
-            height: 100%;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .screen.active { display: flex; }
-
-        /* START SCREEN */
-        #screen-start {
-            padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom)) 24px;
-            background: radial-gradient(700px circle at 50% 10%, rgba(99,102,241,.18), transparent 70%), var(--bg);
-        }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 32px;
-        }
-
-        .logo-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: var(--accent);
-            box-shadow: 0 0 20px rgba(99,102,241,.8);
-        }
-
-        .logo-name {
-            font-size: 28px;
-            font-weight: 700;
-        }
-
-        .modes {
-            width: min(100%, 360px);
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .mode {
-            width: 100%;
-            padding: 20px;
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            border-radius: var(--radius);
-            border: 1px solid var(--border);
-            background: var(--surface);
-            color: var(--text);
-            text-align: left;
-            transition: transform .15s ease, background .15s ease, border-color .15s ease;
-        }
-
-        .mode:hover {
-            background: rgba(255,255,255,.08);
-            border-color: rgba(255,255,255,.16);
-        }
-
-        .mode:active { transform: scale(.98); }
-
-        .mode-icon {
-            width: 44px;
-            height: 44px;
-            flex: 0 0 44px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 14px;
-            background: rgba(99,102,241,.15);
-            font-size: 21px;
-        }
-
-        .mode-title { font-size: 15px; font-weight: 700; }
-        .mode-description { margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.4; }
-
-        /* CAMERA CONNECT */
-        #screen-camera { background: #000; }
-
-        #camera-connect {
-            width: min(calc(100% - 40px), 390px);
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-        }
-
-        .connect-title { margin-bottom: 4px; font-size: 25px; font-weight: 700; text-align: center; }
-        .connect-description { margin-bottom: 12px; color: var(--muted); font-size: 13px; line-height: 1.5; text-align: center; }
-
-        .code-input {
-            width: 100%;
-            height: 64px;
-            padding: 0 20px;
-            border-radius: var(--radius);
-            border: 1px solid var(--border);
-            background: var(--surface);
-            color: #fff;
-            font-family: monospace;
-            font-size: 26px;
-            font-weight: 700;
-            text-align: center;
-            letter-spacing: .18em;
-            text-transform: uppercase;
-        }
-
-        .code-input::placeholder { color: #4b5563; }
-
-        .quality-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .field { display: flex; flex-direction: column; gap: 7px; }
-        .field-label { padding-left: 4px; color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
-
-        .select {
-            width: 100%;
-            height: 50px;
-            padding: 0 14px;
-            border-radius: 14px;
-            border: 1px solid var(--border);
-            background: var(--surface-strong);
-            color: var(--text);
-            font-size: 14px;
-            font-weight: 700;
-        }
-
-        .select option { background: #111; color: #fff; }
-
-        .adaptive-box {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 15px;
-            padding: 14px 16px;
-            border: 1px solid rgba(99,102,241,.25);
-            border-radius: 14px;
-            background: rgba(99,102,241,.08);
-        }
-
-        .adaptive-text strong { display: block; font-size: 13px; }
-        .adaptive-text span { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; line-height: 1.35; }
-
-        .switch { position: relative; width: 44px; height: 26px; flex: 0 0 44px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; inset: 0; border-radius: 999px; background: #30303a; transition: .2s; }
-        .slider::before { content: ""; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px; border-radius: 50%; background: #fff; transition: .2s; }
-        .switch input:checked + .slider { background: var(--accent); }
-        .switch input:checked + .slider::before { transform: translateX(18px); }
-
-        .btn {
-            width: 100%;
-            min-height: 52px;
-            padding: 0 20px;
-            border-radius: var(--pill);
-            background: #fff;
-            color: #000;
-            font-size: 14px;
-            font-weight: 700;
-            transition: opacity .15s ease, transform .15s ease;
-        }
-
-        .btn:active { transform: scale(.98); }
-        .btn:disabled { opacity: .5; cursor: default; }
-        .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
-
-        /* CAMERA VIEW */
-        #camera-view { position: fixed; inset: 0; display: none; background: #000; }
-        #camera-view.active { display: flex; }
-
-        #camera-video {
-            position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            background: #000;
-        }
-
-        .camera-ui {
-            position: absolute;
-            inset: 0;
-            z-index: 10;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
-            pointer-events: none;
-        }
-
-        .camera-ui > * { pointer-events: auto; }
-        .top-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-
-        .pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            min-height: 38px;
-            padding: 0 13px;
-            border: 1px solid rgba(255,255,255,.12);
-            border-radius: var(--pill);
-            background: rgba(8,8,12,.72);
-            backdrop-filter: blur(20px);
-            color: #fff;
-            font-size: 12px;
-            font-weight: 700;
-        }
-
-        .stats { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
-        .dot { width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 10px var(--green); }
-        .dot.warning { background: var(--yellow); box-shadow: 0 0 10px var(--yellow); }
-        .dot.bad { background: var(--red); box-shadow: 0 0 10px var(--red); }
-        .dot.idle { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
-
-        .name-input {
-            width: 100%;
-            height: 48px;
-            padding: 0 16px;
-            border-radius: var(--radius);
-            border: 1px solid var(--border);
-            background: var(--surface);
-            color: #fff;
-            font-size: 15px;
-            text-align: center;
-        }
-        .name-input::placeholder { color: #4b5563; }
-        .field-hint { margin-top: -6px; color: var(--muted); font-size: 11px; line-height: 1.4; text-align: center; }
-
-        .standby-note { align-self: center; max-width: 320px; padding: 14px 18px; border-radius: 16px; background: rgba(8,8,12,.72); border: 1px solid rgba(255,255,255,.12); backdrop-filter: blur(20px); color: #fff; font-size: 13px; line-height: 1.5; text-align: center; }
-        .standby-note[hidden] { display: none; }
-        .standby-note strong { display: block; margin-bottom: 4px; font-size: 14px; }
-
-        .bottom { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
-
-        .action {
-            min-height: 46px;
-            padding: 0 16px;
-            border-radius: var(--pill);
-            background: rgba(8,8,12,.78);
-            color: #fff;
-            border: 1px solid rgba(255,255,255,.12);
-            backdrop-filter: blur(20px);
-            font-size: 12px;
-            font-weight: 700;
-        }
-
-        .action:active { transform: scale(.97); }
-        .stop { background: var(--red); border-color: transparent; }
-
-        /* TOAST */
-        #toast-container {
-            position: fixed;
-            left: 50%;
-            bottom: calc(80px + env(safe-area-inset-bottom));
-            transform: translateX(-50%);
-            z-index: 100;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
-            pointer-events: none;
-        }
-
-        .toast {
-            padding: 11px 16px;
-            border-radius: var(--pill);
-            background: rgba(15,15,20,.94);
-            border: 1px solid var(--border);
-            color: #fff;
-            font-size: 12px;
-            white-space: nowrap;
-        }
-    
-/* QR SCANNER */
-.divider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; }
-.divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
-#scanner { position: fixed; inset: 0; z-index: 200; display: none; align-items: center; justify-content: center; background: #000; overflow: hidden; }
-#scanner.active { display: flex; }
-#scan-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.scan-frame { position: relative; width: min(70vw, 300px); aspect-ratio: 1; border: 3px solid rgba(255,255,255,.92); border-radius: 24px; box-shadow: 0 0 0 100vmax rgba(0,0,0,.55); }
-.scan-hint { position: absolute; left: 0; right: 0; bottom: calc(112px + env(safe-area-inset-bottom)); padding: 0 24px; color: #fff; font-size: 14px; text-align: center; }
-.scan-close { position: absolute; left: 50%; bottom: calc(36px + env(safe-area-inset-bottom)); width: min(70%, 260px); transform: translateX(-50%); background: rgba(8,8,12,.82); }
-.scan-close:active { transform: translateX(-50%) scale(.98); }
-
-/* ZOOM */
-#camera-video { touch-action: none; }
-.bottom-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; }
-.zoom-panel { width: min(100%, 420px); gap: 12px; }
-.zoom-panel[hidden] { display: none; }
-.zoom-panel input[type=range] { flex: 1; min-width: 0; height: 28px; accent-color: #6366f1; background: transparent; }
-.zoom-label { min-width: 42px; text-align: right; font-variant-numeric: tabular-nums; }
+  #toast-container { position: fixed; left: 0; right: 0; top: max(14px, env(safe-area-inset-top)); z-index: 90; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
 </style>
 </head>
-
 <body>
 
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2"/></symbol>
+  <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+  <symbol id="i-scan" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></symbol>
+  <symbol id="i-flip" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M11 8v6M8 11h6"/></symbol>
+</svg>
+
 <section id="screen-start" class="screen active">
-    <div class="logo">
-        <span class="logo-dot"></span>
-        <span class="logo-name">Glazok</span>
-    </div>
+  <div class="hero">
+    <div class="logo-mark"><svg class="icon"><use href="#i-eye"/></svg></div>
+    <div class="logo-name">Glazok</div>
+    <div class="tagline">Телефон как беспроводная камера</div>
+  </div>
 
-    <div class="modes">
-        <button class="mode" data-mode="camera">
-            <div class="mode-icon">📱</div>
-            <div>
-                <div class="mode-title">Камера</div>
-                <div class="mode-description">Использовать телефон как беспроводную камеру</div>
-            </div>
-        </button>
-
-        <button class="mode" data-mode="monitor">
-            <div class="mode-icon">🖥️</div>
-            <div>
-                <div class="mode-title">Монитор</div>
-                <div class="mode-description">Создать комнату на компьютере</div>
-            </div>
-        </button>
-    </div>
+  <div class="modes">
+    <button class="mode" data-mode="camera" type="button">
+      <div class="mode-icon"><svg class="icon icon-lg"><use href="#i-phone"/></svg></div>
+      <div>
+        <div class="mode-title">Я камера</div>
+        <div class="mode-description">Подключить этот телефон к монитору</div>
+      </div>
+    </button>
+    <button class="mode" data-mode="monitor" type="button">
+      <div class="mode-icon"><svg class="icon icon-lg"><use href="#i-monitor"/></svg></div>
+      <div>
+        <div class="mode-title">Я монитор</div>
+        <div class="mode-description">Открыть студию с QR-кодом на компьютере</div>
+      </div>
+    </button>
+  </div>
 </section>
 
 <section id="screen-camera" class="screen">
-    <div id="camera-connect">
-        <div class="connect-title">Подключить камеру</div>
-        <div class="connect-description">Отсканируйте QR-код на мониторе или введите код комнаты вручную.</div>
+  <div id="camera-connect">
+    <div class="connect-top">
+      <button id="back-btn" class="btn btn-ghost btn-sm" type="button" aria-label="Назад"><svg class="icon"><use href="#i-back"/></svg>Назад</button>
+    </div>
+    <div>
+      <div class="connect-title">Подключить камеру</div>
+    </div>
+    <div class="connect-description">Отсканируйте QR-код на мониторе — всё остальное настроится само.</div>
 
-        <button id="scan-btn" class="btn" type="button">📷 Сканировать QR-код</button>
+    <button id="scan-btn" class="btn btn-primary" type="button"><svg class="icon icon-lg"><use href="#i-scan"/></svg>Сканировать QR-код</button>
 
-<div class="divider">или введите код</div>
+    <div class="divider">или введите код</div>
 
-<input id="connection-code" class="code-input" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text" placeholder="ABC123">
+    <input id="connection-code" class="input code-input" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text" placeholder="ABC123" aria-label="Код комнаты">
 
-        <input id="device-name" class="name-input" maxlength="40" autocomplete="off" spellcheck="false" placeholder="Название телефона">
-        <div id="device-name-hint" class="field-hint">Покажется на мониторе. Если пусто — будет использована модель, определённая браузером.</div>
+    <div class="field">
+      <input id="device-name" class="input name-input" maxlength="40" autocomplete="off" spellcheck="false" placeholder="Название телефона" aria-label="Название телефона">
+      <div id="device-name-hint" class="field-hint" style="text-align:center">Покажется на мониторе. Если пусто — возьмём модель из браузера.</div>
+    </div>
 
+    <details class="adv">
+      <summary>Качество видео <span>по умолчанию — максимум</span></summary>
+      <div class="adv-body">
         <div class="quality-row">
-            <div class="field">
-                <div class="field-label">Разрешение</div>
-                <select id="res-select" class="select">
-                    <option value="480">480p</option>
-                    <option value="720">720p HD</option>
-                    <option value="1080" selected>1080p Full HD</option>
-                    <option value="1440">1440p 2K</option>
-                    <option value="2160">2160p 4K</option>
-                </select>
-            </div>
-
-           
-            <div class="field">
-                <div class="field-label">Частота</div>
-                <select id="fps-select" class="select">
-                    <option value="30">30 FPS</option>
-                    <option value="60" selected>60 FPS</option>
-                    <option value="120">120 FPS</option>
-                    <option value="240">240 FPS</option>
-                </select>
-            </div>
+          <div class="field">
+            <div class="field-label">Разрешение</div>
+            <select id="res-select" class="select">
+              <option value="480">480p</option>
+              <option value="720">720p HD</option>
+              <option value="1080" selected>1080p Full HD</option>
+              <option value="1440">1440p 2K</option>
+              <option value="2160">2160p 4K</option>
+            </select>
+          </div>
+          <div class="field">
+            <div class="field-label">Частота</div>
+            <select id="fps-select" class="select">
+              <option value="30">30 FPS</option>
+              <option value="60" selected>60 FPS</option>
+              <option value="120">120 FPS</option>
+              <option value="240">240 FPS</option>
+            </select>
+          </div>
         </div>
-
         <div class="quality-row">
-            <div class="field">
-                <div class="field-label">Приоритет</div>
-                <select id="priority-select" class="select">
-                    <option value="detail" selected>Чёткость</option>
-                    <option value="motion">Плавность</option>
-                </select>
-            </div>
-            <div class="field">
-                <div class="field-label">Звук</div>
-                <select id="audio-select" class="select">
-                    <option value="0" selected>Выкл</option>
-                    <option value="1">Вкл</option>
-                </select>
-            </div>
+          <div class="field">
+            <div class="field-label">Приоритет</div>
+            <select id="priority-select" class="select">
+              <option value="detail" selected>Чёткость</option>
+              <option value="motion">Плавность</option>
+            </select>
+          </div>
+          <div class="field">
+            <div class="field-label">Звук</div>
+            <select id="audio-select" class="select">
+              <option value="0" selected>Выкл</option>
+              <option value="1">Вкл</option>
+            </select>
+          </div>
         </div>
-
         <div class="adaptive-box">
-            <div class="adaptive-text">
-                <strong>Adaptive Quality</strong>
-                <span>Автоматически снижает нагрузку при плохом интернете</span>
-            </div>
-            <label class="switch">
-                <input id="adaptive-toggle" type="checkbox" checked>
-                <span class="slider"></span>
-            </label>
+          <div class="adaptive-text">
+            <strong>Адаптивное качество</strong>
+            <span>Само снижает нагрузку при плохой связи</span>
+          </div>
+          <label class="switch">
+            <input id="adaptive-toggle" type="checkbox" checked aria-label="Адаптивное качество">
+            <span class="slider"></span>
+          </label>
         </div>
+      </div>
+    </details>
 
-        <button id="connect-btn" class="btn">Подключить камеру</button>
-        <button id="back-btn" class="btn btn-secondary">Назад</button>
+    <div class="connect-actions">
+      <button id="connect-btn" class="btn btn-light btn-lg" type="button">Подключить камеру</button>
     </div>
+  </div>
 
-    <div id="camera-view">
-        <video id="camera-video" autoplay playsinline muted></video>
+  <div id="camera-view">
+    <video id="camera-video" autoplay playsinline muted></video>
 
-        <div class="camera-ui">
-            <div class="top-row">
-                <div class="pill">
-                    <span id="status-dot" class="dot warning"></span>
-                    <span id="status-text">CONNECTING</span>
-                </div>
-
-                <div class="stats">
-                    <div class="pill"><span id="quality-info">—</span></div>
-                    <div class="pill"><span id="network-info">—</span></div>
-                </div>
-            </div>
-
-            <div id="standby-note" class="standby-note" hidden>
-                <strong>Ожидание эфира</strong>
-                Телефон подключён. Видео не передаётся, пока оператор не нажмёт «Запустить эфир» на мониторе.
-            </div>
-
-            <div class="bottom-wrap">
-
-<div id="zoom-panel" class="pill zoom-panel" hidden>
-
-<span>🔍</span>
-
-<input id="zoom-range" type="range" min="1" max="1" step="0.1" value="1" aria-label="Зум">
-
-<span id="zoom-label" class="zoom-label">1.0×</span>
-
-</div>
-
-<div class="bottom">
-                <button id="torch-btn" class="action" type="button">Вспышка</button>
-                <button id="flip-btn" class="action" type="button">Камера</button>
-                <button id="stop-btn" class="action stop" type="button">Стоп</button>
-            </div>
-
-</div>
+    <div class="camera-ui">
+      <div class="top-row">
+        <div class="pill">
+          <span id="status-dot" class="dot warning"></span>
+          <span id="status-text">ПОДКЛЮЧЕНИЕ</span>
         </div>
+        <div class="stats">
+          <div class="pill"><span id="quality-info">—</span></div>
+          <div class="pill"><span id="network-info">—</span></div>
+        </div>
+      </div>
+
+      <div id="standby-note" class="standby-note" hidden>
+        <strong>Ожидание эфира</strong>
+        Телефон подключён. Видео не передаётся, пока оператор не нажмёт «Запустить эфир» на мониторе.
+      </div>
+
+      <div class="bottom-wrap">
+        <div id="zoom-panel" class="pill zoom-panel" hidden>
+          <svg class="icon"><use href="#i-search"/></svg>
+          <input id="zoom-range" type="range" min="1" max="1" step="0.1" value="1" aria-label="Зум">
+          <span id="zoom-label" class="zoom-label">1.0×</span>
+        </div>
+        <div class="bottom">
+          <button id="torch-btn" class="action" type="button"><svg class="icon icon-lg"><use href="#i-bolt"/></svg><span id="torch-label">Вспышка</span></button>
+          <button id="flip-btn" class="action" type="button"><svg class="icon icon-lg"><use href="#i-flip"/></svg>Камера</button>
+          <button id="stop-btn" class="action stop" type="button"><svg class="icon icon-lg"><use href="#i-stop"/></svg>Стоп</button>
+        </div>
+      </div>
     </div>
+  </div>
 </section>
 
 <div id="scanner">
-
-<video id="scan-video" autoplay playsinline muted></video>
-
-<div class="scan-frame"></div>
-
-<div class="scan-hint">Наведите камеру на QR-код на мониторе</div>
-
-<button id="scan-close" class="btn btn-secondary scan-close" type="button">Отмена</button>
-
+  <video id="scan-video" autoplay playsinline muted></video>
+  <div class="scan-frame"></div>
+  <div class="scan-hint">Наведите камеру на QR-код на мониторе</div>
+  <button id="scan-close" class="btn scan-close" type="button">Отмена</button>
 </div>
 
 <div id="toast-container"></div>
@@ -605,6 +353,11 @@ function levelIndex(height, fps) {
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
+function setTorchUI(on) {
+  $("torch-btn").classList.toggle("on", !!on);
+  $("torch-label").textContent = on ? "Выключить" : "Вспышка";
+}
+
 function toast(message) {
   const el = document.createElement("div");
   el.className = "toast";
@@ -615,10 +368,7 @@ function toast(message) {
 
 function setStatus(text, type = "ok") {
   statusText.textContent = text;
-  statusDot.className = "dot";
-  if (type === "warning") statusDot.classList.add("warning");
-  if (type === "bad") statusDot.classList.add("bad");
-  if (type === "idle") statusDot.classList.add("idle");
+  statusDot.className = "dot " + type;
 }
 
 function describeError(error) {
@@ -652,12 +402,27 @@ function parseScan(text) {
   try {
     const url = new URL(text);
     const r = url.searchParams.get("room");
-    if (r && CODE_RE.test(r)) return { room: r.toUpperCase(), token: url.searchParams.get("k") || null };
+    if (r && CODE_RE.test(r)) {
+      const t = url.searchParams.get("t");
+      const i = t ? t.indexOf(":") : -1;
+      if (i > 0) GLAZOK.setTurn({ app: t.slice(0, i), apiKey: t.slice(i + 1), endpoint: "" });   // настройки TURN из QR
+      return { room: r.toUpperCase(), token: url.searchParams.get("k") || null };
+    }
   } catch {}
   return CODE_RE.test(text) ? { room: text.toUpperCase(), token: null } : null;
 }
 
 const scanner = { active: false, stream: null, timer: 0, detector: null, canvas: null };
+
+function loadJsQR() {
+  if (window.jsQR) return Promise.resolve();
+  return new Promise(resolve => {
+    const el = document.createElement("script");
+    el.src = "https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js";
+    el.onload = el.onerror = () => resolve();
+    document.head.appendChild(el);
+  });
+}
 
 async function openScanner() {
   if (scanner.active) return;
@@ -681,6 +446,7 @@ async function openScanner() {
   if ("BarcodeDetector" in window) {
     try { scanner.detector = new BarcodeDetector({ formats: ["qr_code"] }); } catch { scanner.detector = null; }
   }
+  if (!scanner.detector) await loadJsQR();   // библиотека нужна только там, где нет BarcodeDetector (Safari/Firefox)
   scanner.canvas = scanner.canvas || document.createElement("canvas");
   scanner.active = true;
   scanLoop();
@@ -795,7 +561,7 @@ function useStream(stream) {
   const sender = getVideoSender();
   if (sender && track) sender.replaceTrack(track).catch(error => console.warn("replaceTrack:", error));
 
-  $("torch-btn").textContent = "Вспышка";
+  setTorchUI(false);
   setupZoom();
   setTimeout(() => {
     capLevelToCapture();
@@ -828,7 +594,7 @@ function onTrackEnded() {
   setTimeout(async () => {
     try {
       await swapCamera();
-      if (state.connected) setStatus("LIVE"); else setStatus("ПОДКЛЮЧЕНИЕ…", "warning");
+      if (state.connected) setStatus("В ЭФИРЕ", "live"); else setStatus("ПОДКЛЮЧЕНИЕ…", "warning");
     } catch (error) {
       console.error("Camera recover failed:", error);
       setStatus("КАМЕРА НЕДОСТУПНА", "bad");
@@ -1260,7 +1026,7 @@ function markLive() {
     applyEncoding(state.currentLevel);
     updateLocalQuality();
   }
-  setStatus("LIVE");
+  setStatus("В ЭФИРЕ", "live");
   standbyNote.hidden = true;
   sendStatus();
   if (!state.statsTimer) startAdaptiveMonitoring();
@@ -1442,7 +1208,7 @@ async function evaluateNetwork() {
     return;
   }
   state.badStreak = 0;
-  setStatus("LIVE");
+  setStatus("В ЭФИРЕ", "live");
 
   /* Всё спокойно: потерь нет, задержка низкая, браузер ничем не ограничен — поднимаем качество. */
   if (state.currentLevel < state.maxLevel && now >= state.upBlockedUntil) {
@@ -1477,7 +1243,7 @@ async function toggleTorch() {
     const next = !state.torchOn;
     await state.videoTrack.applyConstraints({ advanced: [{ torch: next }] });
     state.torchOn = next;
-    $("torch-btn").textContent = next ? "Выключить" : "Вспышка";
+    setTorchUI(next);
   } catch {
     toast("Вспышка недоступна");
   }
@@ -1524,7 +1290,7 @@ function stopCamera() {
   state.zoom = null;
   networkInfo.textContent = "—";
   qualityInfo.textContent = "—";
-  setStatus("CONNECTING", "warning");
+  setStatus("ПОДКЛЮЧЕНИЕ", "warning");
 }
 
 function showStart() {

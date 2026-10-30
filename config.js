@@ -14,7 +14,11 @@
  */
 window.GLAZOK = {
   TURN: {
-    /* Способ 1 (рекомендуется): адрес вашего Worker, например
+    /* Обычно ничего вписывать сюда не нужно: откройте монитор → «Настройки TURN»,
+       введите имя приложения и apiKey — они сохранятся в браузере и сами
+       передадутся на телефоны через QR-код. В репозиторий ключи не попадают.
+
+       Способ 1 (надёжнее): адрес вашего Worker, например
        "https://glazok-turn.your-name.workers.dev/turn" */
     endpoint: "",
 
@@ -54,6 +58,64 @@ window.GLAZOK = {
 
   _icePromise: null,
 
+  /* ---------- Сохранённые настройки TURN (localStorage браузера) ---------- */
+
+  _turnKey: "glazok_turn",
+
+  /* Итоговые настройки: сохранённые в браузере важнее значений из этого файла */
+  turnConfig() {
+    let stored = {};
+    try { stored = JSON.parse(localStorage.getItem(this._turnKey) || "{}") || {}; } catch {}
+    return {
+      endpoint: stored.endpoint || this.TURN.endpoint || "",
+      app: stored.app || this.TURN.meteredApp || "",
+      apiKey: stored.apiKey || this.TURN.meteredApiKey || ""
+    };
+  },
+
+  /* Принимает "glazok-live", "glazok-live.metered.live" или полный https://-адрес */
+  cleanApp(value) {
+    let v = String(value || "").trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "").replace(/\.metered\.live$/, "");
+    return /^[a-z0-9][a-z0-9-]{1,62}$/.test(v) ? v : "";
+  },
+
+  cleanKey(value) {
+    const v = String(value || "").trim();
+    return /^[A-Za-z0-9_-]{8,128}$/.test(v) ? v : "";
+  },
+
+  setTurn({ app, apiKey, endpoint }) {
+    const data = { app: this.cleanApp(app), apiKey: this.cleanKey(apiKey), endpoint: String(endpoint || "").trim() };
+    if (data.endpoint && !/^https:\/\//i.test(data.endpoint)) data.endpoint = "";
+    try { localStorage.setItem(this._turnKey, JSON.stringify(data)); } catch {}
+    this.resetIce();
+    return data;
+  },
+
+  clearTurn() {
+    try { localStorage.removeItem(this._turnKey); } catch {}
+    this.resetIce();
+  },
+
+  resetIce() {
+    try { sessionStorage.removeItem("glazok_ice_v2"); } catch {}
+    this._icePromise = null;
+    this.ICE_SERVERS = null;
+    this.iceSource = "none";
+    this.iceError = "";
+  },
+
+  /* Строка для параметра ?t= в ссылках (QR, Clean Output): телефон подхватит настройки сам */
+  turnShare() {
+    const c = this.turnConfig();
+    return c.app && c.apiKey ? c.app + ":" + c.apiKey : "";
+  },
+
+  hasTurnConfig() {
+    const c = this.turnConfig();
+    return !!(c.endpoint || (c.app && c.apiKey));
+  },
+
   /* Вызывать и ждать ПЕРЕД созданием Peer. Повторные вызовы возвращают тот же результат. */
   initIce() {
     if (this._icePromise) return this._icePromise;
@@ -63,10 +125,12 @@ window.GLAZOK = {
 
   async _loadIce() {
     const cfg = this.TURN;
-    const cacheKey = "glazok_ice_v1";
+    const conf = this.turnConfig();
+    const cacheKey = "glazok_ice_v2";
+    const sig = conf.endpoint + "|" + conf.app + "|" + conf.apiKey;
     try {
       const cached = JSON.parse(sessionStorage.getItem(cacheKey) || "null");
-      if (cached && cached.expires > Date.now() && Array.isArray(cached.servers) && cached.servers.length) {
+      if (cached && cached.sig === sig && cached.expires > Date.now() && Array.isArray(cached.servers) && cached.servers.length) {
         this.ICE_SERVERS = cached.servers;
         this.iceSource = "cache";
         return this.ICE_SERVERS;
@@ -75,16 +139,16 @@ window.GLAZOK = {
 
     let url = "";
     let source = "";
-    if (cfg.endpoint) { url = cfg.endpoint; source = "endpoint"; }
-    else if (cfg.meteredApp && cfg.meteredApiKey) {
-      url = "https://" + cfg.meteredApp + ".metered.live/api/v1/turn/credentials?apiKey=" + encodeURIComponent(cfg.meteredApiKey);
+    if (conf.endpoint) { url = conf.endpoint; source = "endpoint"; }
+    else if (conf.app && conf.apiKey) {
+      url = "https://" + conf.app + ".metered.live/api/v1/turn/credentials?apiKey=" + encodeURIComponent(conf.apiKey);
       source = "metered";
     }
 
     if (!url) {
       this.ICE_SERVERS = this.ICE_FALLBACK;
       this.iceSource = "stun-only";
-      this.iceError = "TURN не настроен (см. config.js → TURN)";
+      this.iceError = "TURN не настроен";
       return this.ICE_SERVERS;
     }
 
@@ -93,6 +157,8 @@ window.GLAZOK = {
       const timer = setTimeout(() => ctrl.abort(), cfg.timeoutMs || 6000);
       const response = await fetch(url, { cache: "no-store", signal: ctrl.signal });
       clearTimeout(timer);
+      if (response.status === 401 || response.status === 403) throw new Error("ключ не принят (HTTP " + response.status + ")");
+      if (response.status === 404) throw new Error("приложение не найдено — проверьте имя (HTTP 404)");
       if (!response.ok) throw new Error("HTTP " + response.status);
       let data = await response.json();
       if (data && !Array.isArray(data) && Array.isArray(data.iceServers)) data = data.iceServers;
@@ -104,6 +170,7 @@ window.GLAZOK = {
       this.iceError = "";
       try {
         sessionStorage.setItem(cacheKey, JSON.stringify({
+          sig,
           servers: data,
           expires: Date.now() + (cfg.cacheMinutes || 20) * 60000
         }));
@@ -310,3 +377,17 @@ window.GLAZOK = {
     });
   }
 };
+
+/* Телефон/Clean Output открыты по ссылке с монитора: ?t=приложение:apiKey → сохраняем и убираем из адреса */
+(function adoptTurnFromUrl() {
+  try {
+    const params = new URLSearchParams(location.search);
+    const t = params.get("t");
+    if (!t) return;
+    const i = t.indexOf(":");
+    if (i > 0) GLAZOK.setTurn({ app: t.slice(0, i), apiKey: t.slice(i + 1), endpoint: "" });
+    params.delete("t");
+    const query = params.toString();
+    history.replaceState(null, "", location.pathname + (query ? "?" + query : "") + location.hash);
+  } catch {}
+})();

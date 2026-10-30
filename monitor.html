@@ -1,288 +1,244 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#050508">
-    <title>Glazok Studio — Monitor</title>
-    <script src="./config.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <style>
-        :root {
-            --bg: #050508;
-            --panel: rgba(255,255,255,.055);
-            --border: rgba(255,255,255,.10);
-            --text: #f8fafc;
-            --muted: #7c8495;
-            --accent: #6366f1;
-            --green: #10b981;
-            --red: #ef4444;
-            --radius: 18px;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        
-        html, body {
-            width: 100%; height: 100%;
-            overflow-y: auto;
-            background: var(--bg); color: var(--text);
-            font-family: system-ui, -apple-system, sans-serif;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#07080d">
+<title>Glazok — монитор</title>
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+<link rel="stylesheet" href="./glazok.css">
+<script src="./config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  .topbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 10px; padding: 12px clamp(14px, 2.4vw, 32px); background: rgba(7, 8, 13, .72); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid var(--line); }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 750; font-size: 16px; letter-spacing: -.01em; margin-right: auto; }
+  .brand-mark { width: 30px; height: 30px; border-radius: 10px; background: var(--grad); display: grid; place-items: center; color: #0b0c14; box-shadow: 0 6px 18px rgba(124, 131, 255, .4); }
+  .brand small { color: var(--muted); font-weight: 600; font-size: 12px; }
 
-        /* Боковая панель устройств слева */
-        #devices-sidebar {
-            position: fixed;
-            left: 24px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 260px;
-            background: linear-gradient(145deg, rgba(255,255,255,.07), rgba(255,255,255,.025));
-            backdrop-filter: blur(30px);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 18px;
-            color: var(--text);
-            z-index: 100;
-        }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 20px; padding: 20px clamp(14px, 2.4vw, 32px) 40px; max-width: 1700px; margin: 0 auto; align-items: start; }
+  .side { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 76px; }
+  .main-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 
-        #devices-sidebar h3 {
-            font-size: 13px;
-            margin-bottom: 12px;
-            color: var(--muted);
-            text-transform: uppercase;
-            letter-spacing: .08em;
-        }
+  .panel { padding: 18px; }
+  .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+  .panel-title { font-size: 12px; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .count { min-width: 22px; height: 22px; padding: 0 7px; border-radius: var(--pill); background: var(--grad); color: #0b0c14; font-size: 12px; font-weight: 800; display: grid; place-items: center; }
+  .count:empty { display: none; }
 
-        .device-item {
-            background: var(--panel);
-            padding: 12px;
-            border-radius: 12px;
-            margin-bottom: 8px;
-            border: 1px solid var(--border);
-            transition: transform .15s ease, border-color .15s ease;
-            cursor: pointer;
-        }
-        .device-item.selected { border-color: rgba(99,102,241,.8); box-shadow: 0 0 0 1px rgba(99,102,241,.35); }
-        .device-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-        .device-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .icon-btn { flex: 0 0 auto; width: 26px; height: 26px; border-radius: 8px; background: transparent; color: var(--muted); font-size: 14px; }
-        .icon-btn:hover { background: var(--panel); color: var(--text); }
-        .dev-btn { width: 100%; margin-top: 10px; min-height: 34px; border-radius: 999px; font-size: 12px; font-weight: 700; background: #fff; color: #000; }
-        .dev-btn.stop { background: rgba(239,68,68,.16); color: #fca5a5; border: 1px solid rgba(239,68,68,.45); }
-        .dev-btn.switch { background: var(--accent); color: #fff; }
-        .device-empty { color: var(--muted); font-size: 12px; line-height: 1.5; }
+  /* Комната */
+  .code-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .room-code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 34px; font-weight: 800; letter-spacing: .14em; cursor: pointer; line-height: 1.1; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .qr-wrap { margin: 16px auto 10px; width: 188px; height: 188px; padding: 10px; border-radius: 20px; background: #fff; box-shadow: 0 10px 34px rgba(0, 0, 0, .4); display: grid; place-items: center; }
+  .qr-wrap img, .qr-wrap canvas { width: 100% !important; height: 100% !important; display: block; }
+  .qr-link { text-align: center; color: var(--muted); font-size: 11.5px; word-break: break-all; }
+  .qr-warn { margin-top: 10px; padding: 10px 12px; border-radius: var(--radius-sm); background: rgba(251, 191, 36, .1); border: 1px solid rgba(251, 191, 36, .3); color: #fde68a; font-size: 12px; line-height: 1.45; }
+  .btn-row { display: flex; gap: 8px; margin-top: 14px; }
+  .btn-row .btn { flex: 1; padding: 0 12px; }
 
-        .device-item.active {
-            border-left: 4px solid var(--green);
-            background: rgba(16, 185, 129, 0.08);
-        }
+  /* Камеры */
+  .device-item { padding: 12px 14px; margin-bottom: 8px; border-radius: 14px; background: rgba(255, 255, 255, .04); border: 1px solid var(--line); cursor: pointer; transition: border-color .18s, background .18s; }
+  .device-item:hover { background: rgba(255, 255, 255, .065); }
+  .device-item.selected { border-color: rgba(124, 131, 255, .75); background: rgba(124, 131, 255, .09); }
+  .device-item.active { border-color: rgba(52, 211, 153, .7); background: rgba(52, 211, 153, .08); }
+  .device-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .device-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; font-size: 14px; }
+  .device-info { display: flex; align-items: center; gap: 12px; margin-top: 3px; font-size: 12px; color: var(--muted); }
+  .device-info .st.live { color: var(--green); font-weight: 700; }
+  .icon-btn { flex: 0 0 auto; width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; color: var(--muted); transition: background .18s, color .18s; }
+  .icon-btn:hover { background: var(--card-2); color: var(--text); }
+  .dev-btn { width: 100%; margin-top: 10px; min-height: 36px; border-radius: var(--pill); font-size: 12.5px; font-weight: 700; background: var(--text); color: #0b0c14; transition: filter .18s, transform .18s; }
+  .dev-btn:hover { filter: brightness(.92); }
+  .dev-btn:active { transform: scale(.98); }
+  .dev-btn.stop { background: rgba(248, 113, 113, .14); color: #fecaca; border: 1px solid rgba(248, 113, 113, .45); }
+  .dev-btn.switch { background: var(--grad); color: #0b0c14; }
+  .device-empty { color: var(--muted); font-size: 12.5px; line-height: 1.55; padding: 4px 2px; }
 
-        .device-title {
-            font-size: 13px;
-            font-weight: 700;
-        }
+  /* Сцена */
+  .stage { position: relative; display: grid; place-items: center; min-height: min(56vh, 560px); padding: 0; overflow: hidden; border-radius: 22px; background: #000; border: 1px solid var(--line); box-shadow: var(--shadow); }
+  .video-container { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: #000; }
+  .video-container video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transform-origin: center; will-change: transform; touch-action: none; }
+  .video-overlay { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 24px; text-align: center; background: radial-gradient(600px 300px at 50% 40%, rgba(124, 131, 255, .14), transparent 70%), #07080d; transition: opacity .3s var(--ease); }
+  .video-overlay.hidden { opacity: 0; pointer-events: none; }
+  .overlay-icon { width: 64px; height: 64px; margin-bottom: 8px; border-radius: 20px; display: grid; place-items: center; background: var(--card-2); border: 1px solid var(--line-2); color: var(--accent-2); }
+  .overlay-icon .icon { width: 30px; height: 30px; }
+  #overlay-title { font-size: 20px; font-weight: 750; letter-spacing: -.01em; }
+  #overlay-sub { max-width: 420px; color: var(--muted); font-size: 13.5px; }
+  .steps { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; justify-content: center; }
+  .step { display: flex; align-items: center; gap: 8px; padding: 8px 14px 8px 8px; border-radius: var(--pill); background: var(--card); border: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
+  .step b { width: 22px; height: 22px; border-radius: 50%; background: var(--grad); color: #0b0c14; display: grid; place-items: center; font-size: 12px; }
 
-        .device-info {
-            font-size: 12px;
-            color: var(--muted);
-            margin-top: 4px;
-        }
+  /* Панель управления */
+  .controlbar { display: flex; align-items: center; gap: 14px; padding: 12px 14px; flex-wrap: wrap; }
+  .controlbar .btn-live { min-width: 230px; }
+  .zoom { flex: 1; min-width: 260px; display: flex; align-items: center; gap: 12px; }
+  .zoom-mode { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+  .zoom input[type=range] { flex: 1; min-width: 80px; accent-color: var(--accent); height: 28px; }
+  .zoom input[type=range]:disabled { opacity: .35; }
+  .zoom-value { min-width: 44px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+  .statbar { display: flex; gap: 8px; flex-wrap: wrap; }
 
-        .device-info span {
-            color: var(--green);
-        }
+  .turn-status { padding: 12px 14px; border-radius: var(--radius-sm); font-size: 12.5px; line-height: 1.5; color: var(--muted); background: var(--card); border: 1px solid var(--line); }
+  .turn-status.warn { color: #fde68a; background: rgba(251, 191, 36, .08); border-color: rgba(251, 191, 36, .28); }
 
-        .device-info span.waiting {
-            color: #f59e0b;
-        }
+  .approve { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 16px; border-radius: var(--radius); background: rgba(124, 131, 255, .12); border: 1px solid rgba(124, 131, 255, .45); }
+  .approve-text { flex: 1; min-width: 200px; font-weight: 600; }
 
-        /* Основной контейнер приложения */
-        .app { 
-            width: min(900px, 92vw); 
-            margin: auto; 
-            padding: 30px 0; 
-            display: flex; 
-            flex-direction: column; 
-            gap: 22px; 
-        }
+  .toast-host { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); z-index: 60; pointer-events: none; }
 
-        .header { display: flex; align-items: center; justify-content: space-between; }
-        .brand { display: flex; align-items: center; gap: 12px; font-size: 20px; font-weight: 700; }
-        .brand-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 20px rgba(99,102,241,.7); }
-        .connection { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
-        .connection-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
-        .connection-dot.ready { background: var(--green); box-shadow: 0 0 10px rgba(16,185,129,.8); }
-        .connection-dot.live { background: var(--red); box-shadow: 0 0 10px rgba(239,68,68,.8); animation: pulse 1.5s infinite; }
-        @keyframes pulse { 50% { opacity: .45; } }
+  /* Настройки TURN */
+  dialog { margin: auto; width: min(480px, calc(100vw - 28px)); padding: 0; border: 1px solid var(--line-2); border-radius: 24px; background: #0e1019; color: var(--text); box-shadow: var(--shadow); }
+  dialog::backdrop { background: rgba(3, 4, 8, .72); backdrop-filter: blur(6px); }
+  .dlg { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+  .dlg h2 { font-size: 20px; letter-spacing: -.01em; }
+  .dlg p { color: var(--muted); font-size: 13px; line-height: 1.55; }
+  .dlg ol { margin: 0 0 0 18px; color: var(--muted); font-size: 13px; line-height: 1.7; }
+  .dlg details summary { cursor: pointer; color: var(--muted); font-size: 12.5px; padding: 4px 0; }
+  .dlg details[open] summary { margin-bottom: 10px; }
+  .set-result { min-height: 20px; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+  .set-result.ok { color: var(--green); }
+  .set-result.warn { color: #fde68a; }
+  .dlg-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .dlg-actions .btn-primary { flex: 1 0 100%; }
 
-        .room-card { 
-            padding: 32px; 
-            border: 1px solid var(--border); 
-            border-radius: var(--radius); 
-            background: linear-gradient(145deg, rgba(255,255,255,.07), rgba(255,255,255,.025)); 
-            backdrop-filter: blur(30px); 
-            display: flex; 
-            align-items: center; 
-            justify-content: space-between; 
-            gap: 28px; 
-        }
-        .room-info { min-width: 0; }
-        .room-label { margin-bottom: 10px; color: var(--muted); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; }
-        .room-code { font-family: monospace; font-size: clamp(36px, 7vw, 64px); font-weight: 700; letter-spacing: .12em; color: var(--text); cursor: pointer; user-select: all; }
-        .room-hint { margin-top: 10px; color: var(--muted); font-size: 13px; }
-
-        .qr-box { flex: 0 0 auto; width: 190px; text-align: center; }
-        #qr { width: 190px; height: 190px; padding: 10px; border-radius: 14px; background: #fff; color: #000; font-size: 12px; display: flex; align-items: center; justify-content: center; }
-        #qr img, #qr canvas { width: 100% !important; height: 100% !important; display: block; }
-        .qr-hint { margin-top: 8px; color: var(--muted); font-size: 12px; line-height: 1.4; }
-        .qr-link { margin-top: 2px; color: var(--muted); font-size: 10px; word-break: break-all; opacity: .7; }
-        .qr-warn { margin-top: 8px; color: #f59e0b; font-size: 11px; line-height: 1.4; }
-        .qr-warn[hidden] { display: none; }
-
-        .actions { display: flex; gap: 10px; flex-wrap: wrap; }
-        button { border: 0; outline: 0; cursor: pointer; font: inherit; }
-        .btn { min-height: 46px; padding: 0 20px; border-radius: 999px; font-size: 14px; font-weight: 700; transition: transform .15s ease; }
-        .btn:hover { transform: translateY(-1px); }
-        .btn:disabled { opacity: .45; cursor: default; transform: none; }
-        .btn-primary { background: #fff; color: #000; }
-        .btn-secondary { background: var(--panel); color: var(--text); border: 1px solid var(--border); }
-
-        .video-container { 
-            position: relative; 
-            width: 100%; 
-            aspect-ratio: 16 / 9; 
-            overflow: hidden; 
-            border-radius: var(--radius); 
-            background: #000; 
-            border: 1px solid var(--border); 
-            touch-action: none;
-            margin-left: auto; 
-            margin-right: auto;
-        }
-        #video { 
-            width: 100%; 
-            height: 100%; 
-            display: block; 
-            object-fit: contain; 
-            background: #000; 
-            transform-origin: center; 
-            will-change: transform; 
-        }
-        .video-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; color: var(--muted); font-size: 14px; }
-        .video-overlay.hidden { display: none; }
-
-        .zoom-bar { display: flex; align-items: center; gap: 14px; padding: 10px 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--panel); }
-        .zoom-mode { flex: 0 0 auto; min-width: 130px; color: var(--muted); font-size: 12px; }
-        .zoom-bar input[type=range] { flex: 1; min-width: 0; accent-color: var(--accent); }
-        .zoom-bar input[type=range]:disabled { opacity: .4; }
-        .zoom-value { min-width: 44px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
-        .zoom-reset { min-height: 34px; padding: 0 14px; border-radius: 999px; background: var(--panel); color: var(--text); border: 1px solid var(--border); font-size: 12px; font-weight: 700; }
-
-        .approve { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 18px; border: 1px solid rgba(99,102,241,.5); border-radius: 14px; background: rgba(99,102,241,.12); font-size: 14px; }
-        .approve[hidden] { display: none; }
-        .approve span { flex: 1 1 220px; }
-
-        .footer { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 12px; }
-        .stats { display: flex; gap: 18px; }
-        .stat strong { color: var(--text); }
-
-        .toast { position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 20px); padding: 11px 18px; border-radius: 999px; background: rgba(15,15,20,.95); border: 1px solid var(--border); font-size: 13px; opacity: 0; pointer-events: none; transition: .2s; z-index: 50; }
-        .toast.show { opacity: 1; transform: translate(-50%, 0); }
-
-        @media (max-width: 1350px) {
-            /* Список камер не прячем: на узком экране он идёт блоком над основной областью */
-            #devices-sidebar { position: static; transform: none; width: min(900px, 92vw); margin: 20px auto 0; }
-        }
-
-        .btn-live { background: var(--green); color: #04130d; }
-        .btn-live.stop { background: var(--red); color: #fff; }
-        .turn-status { font-size: 12px; line-height: 1.5; color: var(--muted); }
-        .turn-status.ok { color: var(--green); }
-        .turn-status.warn { color: #f59e0b; }
-
-        @media (max-width: 600px) {
-            .room-card { padding: 24px; flex-direction: column; align-items: flex-start; }
-            .qr-box { align-self: center; }
-            .zoom-mode { display: none; }
-            .actions { flex-direction: column; }
-            .btn { width: 100%; }
-            .footer { display: none; }
-        }
-    </style>
+  @media (max-width: 1050px) {
+    .layout { grid-template-columns: minmax(0, 1fr); }
+    .side { position: static; order: 2; }
+    .main-col { order: 1; }
+    .controlbar .btn-live { min-width: 0; width: 100%; }
+    .topbar .hide-sm { display: none; }
+  }
+</style>
 </head>
 <body>
 
-<!-- Динамическая панель подключенных устройств -->
-<div id="devices-sidebar">
-    <h3>Подключенные камеры</h3>
-    <div id="devices-list">
-        <div class="device-empty">Ожидание подключений...</div>
-    </div>
-</div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></symbol>
+</svg>
 
-<div class="app">
-    <header class="header">
-        <div class="brand">
-            <span class="brand-dot"></span>
-            <span>Glazok Studio</span>
-        </div>
-        <div class="connection">
-            <span id="connection-dot" class="connection-dot"></span>
-            <span id="connection-text">Создание комнаты...</span>
-        </div>
-    </header>
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark"><svg class="icon"><use href="#i-eye"/></svg></div>
+    <span>Glazok <small id="app-version" class="hide-sm"></small></span>
+  </div>
+  <div class="chip" id="connection-chip"><span id="connection-dot" class="dot"></span><span id="connection-text">Подключение…</span></div>
+  <button id="turn-chip" class="chip" type="button" title="Настройки TURN"><span id="turn-dot" class="dot warn"></span><span id="turn-chip-text">TURN…</span></button>
+  <button id="settings-btn" class="btn btn-ghost btn-sm" type="button" aria-label="Настройки TURN"><svg class="icon"><use href="#i-gear"/></svg><span class="hide-sm">Настройки</span></button>
+</header>
 
+<main class="layout">
+  <section class="main-col">
     <div id="approve" class="approve" hidden>
-        <span id="approve-text"></span>
-        <button id="approve-yes" class="btn btn-primary" type="button">Разрешить</button>
-        <button id="approve-no" class="btn btn-secondary" type="button">Отклонить</button>
+      <div id="approve-text" class="approve-text"></div>
+      <button id="approve-yes" class="btn btn-live btn-sm" type="button">Разрешить</button>
+      <button id="approve-no" class="btn btn-sm" type="button">Отклонить</button>
     </div>
 
-    <section class="room-card">
-        <div class="room-info">
-            <div class="room-label">Код комнаты</div>
-            <div id="room-code" class="room-code" title="Нажмите, чтобы скопировать">------</div>
-            <div class="room-hint">Отсканируйте QR-код камерой телефона или введите код вручную</div>
-        </div>
-        <div class="qr-box">
-            <div id="qr"></div>
-            <div class="qr-hint">QR для подключения камеры</div>
-            <div id="qr-link" class="qr-link"></div>
-            <div id="qr-warn" class="qr-warn" hidden></div>
-        </div>
-    </section>
-
-    <div class="actions">
-        <button id="live-btn" class="btn btn-live" type="button" disabled>Запустить эфир</button>
-        <button id="copy-btn" class="btn btn-primary">Скопировать код</button>
-        <button id="clean-btn" class="btn btn-secondary">Открыть Clean Output</button>
-        <button id="turn-btn" class="btn btn-secondary" type="button">Проверить TURN</button>
-    </div>
-    <div id="turn-status" class="turn-status">TURN: проверка…</div>
-
-    <section id="video-box" class="video-container">
+    <div class="stage">
+      <div id="video-box" class="video-container">
         <video id="video" autoplay playsinline muted></video>
-        <div id="video-overlay" class="video-overlay">Ожидание камеры...</div>
-    </section>
+        <div id="video-overlay" class="video-overlay">
+          <div class="overlay-icon"><svg class="icon"><use href="#i-phone"/></svg></div>
+          <div id="overlay-title">Ждём камеру</div>
+          <div id="overlay-sub"></div>
+          <div id="overlay-steps" class="steps">
+            <div class="step"><b>1</b>Отсканируйте QR</div>
+            <div class="step"><b>2</b>Выберите телефон</div>
+            <div class="step"><b>3</b>Запустите эфир</div>
+          </div>
+        </div>
+      </div>
+    </div>
 
-    <div class="zoom-bar">
+    <div class="card controlbar">
+      <button id="live-btn" class="btn btn-live btn-lg" type="button" disabled>Запустить эфир</button>
+      <div class="zoom">
         <div id="zoom-mode" class="zoom-mode">Зум</div>
         <input id="zoom-range" type="range" min="1" max="4" step="0.05" value="1" disabled aria-label="Зум">
         <div id="zoom-value" class="zoom-value">1.0×</div>
-        <button id="zoom-reset" class="zoom-reset" type="button">Сброс</button>
+        <button id="zoom-reset" class="btn btn-ghost btn-sm" type="button">Сброс</button>
+      </div>
     </div>
 
-    <footer class="footer">
-        <div class="stats">
-            <div class="stat">Качество: <strong id="quality">—</strong></div>
-            <div class="stat">FPS: <strong id="fps">—</strong></div>
-            <div class="stat">Связь: <strong id="route">—</strong></div>
-        </div>
-        <div id="app-version">Glazok v10</div>
-    </footer>
-</div>
+    <div class="statbar">
+      <div class="chip">Качество <strong id="quality">—</strong></div>
+      <div class="chip">FPS <strong id="fps">—</strong></div>
+      <div class="chip">Связь <strong id="route">—</strong></div>
+    </div>
 
-<div id="toast" class="toast"></div>
+    <div id="turn-status" class="turn-status" hidden></div>
+  </section>
+
+  <aside class="side">
+    <section class="card panel">
+      <div class="panel-head">
+        <div class="panel-title">Комната</div>
+        <div class="code-row"><div id="room-code" class="room-code" title="Нажмите, чтобы скопировать">······</div></div>
+      </div>
+      <div id="qr" class="qr-wrap"></div>
+      <div id="qr-link" class="qr-link"></div>
+      <div id="qr-warn" class="qr-warn" hidden></div>
+      <div class="btn-row">
+        <button id="copy-btn" class="btn btn-sm" type="button"><svg class="icon"><use href="#i-copy"/></svg>Код</button>
+        <button id="clean-btn" class="btn btn-sm" type="button"><svg class="icon"><use href="#i-out"/></svg>Clean Output</button>
+      </div>
+    </section>
+
+    <section class="card panel">
+      <div class="panel-head">
+        <div class="panel-title">Камеры</div>
+        <div id="dev-count" class="count"></div>
+      </div>
+      <div id="devices-list"></div>
+    </section>
+  </aside>
+</main>
+
+<div class="toast-host"><div id="toast" class="toast" hidden></div></div>
+
+<dialog id="settings">
+  <div class="dlg">
+    <div>
+      <h2>Настройки TURN</h2>
+      <p style="margin-top:6px">TURN нужен, чтобы видео шло между разными сетями (например, телефон на мобильном интернете, компьютер на Wi‑Fi). Данные хранятся только в этом браузере и сами передаются на телефоны через QR-код.</p>
+    </div>
+    <ol>
+      <li>Откройте <a href="https://dashboard.metered.ca/v2/overview" target="_blank" rel="noopener">dashboard.metered.ca</a> → <b>TURN Server</b>.</li>
+      <li>Создайте учётные данные (Add Credential) и скопируйте их <b>apiKey</b>. Не secretKey.</li>
+      <li>Имя приложения — часть адреса <b>имя</b>.metered.live (раздел Developers).</li>
+    </ol>
+    <div class="field">
+      <label class="field-label" for="set-app">Имя приложения</label>
+      <input id="set-app" class="input" placeholder="glazok-live" autocomplete="off" autocapitalize="off" spellcheck="false">
+    </div>
+    <div class="field">
+      <label class="field-label" for="set-key">apiKey</label>
+      <input id="set-key" class="input" placeholder="Вставьте apiKey" autocomplete="off" autocapitalize="off" spellcheck="false">
+    </div>
+    <details>
+      <summary>Дополнительно: свой прокси (Cloudflare Worker)</summary>
+      <div class="field">
+        <input id="set-endpoint" class="input" placeholder="https://glazok-turn.name.workers.dev/" autocomplete="off" spellcheck="false">
+        <div class="field-hint">Если указан, apiKey не используется: ключи хранит ваш Worker (см. worker/README.md).</div>
+      </div>
+    </details>
+    <div id="set-result" class="set-result" role="status"></div>
+    <div class="dlg-actions">
+      <button id="set-save" class="btn btn-primary" type="button">Сохранить и проверить</button>
+      <button id="turn-btn" class="btn" type="button">Проверить</button>
+      <button id="set-clear" class="btn btn-ghost" type="button">Сбросить</button>
+      <button id="set-close" class="btn btn-ghost" type="button">Закрыть</button>
+    </div>
+  </div>
+</dialog>
 
 <script>
 "use strict";
@@ -305,6 +261,19 @@ const cleanBtn = $("clean-btn");
 const liveBtn = $("live-btn");
 const turnBtn = $("turn-btn");
 const turnStatus = $("turn-status");
+const turnChip = $("turn-chip");
+const turnChipText = $("turn-chip-text");
+const turnDot = $("turn-dot");
+const overlayTitle = $("overlay-title");
+const overlaySub = $("overlay-sub");
+const overlaySteps = $("overlay-steps");
+const settingsDlg = $("settings");
+const setApp = $("set-app");
+const setKey = $("set-key");
+const setEndpoint = $("set-endpoint");
+const setResult = $("set-result");
+const devCount = $("dev-count");
+const APP_VERSION = "v12";
 const quality = $("quality");
 const fps = $("fps");
 const routeEl = $("route");
@@ -354,14 +323,15 @@ function generateRoomCode() {
 let toastTimer = null;
 function toast(message) {
   toastEl.textContent = message;
-  toastEl.classList.add("show");
+  toastEl.hidden = false;
+  toastEl.style.animation = "none"; void toastEl.offsetWidth; toastEl.style.animation = "";
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2600);
+  toastTimer = setTimeout(() => { toastEl.hidden = true; }, 2800);
 }
 
 function setConnection(text, state = "") {
   connectionText.textContent = text;
-  connectionDot.className = "connection-dot " + state;
+  connectionDot.className = "dot " + state;
 }
 
 /* ---------- Названия камер ---------- */
@@ -392,17 +362,18 @@ function camState(cam) {
 }
 
 function renderDevices() {
+  devCount.textContent = cams.size ? String(cams.size) : "";
   if (cams.size === 0) {
-    devicesList.innerHTML = '<div class="device-empty">Ожидание подключений...<br>Подключённые телефоны ждут команды «Запустить эфир» и видео не передают.</div>';
+    devicesList.innerHTML = '<div class="device-empty">Пока никого нет.<br>Подключённые телефоны ждут команды «Запустить эфир» и видео не передают.</div>';
     return;
   }
   let html = "";
   cams.forEach(cam => {
     const st = camState(cam);
     const icon = cam.charging ? "⚡" : "🔋";
-    const statusText = st === "live" ? "<span>В эфире</span>"
-      : st === "starting" ? '<span class="waiting">Запуск…</span>'
-      : '<span class="waiting">Ожидание</span>';
+    const statusText = st === "live" ? '<span class="st live">В эфире</span>'
+      : st === "starting" ? '<span class="st">Запуск…</span>'
+      : '<span class="st">Ожидание</span>';
     const batteryTip = cam.hasBattery === false ? ' title="Браузер этого телефона не сообщает заряд (iPhone/Safari, Firefox)"' : "";
 
     let action, label, cls = "";
@@ -414,9 +385,9 @@ function renderDevices() {
       <div class="device-item ${st === "live" ? "active" : ""} ${selectedCid === cam.cid ? "selected" : ""}" data-cid="${escapeHtml(cam.cid)}">
         <div class="device-head">
           <div class="device-title">${escapeHtml(camTitle(cam))}</div>
-          <button class="icon-btn" data-act="rename" title="Переименовать" type="button">✎</button>
+          <button class="icon-btn" data-act="rename" title="Переименовать" aria-label="Переименовать" type="button"><svg class="icon"><use href="#i-edit"/></svg></button>
         </div>
-        <div class="device-info"${batteryTip}>${icon} ${batteryText(cam)} • ${statusText}</div>
+        <div class="device-info"${batteryTip}><span class="bat">${icon} ${batteryText(cam)}</span>${statusText}</div>
         <button class="dev-btn ${cls}" data-act="${action}" type="button">${label}</button>
       </div>`;
   });
@@ -456,12 +427,23 @@ function updateHeader() {
   else setConnection("Ожидание камеры", "ready");
 }
 
+function setOverlay(title, sub, steps) {
+  overlayTitle.textContent = title;
+  overlaySub.textContent = sub || "";
+  overlaySteps.hidden = !steps;
+}
+
 function updateOverlay() {
   if (activeStream) { overlay.classList.add("hidden"); return; }
   overlay.classList.remove("hidden");
-  if (liveCid) overlay.textContent = cams.has(liveCid) ? "Запуск эфира…" : "Камера отключилась — ждём возврата…";
-  else if (cams.size) overlay.textContent = "Выберите телефон и нажмите «Запустить эфир»";
-  else overlay.textContent = "Ожидание камеры...";
+  if (liveCid) {
+    if (cams.has(liveCid)) setOverlay("Запускаем эфир…", "Телефон включает передачу видео");
+    else setOverlay("Камера отключилась", "Ждём, пока она вернётся — эфир продолжится сам");
+  } else if (cams.size) {
+    setOverlay("Телефон подключён", "Нажмите «Запустить эфир» — видео пойдёт только с выбранного телефона");
+  } else {
+    setOverlay("Ждём камеру", "Отсканируйте QR-код телефоном, чтобы подключить его", true);
+  }
 }
 
 function updateLiveBtn() {
@@ -565,6 +547,8 @@ function renderQR() {
   url.hash = "";
   url.searchParams.set("room", room);
   url.searchParams.set("k", roomToken);
+  const share = GLAZOK.turnShare();
+  if (share) url.searchParams.set("t", share);   // телефон получит настройки TURN из QR
 
   qrEl.innerHTML = "";
   if (typeof QRCode === "undefined") {
@@ -573,8 +557,8 @@ function renderQR() {
     try {
       new QRCode(qrEl, {
         text: url.href,
-        width: 320,
-        height: 320,
+        width: 400,
+        height: 400,
         colorDark: "#000000",
         colorLight: "#ffffff",
         correctLevel: QRCode.CorrectLevel.M
@@ -584,7 +568,7 @@ function renderQR() {
       qrEl.textContent = "QR недоступен";
     }
   }
-  qrLink.textContent = url.host + url.pathname;
+  qrLink.textContent = url.host + url.pathname.replace(/index\.html$/, "");
 
   const host = url.hostname;
   const local = host === "localhost" || host === "127.0.0.1" || host === "[::1]" || url.protocol === "file:";
@@ -894,7 +878,7 @@ function acceptCall(incoming, cid) {
     console.error("Call error:", error);
     if (cameraCall !== incoming) return;
     overlay.classList.remove("hidden");
-    overlay.textContent = "Ошибка видеосоединения";
+    setOverlay("Ошибка видеосоединения", "Попробуйте остановить и снова запустить эфир");
   });
 }
 
@@ -1112,26 +1096,94 @@ videoBox.addEventListener("pointercancel", () => { drag = null; });
 
 /* ---------- TURN ---------- */
 
+function setTurnChip(kind, text) {
+  turnDot.className = "dot " + kind;
+  turnChipText.textContent = text;
+}
+
 function showTurnStatus(text, kind) {
   turnStatus.textContent = text;
   turnStatus.className = "turn-status" + (kind ? " " + kind : "");
+  turnStatus.hidden = !text || kind === "ok";    // при исправном TURN лишний текст не нужен
 }
+
+let lastTurn = null;
 
 async function runTurnCheck() {
   turnBtn.disabled = true;
-  showTurnStatus("TURN: проверка…", "");
+  setTurnChip("warn", "TURN: проверка…");
   const r = await GLAZOK.testTurn();
+  lastTurn = r;
   turnBtn.disabled = false;
   const relayMode = GLAZOK.forceRelay ? " Включён режим ?relay=1: всё идёт только через TURN." : "";
+  let summary, kind;
   if (r.relay > 0) {
-    showTurnStatus("✅ TURN работает (источник: " + r.source + ", relay-кандидатов: " + r.relay + ", " + r.ms + " мс). Видео пройдёт и в одной Wi‑Fi сети, и между разными сетями." + relayMode, "ok");
+    setTurnChip("ok", "TURN работает");
+    summary = "TURN работает (" + r.relay + " relay, " + r.ms + " мс). Видео пройдёт и в одной Wi‑Fi сети, и между разными сетями." + relayMode;
+    kind = "ok";
+    showTurnStatus("", "ok");
   } else if (r.source === "stun-only") {
-    showTurnStatus("⚠ TURN не подключён: " + (r.error || "нет данных") + ". В одной Wi‑Fi сети всё будет работать, между разными сетями (мобильный интернет ↔ Wi‑Fi) видео может не пройти.", "warn");
+    setTurnChip("warn", "TURN не настроен");
+    summary = "TURN не подключён" + (r.error ? " (" + r.error + ")" : "") + ". В одной Wi‑Fi сети всё будет работать, между разными сетями видео может не пройти.";
+    kind = "warn";
+    showTurnStatus(summary + " Нажмите «Настройки TURN».", "warn");
   } else {
-    showTurnStatus("⚠ TURN получен (" + r.source + "), но relay-кандидатов нет: проверьте, что учётные данные Metered не отозваны и не истекли." + (r.error ? " " + r.error : ""), "warn");
+    setTurnChip("bad", "TURN: нет relay");
+    summary = "Данные TURN получены (" + r.source + "), но relay-кандидатов нет. Проверьте, что учётные данные Metered не отозваны." + (r.error ? " " + r.error : "");
+    kind = "warn";
+    showTurnStatus(summary, "warn");
+  }
+  setResult.textContent = summary;
+  setResult.className = "set-result " + kind;
+  return r;
+}
+
+function openSettings() {
+  const c = GLAZOK.turnConfig();
+  setApp.value = c.app;
+  setKey.value = c.apiKey;
+  setEndpoint.value = c.endpoint;
+  setResult.textContent = lastTurn ? setResult.textContent : "";
+  if (typeof settingsDlg.showModal === "function") settingsDlg.showModal(); else settingsDlg.setAttribute("open", "");
+  setApp.focus();
+}
+
+async function saveSettings() {
+  const app = GLAZOK.cleanApp(setApp.value);
+  const key = GLAZOK.cleanKey(setKey.value);
+  const endpoint = setEndpoint.value.trim();
+  if (!endpoint && (!app || !key)) {
+    setResult.textContent = !app ? "Проверьте имя приложения (например glazok-live)." : "Проверьте apiKey: только буквы, цифры, «-» и «_».";
+    setResult.className = "set-result warn";
+    return;
+  }
+  GLAZOK.setTurn({ app, apiKey: key, endpoint });
+  setResult.textContent = "Сохранено. Проверяем…";
+  setResult.className = "set-result";
+  $("set-save").disabled = true;
+  await GLAZOK.initIce();
+  const r = await runTurnCheck();
+  $("set-save").disabled = false;
+  if (r.relay > 0) {
+    renderQR();              // в QR теперь есть настройки TURN
+    createRoom(room);        // пересоздаём комнату с новыми ICE-серверами; телефоны переподключатся сами
+    toast("TURN подключён");
+    setTimeout(() => settingsDlg.close && settingsDlg.close(), 900);
   }
 }
 
+$("set-save").addEventListener("click", saveSettings);
+$("set-close").addEventListener("click", () => settingsDlg.close());
+$("set-clear").addEventListener("click", async () => {
+  GLAZOK.clearTurn();
+  setApp.value = setKey.value = setEndpoint.value = "";
+  await GLAZOK.initIce();
+  renderQR();
+  await runTurnCheck();
+});
+settingsDlg.addEventListener("click", e => { if (e.target === settingsDlg) settingsDlg.close(); });
+$("settings-btn").addEventListener("click", openSettings);
+turnChip.addEventListener("click", openSettings);
 turnBtn.addEventListener("click", runTurnCheck);
 
 /* ---------- Кнопки ---------- */
@@ -1151,6 +1203,8 @@ function openCleanOutput() {
   url.searchParams.set("room", room);
   url.searchParams.set("k", roomToken);
   if (GLAZOK.forceRelay) url.searchParams.set("relay", "1");
+  const share = GLAZOK.turnShare();
+  if (share) url.searchParams.set("t", share);
   window.open(url.href, "_blank");
 }
 
@@ -1169,34 +1223,22 @@ applyCaps();
 refreshAll();
 GLAZOK.initIce().then(() => {
   createRoom();
-  runTurnCheck();
+  runTurnCheck().then(() => {
+    // первый запуск без TURN: один раз сами открываем настройки
+    let asked = false;
+    try { asked = localStorage.getItem("glazok_turn_asked") === "1"; } catch {}
+    if (!GLAZOK.hasTurnConfig() && !asked) {
+      try { localStorage.setItem("glazok_turn_asked", "1"); } catch {}
+      openSettings();
+    }
+  });
 });
 
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   navigator.serviceWorker.register("./sw.js").catch(() => {});
 }
 
-// Автоматический счётчик версий (начинает с v10 и добавляет +1 при каждом обновлении)
-(function initVersion() {
-  const versionEl = document.getElementById("app-version");
-  if (!versionEl) return;
-
-  // Получаем сохранённую версию или ставим начальную (10)
-  let currentVersion = parseInt(localStorage.getItem("glazok_version"), 10);
-
-  if (isNaN(currentVersion)) {
-    currentVersion = 10; // Стартовая версия v10
-  } else {
-    currentVersion += 1; // Добавляем +1 при каждом перезапуске/обновлении
-  }
-
-  // Сохраняем новое значение
-  localStorage.setItem("glazok_version", currentVersion);
-
-  // Выводим в футер
-  versionEl.textContent = `Glazok v${currentVersion}`;
-})();
-
+$("app-version").textContent = APP_VERSION;
 </script>
 </body>
 </html>
