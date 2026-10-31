@@ -328,7 +328,9 @@ const state = {
   denied: false,
   statusTimer: null,
   linkTimer: null,
-  callStartedAt: 0
+  callStartedAt: 0,
+  viewerIds: new Set(),        // Clean Output, которым телефон шлёт видео напрямую (без пересжатия на мониторе)
+  viewerCalls: new Map()
 };
 
 /* Лестница качества. height — короткая сторона кадра. */
@@ -560,6 +562,11 @@ function useStream(stream) {
 
   const sender = getVideoSender();
   if (sender && track) sender.replaceTrack(track).catch(error => console.warn("replaceTrack:", error));
+  state.viewerCalls.forEach(call => {
+    const pc = call.peerConnection;
+    const s = pc && pc.getSenders().find(x => x.track && x.track.kind === "video");
+    if (s && track) s.replaceTrack(track).catch(() => {});
+  });
 
   setTorchUI(false);
   setupZoom();
@@ -718,6 +725,7 @@ function sendStatus() {
     battery: state.battery,
     charging: state.charging,
     hasBattery: state.hasBattery,
+    direct: true,
     live: state.wantLive
   });
 }
@@ -798,11 +806,19 @@ function onCtrlData(data) {
     case "go-live":
       state.wantLive = true;
       standbyNote.hidden = true;
+      state.viewerIds.forEach(callViewer);
       if (!state.connected || !state.call) makeCall();
+      break;
+    case "viewer-add":
+      if (typeof data.viewerId === "string") { state.viewerIds.add(data.viewerId); if (state.wantLive) callViewer(data.viewerId); }
+      break;
+    case "viewer-remove":
+      if (typeof data.viewerId === "string") { state.viewerIds.delete(data.viewerId); closeViewerCall(data.viewerId); }
       break;
     case "go-idle":
       state.wantLive = false;
       clearTimeout(state.redialTimer);
+      closeViewerCalls();
       closeCall();
       showStandby();
       sendStatus();
@@ -953,6 +969,30 @@ function createPeer() {
       scheduleRedial(true);
     }
   });
+}
+
+/* ---------- Прямая отдача в Clean Output (vMix/OBS) ---------- */
+
+function callViewer(viewerId) {
+  const peer = state.peer;
+  if (!peer || peer.destroyed || peer.disconnected || !state.stream || !state.wantLive) return;
+  closeViewerCall(viewerId);
+  const call = peer.call(viewerId, buildOutStream());
+  if (!call) return;
+  state.viewerCalls.set(viewerId, call);
+  GLAZOK.boostCall(call, GLAZOK.VIEWER_BITRATE);
+  call.on("close", () => { if (state.viewerCalls.get(viewerId) === call) state.viewerCalls.delete(viewerId); });
+  call.on("error", () => { if (state.viewerCalls.get(viewerId) === call) state.viewerCalls.delete(viewerId); });
+}
+
+function closeViewerCall(viewerId) {
+  const call = state.viewerCalls.get(viewerId);
+  state.viewerCalls.delete(viewerId);
+  if (call) { try { call.close(); } catch {} }
+}
+
+function closeViewerCalls() {
+  Array.from(state.viewerCalls.keys()).forEach(closeViewerCall);
 }
 
 function closeCall() {

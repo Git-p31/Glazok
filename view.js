@@ -34,6 +34,7 @@ let conn = null;
 let viewerId = null;
 let retryTimer = null;
 let hasStream = false;
+let currentCall = null;
 
 function show(text) {
   statusEl.style.display = "block";
@@ -91,9 +92,14 @@ function startPeer() {
   });
 
   p.on("call", call => {
+    /* Новый звонок заменяет старый (переключение камеры). Закрытие старого уже не гасит картинку. */
+    const previous = currentCall;
+    currentCall = call;
+    if (previous) { try { previous.close(); } catch {} }
     call.answer(undefined, { sdpTransform: GLAZOK.sdpHighBitrate(20000, 8000, 2000) });
 
     call.on("stream", stream => {
+      if (currentCall !== call) return;
       GLAZOK.tuneReceivers(call.peerConnection);
       video.srcObject = stream;
       video.muted = !wantAudio;
@@ -107,6 +113,8 @@ function startPeer() {
     });
 
     call.on("close", () => {
+      if (currentCall !== call) return;
+      currentCall = null;
       hasStream = false;
       show("Трансляция завершена");
       video.srcObject = null;

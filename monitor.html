@@ -273,7 +273,7 @@ const setKey = $("set-key");
 const setEndpoint = $("set-endpoint");
 const setResult = $("set-result");
 const devCount = $("dev-count");
-const APP_VERSION = "v12";
+const APP_VERSION = "v13";
 const quality = $("quality");
 const fps = $("fps");
 const routeEl = $("route");
@@ -490,6 +490,7 @@ function startLive(cid) {
   liveCid = cid;
   selectedCid = cid;
   applyCaps();                       // зум: берём возможности именно этой камеры
+  feedViewers(cam);                  // Clean Output получает видео прямо с этого телефона
   sendTo(cam, { type: "go-live" });
 
   clearTimeout(startTimer);
@@ -693,6 +694,7 @@ function handleCameraConn(conn, md) {
         if (typeof data.name === "string") cam.name = data.name;
         if (typeof data.battery === "number") cam.battery = data.battery;
         else if (typeof data.level === "number") cam.battery = data.level;
+        if (data.direct === true) cam.direct = true;
         if (data.hasBattery === false) cam.hasBattery = false;
         else if (typeof cam.battery === "number") cam.hasBattery = true;
         cam.charging = !!data.charging;
@@ -760,7 +762,7 @@ function registerCamera(conn, md) {
     if (cam.conn !== conn) return;
     sendTo(cam, { type: "need-caps" });
     // телефон, который уже был в эфире, вернулся после обрыва — продолжаем эфир
-    if (liveCid === cid) { clearTimeout(graceTimer); sendTo(cam, { type: "go-live" }); }
+    if (liveCid === cid) { clearTimeout(graceTimer); feedViewers(cam); sendTo(cam, { type: "go-live" }); }
   });
 
   refreshAll();
@@ -855,7 +857,7 @@ function acceptCall(incoming, cid) {
     startStats(incoming);
     updateVideoInfo();
     zoomRange.disabled = false;
-    viewers.forEach(callViewer);      // Clean Output получает новый поток (в том числе после переключения)
+    feedViewers(cam0());              // старые телефоны без прямой отдачи: пересылаем через монитор
     refreshAll();
   });
 
@@ -895,10 +897,28 @@ function handleViewerConn(conn) {
     viewerId = data.viewerId;
     viewers.add(viewerId);
     viewerConns.set(viewerId, conn);
-    callViewer(viewerId);
+    const cam = liveCam();
+    if (cam && cam.direct) sendTo(cam, { type: "viewer-add", viewerId });
+    else callViewer(viewerId);
     if (lastViewMsg) { try { conn.send(lastViewMsg); } catch {} }
   });
-  conn.on("close", () => { if (viewerId && viewerConns.get(viewerId) === conn) viewerConns.delete(viewerId); });
+  conn.on("close", () => {
+    if (!viewerId || viewerConns.get(viewerId) !== conn) return;
+    viewerConns.delete(viewerId);
+    viewers.delete(viewerId);
+    sendTo(liveCam(), { type: "viewer-remove", viewerId });
+    const call = viewerCalls.get(viewerId);
+    if (call) { try { call.close(); } catch {} viewerCalls.delete(viewerId); }
+  });
+}
+
+function cam0() { return liveCid ? cams.get(liveCid) || null : null; }
+
+/* Прямая отдача: сообщаем телефону, кому слать видео. Иначе — старый путь через монитор. */
+function feedViewers(cam) {
+  if (!cam) return;
+  viewers.forEach(viewerId => sendTo(cam, { type: "viewer-add", viewerId }));   // старые телефоны эту команду игнорируют
+  if (!cam.direct && activeStream) viewers.forEach(callViewer);
 }
 
 function callViewer(viewerId) {
