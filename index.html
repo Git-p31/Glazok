@@ -71,6 +71,12 @@
   .zoom-panel { width: min(440px, 100%); gap: 12px; padding: 0 16px; min-height: 44px; }
   .zoom-panel input[type=range] { flex: 1; accent-color: var(--accent-2); }
   .zoom-label { min-width: 42px; text-align: right; font-variant-numeric: tabular-nums; }
+  .manual-sheet { width: min(440px, 100%); max-height: 46vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: 22px; background: rgba(8, 9, 14, .82); border: 1px solid rgba(255, 255, 255, .13); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); font-size: 12.5px; }
+  .manual-sheet[hidden], .m-row[hidden] { display: none; }
+  .m-row { display: grid; grid-template-columns: 78px 1fr 70px; align-items: center; gap: 10px; }
+  .m-row input[type=range] { accent-color: var(--accent-2); min-width: 0; }
+  .m-row .m-val { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+  .m-note { color: #9aa3b8; font-size: 11.5px; line-height: 1.4; }
   .bottom { display: flex; gap: 10px; width: min(440px, 100%); }
   .action { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-height: 64px; border-radius: 20px; background: rgba(8, 9, 14, .62); border: 1px solid rgba(255, 255, 255, .13); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); font-size: 11.5px; font-weight: 700; transition: transform .15s var(--ease), background .15s; }
   .action:active { transform: scale(.95); }
@@ -99,6 +105,7 @@
   <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></symbol>
   <symbol id="i-flip" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></symbol>
   <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
   <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M11 8v6M8 11h6"/></symbol>
 </svg>
 
@@ -232,7 +239,17 @@
           <input id="zoom-range" type="range" min="1" max="1" step="0.1" value="1" aria-label="Зум">
           <span id="zoom-label" class="zoom-label">1.0×</span>
         </div>
+        <div id="manual-sheet" class="manual-sheet" hidden>
+          <div class="m-row" style="grid-template-columns:1fr auto"><strong>Ручной режим (автоматика заблокирована)</strong><label class="switch"><input id="m-on" type="checkbox" aria-label="Ручной режим"><span class="slider"></span></label></div>
+          <div class="m-row" id="m-wb-row"><span>Баланс белого</span><input id="m-wb" type="range" aria-label="Кельвины"><span id="m-wb-v" class="m-val">—</span></div>
+          <div class="m-row" id="m-iso-row"><span>ISO</span><input id="m-iso" type="range" aria-label="ISO"><span id="m-iso-v" class="m-val">—</span></div>
+          <div class="m-row" id="m-sh-row"><span>Выдержка</span><input id="m-sh" type="range" min="0" max="1000" step="1" aria-label="Выдержка"><span id="m-sh-v" class="m-val">—</span></div>
+          <div class="m-row" id="m-ev-row"><span>Эксп-коррекция</span><input id="m-ev" type="range" aria-label="EV"><span id="m-ev-v" class="m-val">—</span></div>
+          <div class="m-row" id="m-fo-row"><span>Фокус</span><input id="m-fo" type="range" aria-label="Фокус"><span id="m-fo-v" class="m-val">—</span></div>
+          <div id="m-note" class="m-note"></div>
+        </div>
         <div class="bottom">
+          <button id="manual-btn" class="action" type="button"><svg class="icon icon-lg"><use href="#i-sliders"/></svg><span id="manual-label">Ручной</span></button>
           <button id="torch-btn" class="action" type="button"><svg class="icon icon-lg"><use href="#i-bolt"/></svg><span id="torch-label">Вспышка</span></button>
           <button id="flip-btn" class="action" type="button"><svg class="icon icon-lg"><use href="#i-flip"/></svg>Камера</button>
           <button id="stop-btn" class="action stop" type="button"><svg class="icon icon-lg"><use href="#i-stop"/></svg>Стоп</button>
@@ -570,6 +587,7 @@ function useStream(stream) {
 
   setTorchUI(false);
   setupZoom();
+  setTimeout(manualAfterStream, 300);
   setTimeout(() => {
     capLevelToCapture();
     updateLocalQuality();
@@ -695,6 +713,158 @@ async function setZoom(value) {
   showZoom();
   sendCtrl({ type: "zoom-value", value: z.value });
 }
+
+/* ---------- Ручной режим камеры ---------- */
+/*
+ * Жёстко отключает автоматику (баланс белого, экспозиция, фокус) и даёт слайдеры:
+ * Кельвины, ISO, выдержка, экспокоррекция, фокус. Диафрагма в веб-API недоступна
+ * (у телефонов она фиксированная), поэтому экспозицию задают ISO + выдержка.
+ * Настройки запоминаются и заново применяются при любом перезапуске камеры.
+ */
+const manualBtn = $("manual-btn");
+const manualSheet = $("manual-sheet");
+const MANUAL_KEY = "glazok-manual";
+const manual = { on: false, caps: null, vals: {}, open: false, lockTimer: null };
+try { const saved = JSON.parse(localStorage.getItem(MANUAL_KEY) || "null"); if (saved) { manual.on = !!saved.on; manual.vals = saved.vals || {}; } } catch {}
+
+const M_ROWS = {
+  wb: { cap: "colorTemperature", key: "colorTemperature", fmt: v => Math.round(v) + " K" },
+  iso: { cap: "iso", key: "iso", fmt: v => "ISO " + Math.round(v) },
+  ev: { cap: "exposureCompensation", key: "exposureCompensation", fmt: v => (v > 0 ? "+" : "") + Number(v).toFixed(1) + " EV" },
+  fo: { cap: "focusDistance", key: "focusDistance", fmt: v => Number(v).toFixed(2) + " м" }
+};
+
+function manualSave() {
+  try { localStorage.setItem(MANUAL_KEY, JSON.stringify({ on: manual.on, vals: manual.vals })); } catch {}
+}
+
+function shutterText(units) {          // exposureTime хранится в единицах по 100 мкс
+  const sec = units * 0.0001;
+  return sec >= 0.5 ? sec.toFixed(1) + " с" : "1/" + Math.round(1 / sec);
+}
+function shFromSlider(pos) {           // логарифмическая шкала
+  const c = manual.caps.exposureTime;
+  return c.min * Math.pow(c.max / c.min, pos / 1000);
+}
+function shToSlider(v) {
+  const c = manual.caps.exposureTime;
+  return Math.round(1000 * Math.log(v / c.min) / Math.log(c.max / c.min));
+}
+
+function manualReadCaps() {
+  let caps = null;
+  try { caps = state.videoTrack && state.videoTrack.getCapabilities ? state.videoTrack.getCapabilities() : null; } catch {}
+  manual.caps = caps;
+  const has = c => caps && caps[c] && typeof caps[c].min === "number" && caps[c].max > caps[c].min;
+  const settings = state.videoTrack ? state.videoTrack.getSettings() : {};
+
+  for (const [id, r] of Object.entries(M_ROWS)) {
+    const row = $("m-" + id + "-row"), input = $("m-" + id);
+    const ok = has(r.cap);
+    row.hidden = !ok;
+    if (!ok) continue;
+    const c = caps[r.cap];
+    input.min = c.min; input.max = c.max; input.step = c.step || (c.max - c.min) / 200;
+    const v = manual.vals[id] != null ? clamp(manual.vals[id], c.min, c.max) : (settings[r.key] != null ? settings[r.key] : (c.min + c.max) / 2);
+    input.value = v; $("m-" + id + "-v").textContent = r.fmt(v);
+  }
+  const shOk = has("exposureTime");
+  $("m-sh-row").hidden = !shOk;
+  if (shOk) {
+    const v = manual.vals.sh != null ? clamp(manual.vals.sh, caps.exposureTime.min, caps.exposureTime.max) : (settings.exposureTime || caps.exposureTime.min * 10);
+    $("m-sh").value = shToSlider(v); $("m-sh-v").textContent = shutterText(v);
+  }
+  const any = shOk || Object.values(M_ROWS).some(r => has(r.cap));
+  $("m-note").textContent = any
+    ? "Автоматика отключена. Диафрагма у телефонов фиксирована — экспозицию задают ISO и выдержка."
+    : "Эта камера/браузер не отдаёт ручные настройки (нужен Chrome на Android). Попробуйте другую камеру кнопкой «Камера».";
+}
+
+async function manualApply(mode) {
+  const track = state.videoTrack;
+  if (!track) return;
+  const caps = manual.caps || {};
+  const modes = {};
+  if (manual.on) {
+    if (caps.whiteBalanceMode) modes.whiteBalanceMode = "manual";
+    if (caps.exposureMode) modes.exposureMode = "manual";
+    if (caps.focusMode && manual.vals.fo != null) modes.focusMode = "manual";
+  } else {
+    if (caps.whiteBalanceMode) modes.whiteBalanceMode = "continuous";
+    if (caps.exposureMode) modes.exposureMode = "continuous";
+    if (caps.focusMode) modes.focusMode = "continuous";
+  }
+  try {
+    if (Object.keys(modes).length) await track.applyConstraints({ advanced: [modes] });
+  } catch (error) {
+    console.warn("manual modes:", error);
+    if (mode !== "silent") toast("Ручные настройки не поддерживаются этой камерой");
+  }
+  if (!manual.on) return;
+  const v = {};
+  if (manual.vals.wb != null) v.colorTemperature = manual.vals.wb;
+  if (manual.vals.iso != null) v.iso = manual.vals.iso;
+  if (manual.vals.sh != null) v.exposureTime = manual.vals.sh;
+  if (manual.vals.ev != null) v.exposureCompensation = manual.vals.ev;
+  if (manual.vals.fo != null) v.focusDistance = manual.vals.fo;
+  for (const [k, val] of Object.entries(v)) {      // по одному: неподдерживаемое не ломает остальное
+    try { await track.applyConstraints({ advanced: [{ [k]: val }] }); } catch {}
+  }
+}
+
+function manualUI() {
+  manualBtn.classList.toggle("on", manual.on);
+  $("manual-label").textContent = manual.on ? "Ручной ВКЛ" : "Ручной";
+  manualSheet.hidden = !manual.open;
+  $("m-on").checked = manual.on;
+}
+
+function manualStartLock() {          // раз в 2 с возвращаем ручной режим, если драйвер сам вернул автоматику
+  clearInterval(manual.lockTimer);
+  manual.lockTimer = null;
+  if (!manual.on) return;
+  manual.lockTimer = setInterval(() => {
+    const t = state.videoTrack;
+    if (!t || !manual.on) return;
+    const s = t.getSettings();
+    if ((s.whiteBalanceMode && s.whiteBalanceMode !== "manual") || (s.exposureMode && s.exposureMode !== "manual")) manualApply("silent");
+  }, 2000);
+}
+
+async function manualSetOn(on) {
+  manual.on = on;
+  if (on) {                              // сначала запоминаем то, что камера выбрала автоматикой
+    const s = state.videoTrack ? state.videoTrack.getSettings() : {};
+    if (manual.vals.wb == null && s.colorTemperature) manual.vals.wb = s.colorTemperature;
+    if (manual.vals.iso == null && s.iso) manual.vals.iso = s.iso;
+    if (manual.vals.sh == null && s.exposureTime) manual.vals.sh = s.exposureTime;
+  }
+  manualSave(); manualUI();
+  await manualApply();
+  manualStartLock();
+}
+
+let manualTimer = null;
+function manualInput(id, value) {
+  let v = Number(value);
+  if (id === "sh") { v = shFromSlider(v); $("m-sh-v").textContent = shutterText(v); }
+  else $("m-" + id + "-v").textContent = M_ROWS[id].fmt(v);
+  manual.vals[id] = v;
+  manualSave();
+  if (!manual.on) { manualSetOn(true); return; }
+  clearTimeout(manualTimer);
+  manualTimer = setTimeout(() => manualApply("silent"), 60);
+}
+
+function manualAfterStream() {         // после каждого (пере)запуска камеры
+  manualReadCaps();
+  manualUI();
+  if (manual.on) manualApply("silent").then(manualStartLock);
+}
+
+manualBtn.addEventListener("click", () => { manual.open = !manual.open; manualUI(); });
+$("m-on").addEventListener("change", e => manualSetOn(e.target.checked));
+for (const id of ["wb", "iso", "sh", "ev", "fo"]) $("m-" + id).addEventListener("input", e => manualInput(id, e.target.value));
 
 /* ---------- Канал управления с монитором ---------- */
 
