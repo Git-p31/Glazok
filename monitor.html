@@ -177,6 +177,20 @@
       </div>
     </div>
 
+    <div class="card manual-panel">
+      <div class="panel-head">
+        <div class="panel-title">Коррекция картинки (программная)</div>
+        <button id="grade-reset" class="btn btn-ghost btn-sm" type="button">Сброс</button>
+      </div>
+      <div class="manual-rows">
+        <div class="m-row"><span>Баланс белого</span><input type="range" data-g="k" min="2500" max="10000" step="50" aria-label="Кельвины"><span class="m-val" data-gv="k"></span></div>
+        <div class="m-row"><span>Экспозиция</span><input type="range" data-g="ev" min="-2" max="2" step="0.05" aria-label="Экспозиция"><span class="m-val" data-gv="ev"></span></div>
+        <div class="m-row"><span>Контраст</span><input type="range" data-g="c" min="0.5" max="1.6" step="0.01" aria-label="Контраст"><span class="m-val" data-gv="c"></span></div>
+        <div class="m-row"><span>Насыщенность</span><input type="range" data-g="s" min="0" max="2" step="0.01" aria-label="Насыщенность"><span class="m-val" data-gv="s"></span></div>
+      </div>
+      <div class="manual-note">Обработка кадра на мониторе и в Clean Output — настоящие ISO, выдержка и диафрагма на iPhone из браузера недоступны.</div>
+    </div>
+
     <div id="manual-panel" class="card manual-panel" hidden>
       <div class="panel-head">
         <div class="panel-title">Ручной режим камеры</div>
@@ -291,7 +305,7 @@ const setKey = $("set-key");
 const setEndpoint = $("set-endpoint");
 const setResult = $("set-result");
 const devCount = $("dev-count");
-const APP_VERSION = "v15";
+const APP_VERSION = "v16";
 const quality = $("quality");
 const fps = $("fps");
 const routeEl = $("route");
@@ -473,6 +487,38 @@ function updateLiveBtn() {
   else if (liveCid !== sel.cid) liveBtn.textContent = "Переключить эфир на «" + camTitle(sel) + "»";
   else { liveBtn.textContent = "Остановить эфир"; liveBtn.classList.add("stop"); }
 }
+
+/* ---------- Программная цветокоррекция ---------- */
+
+const GRADE_KEY = "glazok_grade";
+let grade = Object.assign({}, GLAZOK.GRADE_DEFAULT);
+try { Object.assign(grade, JSON.parse(localStorage.getItem(GRADE_KEY) || "{}")); } catch {}
+let lastGradeMsg = null;
+const GRADE_FMT = {
+  k: v => Math.round(v) + " K",
+  ev: v => (v > 0 ? "+" : "") + Number(v).toFixed(2) + " EV",
+  c: v => Math.round(v * 100) + "%",
+  s: v => Math.round(v * 100) + "%"
+};
+
+function renderGrade(send) {
+  document.querySelectorAll("[data-g]").forEach(el => {
+    const k = el.dataset.g;
+    if (document.activeElement !== el) el.value = grade[k];
+    document.querySelector(`[data-gv="${k}"]`).textContent = GRADE_FMT[k](grade[k]);
+  });
+  GLAZOK.applyGrade(video, grade);
+  lastGradeMsg = Object.assign({ type: "grade" }, grade);
+  if (send) {
+    try { localStorage.setItem(GRADE_KEY, JSON.stringify(grade)); } catch {}
+    viewerConns.forEach(conn => { if (conn.open) { try { conn.send(lastGradeMsg); } catch {} } });
+  }
+}
+document.querySelectorAll("[data-g]").forEach(el => el.addEventListener("input", () => {
+  grade[el.dataset.g] = Number(el.value);
+  renderGrade(true);
+}));
+$("grade-reset").addEventListener("click", () => { grade = Object.assign({}, GLAZOK.GRADE_DEFAULT); renderGrade(true); });
 
 /* ---------- Ручной режим камеры (управление с монитора) ---------- */
 
@@ -991,6 +1037,7 @@ function handleViewerConn(conn) {
     if (cam && cam.direct) sendTo(cam, { type: "viewer-add", viewerId });
     else callViewer(viewerId);
     if (lastViewMsg) { try { conn.send(lastViewMsg); } catch {} }
+    if (lastGradeMsg) { try { conn.send(lastGradeMsg); } catch {} }
   });
   conn.on("close", () => {
     if (!viewerId || viewerConns.get(viewerId) !== conn) return;
@@ -1331,6 +1378,7 @@ window.addEventListener("beforeunload", () => {
 
 applyCaps();
 refreshAll();
+renderGrade(false);
 GLAZOK.initIce().then(() => {
   createRoom();
   runTurnCheck().then(() => {

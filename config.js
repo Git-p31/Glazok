@@ -391,3 +391,32 @@ window.GLAZOK = {
     history.replaceState(null, "", location.pathname + (query ? "?" + query : "") + location.hash);
   } catch {}
 })();
+
+/* Программная цветокоррекция картинки (для телефонов, где браузер не даёт ручные настройки камеры).
+   g = { k: кельвины, ev: экспозиция, c: контраст, s: насыщенность }. Работает и на мониторе, и в Clean Output. */
+GLAZOK.GRADE_DEFAULT = { k: 6500, ev: 0, c: 1, s: 1 };
+GLAZOK.applyGrade = function (videoEl, g) {
+  g = Object.assign({}, GLAZOK.GRADE_DEFAULT, g || {});
+  const neutral = g.k === 6500 && !g.ev && g.c === 1 && g.s === 1;
+  if (neutral) { videoEl.style.filter = ""; return; }
+  const NS = "http://www.w3.org/2000/svg";
+  let svg = document.getElementById("glz-grade-svg");
+  if (!svg) {
+    svg = document.createElementNS(NS, "svg");
+    svg.id = "glz-grade-svg";
+    svg.setAttribute("width", "0"); svg.setAttribute("height", "0");
+    svg.style.cssText = "position:absolute;width:0;height:0";
+    svg.innerHTML = '<filter id="glz-grade" color-interpolation-filters="sRGB" x="0" y="0" width="100%" height="100%">' +
+      '<feColorMatrix id="glz-grade-m" type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 1 0"/>' +
+      '<feColorMatrix id="glz-grade-s" type="saturate" values="1"/></filter>';
+    document.body.appendChild(svg);
+  }
+  const w = Math.max(-1, Math.min(1, (g.k - 6500) / 3500));      // выше K — теплее, как на камере
+  const gain = Math.pow(2, g.ev);
+  const r = gain * (1 + 0.3 * w), gg = gain * (1 - Math.abs(w) * 0.04), b = gain * (1 - 0.3 * w);
+  const o = 0.5 - 0.5 * g.c;
+  svg.querySelector("#glz-grade-m").setAttribute("values",
+    `${r * g.c} 0 0 0 ${o}  0 ${gg * g.c} 0 0 ${o}  0 0 ${b * g.c} 0 ${o}  0 0 0 1 0`);
+  svg.querySelector("#glz-grade-s").setAttribute("values", String(g.s));
+  videoEl.style.filter = "url(#glz-grade)";
+};

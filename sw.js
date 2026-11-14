@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "glazok-studio-v15";
+const CACHE_NAME = "glazok-studio-v16";
 
 const STATIC_ASSETS = [
   "./",

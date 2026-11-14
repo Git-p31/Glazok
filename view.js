@@ -76,6 +76,7 @@ function connectToMonitor() {
     if (!data) return;
     if (data.type === "denied") show("Неверная ссылка: нет ключа доступа");
     else if (data.type === "view-transform") applyViewTransform(data);
+    else if (data.type === "grade") GLAZOK.applyGrade(video, data);
   });
   current.on("close", () => { if (conn === current) scheduleConnect(); });
   current.on("error", () => { if (conn === current) scheduleConnect(); });
