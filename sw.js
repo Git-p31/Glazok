@@ -8,7 +8,7 @@ const STATIC_ASSETS = [
   "./monitor.html",
   "./view.html",
   "./view.js",
-  "./config.js",
+  "./config.js?v=16",
   "./glazok.css",
   "./manifest.webmanifest",
   "./icon.svg"
