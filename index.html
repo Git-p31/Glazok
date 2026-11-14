@@ -767,12 +767,14 @@ function manualReadCaps() {
     input.min = c.min; input.max = c.max; input.step = c.step || (c.max - c.min) / 200;
     const v = manual.vals[id] != null ? clamp(manual.vals[id], c.min, c.max) : (settings[r.key] != null ? settings[r.key] : (c.min + c.max) / 2);
     input.value = v; $("m-" + id + "-v").textContent = r.fmt(v);
+    manual.shown[id] = Number(v);
   }
   const shOk = has("exposureTime");
   $("m-sh-row").hidden = !shOk;
   if (shOk) {
     const v = manual.vals.sh != null ? clamp(manual.vals.sh, caps.exposureTime.min, caps.exposureTime.max) : (settings.exposureTime || caps.exposureTime.min * 10);
     $("m-sh").value = shToSlider(v); $("m-sh-v").textContent = shutterText(v);
+    manual.shown.sh = v;
   }
   const any = shOk || Object.values(M_ROWS).some(r => has(r.cap));
   $("m-note").textContent = any
@@ -812,6 +814,35 @@ async function manualApply(mode) {
   }
 }
 
+/* Состояние ручного режима для монитора: границы слайдеров и текущие значения (сырые, выдержка в единицах по 100 мкс). */
+manual.shown = {};
+let manualSendTimer = null;
+function sendManual() {
+  clearTimeout(manualSendTimer);
+  manualSendTimer = setTimeout(() => {
+    const c = manual.caps || {};
+    const has = k => c[k] && typeof c[k].min === "number" && c[k].max > c[k].min;
+    const caps = {};
+    for (const [id, r] of Object.entries(M_ROWS)) {
+      if (has(r.cap)) caps[id] = { min: c[r.cap].min, max: c[r.cap].max, step: c[r.cap].step || (c[r.cap].max - c[r.cap].min) / 200 };
+    }
+    if (has("exposureTime")) caps.sh = { min: c.exposureTime.min, max: c.exposureTime.max };
+    const vals = {};
+    for (const id of Object.keys(caps)) {
+      const v = manual.vals[id] != null ? manual.vals[id] : manual.shown[id];
+      if (v != null) vals[id] = v;
+    }
+    sendCtrl({ type: "manual", on: manual.on, caps, vals });
+  }, 120);
+}
+
+function manualRemote(id, value) {     // команда с монитора
+  const input = $("m-" + id);
+  if (!input || !manual.caps) return;
+  input.value = id === "sh" ? shToSlider(clamp(value, manual.caps.exposureTime.min, manual.caps.exposureTime.max)) : value;
+  manualInput(id, input.value);
+}
+
 function manualUI() {
   manualBtn.classList.toggle("on", manual.on);
   $("manual-label").textContent = manual.on ? "Ручной ВКЛ" : "Ручной";
@@ -840,6 +871,7 @@ async function manualSetOn(on) {
     if (manual.vals.sh == null && s.exposureTime) manual.vals.sh = s.exposureTime;
   }
   manualSave(); manualUI();
+  sendManual();
   await manualApply();
   manualStartLock();
 }
@@ -851,6 +883,7 @@ function manualInput(id, value) {
   else $("m-" + id + "-v").textContent = M_ROWS[id].fmt(v);
   manual.vals[id] = v;
   manualSave();
+  sendManual();
   if (!manual.on) { manualSetOn(true); return; }
   clearTimeout(manualTimer);
   manualTimer = setTimeout(() => manualApply("silent"), 60);
@@ -859,6 +892,7 @@ function manualInput(id, value) {
 function manualAfterStream() {         // после каждого (пере)запуска камеры
   manualReadCaps();
   manualUI();
+  sendManual();
   if (manual.on) manualApply("silent").then(manualStartLock);
 }
 
@@ -949,6 +983,7 @@ function openControl() {
     state.retry = 0;
     sendStatus();
     sendCaps();
+    sendManual();
     startStatusTimer();
     if (state.wantLive && !state.connected) makeCall(); else showStandby();
   });
@@ -993,7 +1028,12 @@ function onCtrlData(data) {
       showStandby();
       sendStatus();
       break;
+    case "manual-set":
+      if (typeof data.on === "boolean") manualSetOn(data.on);
+      if (typeof data.id === "string" && typeof data.value === "number" && isFinite(data.value)) manualRemote(data.id, data.value);
+      break;
     case "need-caps":
+      sendManual();
       sendCaps();
       sendStatus();
       break;

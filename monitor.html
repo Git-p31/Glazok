@@ -80,6 +80,15 @@
   .zoom-value { min-width: 44px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
   .statbar { display: flex; gap: 8px; flex-wrap: wrap; }
 
+  .manual-panel { padding: 14px 16px 16px; }
+  .manual-panel .panel-head { margin-bottom: 8px; }
+  .manual-rows { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 28px; }
+  .m-row { display: grid; grid-template-columns: 110px 1fr 76px; align-items: center; gap: 10px; min-height: 38px; font-size: 13px; }
+  .m-row input[type=range] { min-width: 0; accent-color: var(--accent); }
+  .m-row .m-val { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .manual-note { margin-top: 8px; color: var(--muted); font-size: 11.5px; line-height: 1.45; }
+  @media (max-width: 900px) { .manual-rows { grid-template-columns: 1fr; } }
+
   .turn-status { padding: 12px 14px; border-radius: var(--radius-sm); font-size: 12.5px; line-height: 1.5; color: var(--muted); background: var(--card); border: 1px solid var(--line); }
   .turn-status.warn { color: #fde68a; background: rgba(251, 191, 36, .08); border-color: rgba(251, 191, 36, .28); }
 
@@ -166,6 +175,15 @@
         <div id="zoom-value" class="zoom-value">1.0×</div>
         <button id="zoom-reset" class="btn btn-ghost btn-sm" type="button">Сброс</button>
       </div>
+    </div>
+
+    <div id="manual-panel" class="card manual-panel" hidden>
+      <div class="panel-head">
+        <div class="panel-title">Ручной режим камеры</div>
+        <button id="manual-off" class="btn btn-ghost btn-sm" type="button">Выключить</button>
+      </div>
+      <div id="manual-rows" class="manual-rows"></div>
+      <div class="manual-note">Диафрагма у камер телефонов фиксированная и через браузер недоступна — экспозицию задают ISO и выдержка.</div>
     </div>
 
     <div class="statbar">
@@ -273,7 +291,7 @@ const setKey = $("set-key");
 const setEndpoint = $("set-endpoint");
 const setResult = $("set-result");
 const devCount = $("dev-count");
-const APP_VERSION = "v13";
+const APP_VERSION = "v15";
 const quality = $("quality");
 const fps = $("fps");
 const routeEl = $("route");
@@ -456,7 +474,75 @@ function updateLiveBtn() {
   else { liveBtn.textContent = "Остановить эфир"; liveBtn.classList.add("stop"); }
 }
 
+/* ---------- Ручной режим камеры (управление с монитора) ---------- */
+
+const manualPanel = $("manual-panel");
+const manualRows = $("manual-rows");
+const M_DEFS = [
+  { id: "wb", label: "Баланс белого", fmt: v => Math.round(v) + " K" },
+  { id: "iso", label: "ISO", fmt: v => "ISO " + Math.round(v) },
+  { id: "sh", label: "Выдержка", fmt: v => { const s = v * 0.0001; return s >= 0.5 ? s.toFixed(1) + " с" : "1/" + Math.round(1 / s); } },
+  { id: "ev", label: "Эксп-коррекция", fmt: v => (v > 0 ? "+" : "") + Number(v).toFixed(1) + " EV" },
+  { id: "fo", label: "Фокус", fmt: v => Number(v).toFixed(2) + " м" }
+];
+let manualSig = "";
+let manualDrag = null;
+
+function shPos(caps, v) { return Math.round(1000 * Math.log(v / caps.min) / Math.log(caps.max / caps.min)); }
+function shVal(caps, pos) { return caps.min * Math.pow(caps.max / caps.min, pos / 1000); }
+
+function renderManual() {
+  const cam = liveCam();
+  const m = cam && cam.manual;
+  if (!m || !m.on) { manualPanel.hidden = true; manualSig = ""; return; }
+  manualPanel.hidden = false;
+  const sig = cam.cid + JSON.stringify(m.caps);
+  if (sig !== manualSig) {           // набор слайдеров изменился — строим заново
+    manualSig = sig;
+    manualRows.innerHTML = M_DEFS.filter(d => m.caps[d.id]).map(d => {
+      const c = m.caps[d.id];
+      const attrs = d.id === "sh" ? 'min="0" max="1000" step="1"' : `min="${c.min}" max="${c.max}" step="${c.step || (c.max - c.min) / 200}"`;
+      return `<div class="m-row"><span>${d.label}</span><input type="range" data-m="${d.id}" ${attrs} aria-label="${d.label}"><span class="m-val" data-mv="${d.id}">—</span></div>`;
+    }).join("") || '<div class="manual-note">Эта камера не отдаёт ручные настройки.</div>';
+  }
+  M_DEFS.forEach(d => {
+    const c = m.caps[d.id], v = m.vals[d.id];
+    if (!c || v == null || manualDrag === d.id) return;
+    const input = manualRows.querySelector(`[data-m="${d.id}"]`);
+    if (!input) return;
+    input.value = d.id === "sh" ? shPos(c, clamp(v, c.min, c.max)) : v;
+    manualRows.querySelector(`[data-mv="${d.id}"]`).textContent = d.fmt(v);
+  });
+}
+
+const manualTimers = {};
+manualRows.addEventListener("input", e => {
+  const id = e.target.dataset && e.target.dataset.m;
+  const cam = liveCam();
+  if (!id || !cam || !cam.manual) return;
+  const c = cam.manual.caps[id];
+  const v = id === "sh" ? shVal(c, Number(e.target.value)) : Number(e.target.value);
+  cam.manual.vals[id] = v;
+  manualRows.querySelector(`[data-mv="${id}"]`).textContent = M_DEFS.find(d => d.id === id).fmt(v);
+  manualDrag = id;
+  clearTimeout(manualTimers.release);
+  manualTimers.release = setTimeout(() => { manualDrag = null; }, 600);
+  if (manualTimers[id]) return;
+  manualTimers[id] = setTimeout(() => {
+    manualTimers[id] = null;
+    sendCtrl({ type: "manual-set", id, value: cam.manual.vals[id] });
+  }, 60);
+});
+$("manual-off").addEventListener("click", () => {
+  const cam = liveCam();
+  if (!cam) return;
+  sendCtrl({ type: "manual-set", on: false });
+  if (cam.manual) cam.manual.on = false;
+  renderManual();
+});
+
 function refreshAll() {
+  renderManual();
   renderDevices();
   updateLiveBtn();
   updateOverlay();
@@ -703,6 +789,10 @@ function handleCameraConn(conn, md) {
       case "caps":
         cam.zoomCaps = data.zoom && typeof data.zoom.min === "number" ? data.zoom : null;
         if (cid === liveCid) applyCaps();
+        break;
+      case "manual":
+        cam.manual = data.caps && typeof data.caps === "object" ? { on: !!data.on, caps: data.caps, vals: data.vals || {} } : null;
+        if (cid === liveCid) renderManual();
         break;
       case "zoom-value":
         if (cam.zoomCaps && typeof data.value === "number") {
