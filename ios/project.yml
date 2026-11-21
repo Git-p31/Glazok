@@ -1,0 +1,60 @@
+# Проект Xcode генерируется из этого файла (XcodeGen) — сам .xcodeproj в репозиторий не кладём.
+# Сборка идёт в GitHub Actions (.github/workflows/ios.yml), Mac не нужен.
+name: GlazokCam
+options:
+  bundleIdPrefix: app.glazok
+  deploymentTarget:
+    iOS: "15.0"
+  createIntermediateGroups: true
+
+packages:
+  WebRTC:
+    url: https://github.com/stasel/WebRTC
+    exactVersion: "150.0.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    ENABLE_BITCODE: NO
+
+targets:
+  GlazokCam:
+    type: application
+    platform: iOS
+    sources:
+      - path: GlazokCam
+    dependencies:
+      - package: WebRTC
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.glazok.camera
+        PRODUCT_NAME: Glazok
+        INFOPLIST_FILE: GlazokCam/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_STYLE: Automatic
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+    info:
+      path: GlazokCam/Info.plist
+      properties:
+        CFBundleDisplayName: Glazok
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSRequiresIPhoneOS: true
+        UILaunchScreen: {}
+        UIApplicationSupportsIndirectInputEvents: true
+        UIRequiresFullScreen: true
+        UIStatusBarHidden: true
+        NSCameraUsageDescription: Камера нужна, чтобы передавать видео на монитор Glazok.
+        NSMicrophoneUsageDescription: Микрофон нужен, если вы включили звук в трансляции.
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight

@@ -1,0 +1,5 @@
+GlazokCam.xcodeproj/
+GlazokCam/Info.plist
+build/
+out/
+build.log

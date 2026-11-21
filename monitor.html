@@ -535,7 +535,7 @@ const M_DEFS = [
   { id: "iso", label: "ISO", fmt: v => "ISO " + Math.round(v) },
   { id: "sh", label: "Выдержка", fmt: v => { const s = v * 0.0001; return s >= 0.5 ? s.toFixed(1) + " с" : "1/" + Math.round(1 / s); } },
   { id: "ev", label: "Эксп-коррекция", fmt: v => (v > 0 ? "+" : "") + Number(v).toFixed(1) + " EV" },
-  { id: "fo", label: "Фокус", fmt: v => Number(v).toFixed(2) + " м" }
+  { id: "fo", label: "Фокус", fmt: (v, c) => c && c.lens ? "линза " + Math.round(v * 100) + "%" : Number(v).toFixed(2) + " м" }   // lens: приложение для iPhone шлёт положение линзы 0..1
 ];
 let manualSig = "";
 let manualDrag = null;
@@ -563,7 +563,7 @@ function renderManual() {
     const input = manualRows.querySelector(`[data-m="${d.id}"]`);
     if (!input) return;
     input.value = d.id === "sh" ? shPos(c, clamp(v, c.min, c.max)) : v;
-    manualRows.querySelector(`[data-mv="${d.id}"]`).textContent = d.fmt(v);
+    manualRows.querySelector(`[data-mv="${d.id}"]`).textContent = d.fmt(v, c);
   });
 }
 
@@ -575,7 +575,7 @@ manualRows.addEventListener("input", e => {
   const c = cam.manual.caps[id];
   const v = id === "sh" ? shVal(c, Number(e.target.value)) : Number(e.target.value);
   cam.manual.vals[id] = v;
-  manualRows.querySelector(`[data-mv="${id}"]`).textContent = M_DEFS.find(d => d.id === id).fmt(v);
+  manualRows.querySelector(`[data-mv="${id}"]`).textContent = M_DEFS.find(d => d.id === id).fmt(v, c);
   manualDrag = id;
   clearTimeout(manualTimers.release);
   manualTimers.release = setTimeout(() => { manualDrag = null; }, 600);

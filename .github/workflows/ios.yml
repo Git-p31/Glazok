@@ -1,0 +1,59 @@
+# Сборка приложения Glazok для iPhone без Mac: GitHub собирает неподписанный .ipa,
+# его скачивают из Actions → артефакт «Glazok-iOS» и ставят на телефон через Sideloadly (см. ios/README.md).
+name: iOS app
+
+on:
+  push:
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Build (unsigned)
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project GlazokCam.xcodeproj \
+            -scheme GlazokCam \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build | tee build.log | grep -E "error:|warning: .*deprecated|BUILD (SUCCEEDED|FAILED)" || true
+          test -d build/Build/Products/Release-iphoneos/Glazok.app
+
+      - name: Package .ipa
+        working-directory: ios
+        run: |
+          mkdir -p out/Payload
+          cp -R build/Build/Products/Release-iphoneos/Glazok.app out/Payload/
+          cd out && zip -qry Glazok.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Glazok-iOS
+          path: ios/out/Glazok.ipa
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-log
+          path: ios/build.log
+          if-no-files-found: ignore
