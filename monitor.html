@@ -9,7 +9,7 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
 <link rel="stylesheet" href="./glazok.css">
-<script src="./config.js?v=16"></script>
+<script src="./config.js?v=17"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
@@ -60,6 +60,10 @@
   .stage { position: relative; display: grid; place-items: center; min-height: min(56vh, 560px); padding: 0; overflow: hidden; border-radius: 22px; background: #000; border: 1px solid var(--line); box-shadow: var(--shadow); }
   .video-container { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: #000; }
   .video-container video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transform-origin: center; will-change: transform; touch-action: none; }
+  .video-container.can-focus video { cursor: crosshair; }
+  .focus-ring { position: absolute; z-index: 2; width: 64px; height: 64px; margin: -32px 0 0 -32px; border: 2px solid #fde68a; border-radius: 12px; pointer-events: none; opacity: 0; transform: scale(1.35); transition: opacity .25s, transform .25s var(--ease); box-shadow: 0 0 0 1px rgba(0, 0, 0, .35); }
+  .focus-ring.show { opacity: 1; transform: scale(1); }
+  .focus-ring.fade { opacity: 0; transform: scale(1); transition: opacity .8s; }
   .video-overlay { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 24px; text-align: center; background: radial-gradient(600px 300px at 50% 40%, rgba(124, 131, 255, .14), transparent 70%), #07080d; transition: opacity .3s var(--ease); }
   .video-overlay.hidden { opacity: 0; pointer-events: none; }
   .overlay-icon { width: 64px; height: 64px; margin-bottom: 8px; border-radius: 20px; display: grid; place-items: center; background: var(--card-2); border: 1px solid var(--line-2); color: var(--accent-2); }
@@ -154,6 +158,7 @@
     <div class="stage">
       <div id="video-box" class="video-container">
         <video id="video" autoplay playsinline muted></video>
+        <div id="focus-ring" class="focus-ring"></div>
         <div id="video-overlay" class="video-overlay">
           <div class="overlay-icon"><svg class="icon"><use href="#i-phone"/></svg></div>
           <div id="overlay-title">Ждём камеру</div>
@@ -174,6 +179,7 @@
         <input id="zoom-range" type="range" min="1" max="4" step="0.05" value="1" disabled aria-label="Зум">
         <div id="zoom-value" class="zoom-value">1.0×</div>
         <button id="zoom-reset" class="btn btn-ghost btn-sm" type="button">Сброс</button>
+        <button id="focus-reset" class="btn btn-ghost btn-sm" type="button" hidden title="Клик по видео — фокус на этой точке">Фокус: точка ✕</button>
       </div>
     </div>
 
@@ -305,7 +311,7 @@ const setKey = $("set-key");
 const setEndpoint = $("set-endpoint");
 const setResult = $("set-result");
 const devCount = $("dev-count");
-const APP_VERSION = "v16";
+const APP_VERSION = "v17";
 const quality = $("quality");
 const fps = $("fps");
 const routeEl = $("route");
@@ -846,6 +852,10 @@ function handleCameraConn(conn, md) {
           if (cid === liveCid) syncZoomUI();
         }
         break;
+      case "focus-state":
+        cam.focus = { supported: data.supported !== false, set: !!data.set, x: Number(data.x) || 0.5, y: Number(data.y) || 0.5 };
+        if (cid === liveCid) renderFocus();
+        break;
       case "zoom-failed":            // оптический зум не сработал — переходим на цифровой
         cam.zoomCaps = null;
         if (cid === liveCid) { applyCaps(); toast("Оптический зум недоступен — цифровое увеличение"); }
@@ -1210,6 +1220,7 @@ function applyCaps() {
   }
   zoomRange.disabled = !activeStream;
   syncZoomUI();
+  renderFocus();
 }
 
 function setZoomValue(value) {
@@ -1250,6 +1261,77 @@ videoBox.addEventListener("pointermove", e => {
 });
 videoBox.addEventListener("pointerup", () => { drag = null; });
 videoBox.addEventListener("pointercancel", () => { drag = null; });
+
+/* ---------- Фокус по точке ---------- */
+/*
+ * Клик по видео — телефон фокусируется на этом месте кадра ({type:"focus", x, y} долями 0..1).
+ * Двойной клик по-прежнему сбрасывает зум, поэтому одиночный клик ждёт 250 мс.
+ */
+const focusRing = $("focus-ring");
+const focusResetBtn = $("focus-reset");
+let focusFadeTimer = null;
+let focusClickTimer = null;
+let focusDown = null;
+
+function renderFocus() {
+  const cam = liveCam();
+  const f = cam && cam.focus;
+  videoBox.classList.toggle("can-focus", !!(activeStream && f && f.supported));
+  $("focus-reset").hidden = !(f && f.set);    // через $(), т.к. applyCaps может вызваться раньше объявления const выше
+}
+
+/* Где на экране лежит кадр: учитываем object-fit: contain и цифровой зум (transform входит в getBoundingClientRect). */
+function frameRect() {
+  const r = video.getBoundingClientRect();
+  const vw = video.videoWidth || r.width, vh = video.videoHeight || r.height;
+  const s = Math.min(r.width / vw, r.height / vh);
+  const w = vw * s, h = vh * s;
+  return { left: r.left + (r.width - w) / 2, top: r.top + (r.height - h) / 2, w, h };
+}
+
+function showFocusRing(clientX, clientY) {
+  const box = videoBox.getBoundingClientRect();
+  focusRing.style.left = (clientX - box.left) + "px";
+  focusRing.style.top = (clientY - box.top) + "px";
+  focusRing.classList.remove("fade", "show");
+  void focusRing.offsetWidth;
+  focusRing.classList.add("show");
+  clearTimeout(focusFadeTimer);
+  focusFadeTimer = setTimeout(() => focusRing.classList.replace("show", "fade"), 1400);
+}
+
+function focusClick(clientX, clientY) {
+  const cam = liveCam();
+  if (!cam || !activeStream) return;
+  const f = frameRect();
+  const x = (clientX - f.left) / f.w, y = (clientY - f.top) / f.h;
+  if (x < 0 || x > 1 || y < 0 || y > 1) return;          // клик по чёрным полям
+  if (cam.focus && !cam.focus.supported) {
+    toast("Эта камера не поддерживает фокус по точке (нужен Chrome на Android)");
+    return;
+  }
+  showFocusRing(clientX, clientY);
+  sendCtrl({ type: "focus", x, y });
+}
+
+videoBox.addEventListener("pointerdown", e => { focusDown = { x: e.clientX, y: e.clientY, t: Date.now() }; });
+videoBox.addEventListener("pointerup", e => {
+  const d = focusDown;
+  focusDown = null;
+  if (!d || e.button !== 0) return;
+  if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 6 || Date.now() - d.t > 500) return;   // это было перетаскивание
+  clearTimeout(focusClickTimer);
+  const x = e.clientX, y = e.clientY;
+  focusClickTimer = setTimeout(() => focusClick(x, y), 250);
+});
+videoBox.addEventListener("dblclick", () => clearTimeout(focusClickTimer));
+focusResetBtn.addEventListener("click", () => {
+  sendCtrl({ type: "focus", reset: true });
+  const cam = liveCam();
+  if (cam && cam.focus) cam.focus.set = false;
+  renderFocus();
+  toast("Фокус: автоматически");
+});
 
 /* ---------- TURN ---------- */
 

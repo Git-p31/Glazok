@@ -10,7 +10,7 @@
 <link rel="icon" href="./icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
 <link rel="stylesheet" href="./glazok.css">
-<script src="./config.js?v=16"></script>
+<script src="./config.js?v=17"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
 <style>
   body { overflow-x: hidden; }
@@ -81,6 +81,11 @@
   .action { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-height: 64px; border-radius: 20px; background: rgba(8, 9, 14, .62); border: 1px solid rgba(255, 255, 255, .13); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); font-size: 11.5px; font-weight: 700; transition: transform .15s var(--ease), background .15s; }
   .action:active { transform: scale(.95); }
   .action.on { background: rgba(251, 191, 36, .22); border-color: rgba(251, 191, 36, .55); color: #fde68a; }
+  .focus-ring { position: absolute; z-index: 1; width: 74px; height: 74px; margin: -37px 0 0 -37px; border: 2px solid #fde68a; border-radius: 14px; pointer-events: none; opacity: 0; transform: scale(1.35); transition: opacity .25s, transform .25s var(--ease); box-shadow: 0 0 0 1px rgba(0, 0, 0, .35); }
+  .focus-ring.show { opacity: 1; transform: scale(1); }
+  .focus-ring.fade { opacity: 0; transform: scale(1); transition: opacity .8s; }
+  button.pill { color: inherit; cursor: pointer; }
+  button.pill[hidden] { display: none; }
   .action.stop { background: rgba(248, 113, 113, .2); border-color: rgba(248, 113, 113, .5); color: #fecaca; }
 
   /* Сканер */
@@ -215,6 +220,7 @@
 
   <div id="camera-view">
     <video id="camera-video" autoplay playsinline muted></video>
+    <div id="focus-ring" class="focus-ring"></div>
 
     <div class="camera-ui">
       <div class="top-row">
@@ -225,6 +231,7 @@
         <div class="stats">
           <div class="pill"><span id="quality-info">—</span></div>
           <div class="pill"><span id="network-info">—</span></div>
+          <button id="focus-reset" class="pill" type="button" hidden>Фокус: точка ✕</button>
         </div>
       </div>
 
@@ -588,6 +595,7 @@ function useStream(stream) {
   setTorchUI(false);
   setupZoom();
   setTimeout(manualAfterStream, 300);
+  setTimeout(focusAfterStream, 600);
   setTimeout(() => {
     capLevelToCapture();
     updateLocalQuality();
@@ -884,6 +892,7 @@ function manualInput(id, value) {
   manual.vals[id] = v;
   manualSave();
   sendManual();
+  if (id === "fo" && focusPoint.set) { focusPoint.set = false; focusUI(); sendFocus(); }   // слайдер фокуса отменяет точку
   if (!manual.on) { manualSetOn(true); return; }
   clearTimeout(manualTimer);
   manualTimer = setTimeout(() => manualApply("silent"), 60);
@@ -895,6 +904,117 @@ function manualAfterStream() {         // после каждого (пере)з
   sendManual();
   if (manual.on) manualApply("silent").then(manualStartLock);
 }
+
+/* ---------- Фокус по точке ---------- */
+/*
+ * Тап по картинке на телефоне или клик по видео на мониторе выбирает, на чём фокусироваться.
+ * Точка задаётся долями кадра (0..1) и передаётся камере через pointsOfInterest
+ * (Chrome на Android). Ручной фокус слайдером при этом сбрасывается — работает автофокус по точке.
+ */
+const focusRing = $("focus-ring");
+const focusResetBtn = $("focus-reset");
+const focusPoint = { set: false, x: 0.5, y: 0.5 };
+let focusFadeTimer = null;
+
+function focusSupported() {
+  try {
+    if (!navigator.mediaDevices.getSupportedConstraints().pointsOfInterest) return false;
+    const caps = state.videoTrack && state.videoTrack.getCapabilities ? state.videoTrack.getCapabilities() : {};
+    return !caps.focusMode || caps.focusMode.some(m => m === "continuous" || m === "single-shot");
+  } catch { return false; }
+}
+
+/* Геометрия кадра внутри <video> с object-fit: cover */
+function videoBox() {
+  const r = cameraVideo.getBoundingClientRect();
+  const vw = cameraVideo.videoWidth || r.width, vh = cameraVideo.videoHeight || r.height;
+  const s = Math.max(r.width / vw, r.height / vh);
+  const w = vw * s, h = vh * s;
+  return { left: r.left + (r.width - w) / 2, top: r.top + (r.height - h) / 2, w, h };
+}
+
+function showFocusRing(x, y) {
+  const b = videoBox();
+  const r = cameraView.getBoundingClientRect();
+  focusRing.style.left = (b.left - r.left + x * b.w) + "px";
+  focusRing.style.top = (b.top - r.top + y * b.h) + "px";
+  focusRing.classList.remove("fade", "show");
+  void focusRing.offsetWidth;
+  focusRing.classList.add("show");
+  clearTimeout(focusFadeTimer);
+  focusFadeTimer = setTimeout(() => focusRing.classList.replace("show", "fade"), 1400);
+}
+
+function sendFocus() {
+  sendCtrl({ type: "focus-state", supported: focusSupported(), set: focusPoint.set, x: focusPoint.x, y: focusPoint.y });
+}
+
+function focusUI() {
+  focusResetBtn.hidden = !focusPoint.set;
+}
+
+async function applyFocusPoint() {
+  const track = state.videoTrack;
+  if (!track) return false;
+  let caps = {};
+  try { caps = track.getCapabilities ? track.getCapabilities() : {}; } catch {}
+  const modes = caps.focusMode || [];
+  const c = { pointsOfInterest: [{ x: focusPoint.x, y: focusPoint.y }] };
+  if (modes.includes("continuous")) c.focusMode = "continuous";        // держит фокус на точке, даже если объект шевелится
+  else if (modes.includes("single-shot")) c.focusMode = "single-shot";
+  try {
+    await track.applyConstraints({ advanced: [c] });
+    return true;
+  } catch (error) {
+    console.warn("focus point:", error);
+    return false;
+  }
+}
+
+async function focusAt(x, y) {
+  if (!state.videoTrack) return;
+  focusPoint.x = clamp(x, 0, 1);
+  focusPoint.y = clamp(y, 0, 1);
+  showFocusRing(focusPoint.x, focusPoint.y);
+  if (!focusSupported()) {
+    toast("Фокус по точке не поддерживается этой камерой/браузером (нужен Chrome на Android)");
+    sendFocus();
+    return;
+  }
+  focusPoint.set = true;
+  if (manual.vals.fo != null) {             // ручной фокус слайдером уступает автофокусу по точке
+    delete manual.vals.fo;
+    manualSave();
+    manualReadCaps();
+    sendManual();
+  }
+  const ok = await applyFocusPoint();
+  if (!ok) toast("Камера не приняла точку фокуса");
+  focusUI();
+  sendFocus();
+}
+
+async function focusReset() {
+  focusPoint.set = false;
+  focusPoint.x = 0.5;
+  focusPoint.y = 0.5;
+  focusUI();
+  if (state.videoTrack && focusSupported()) await applyFocusPoint();
+  sendFocus();
+}
+
+function focusAfterStream() {               // после перезапуска камеры возвращаем выбранную точку
+  focusUI();
+  if (focusPoint.set && focusSupported() && !(manual.on && manual.vals.fo != null)) applyFocusPoint();
+  sendFocus();
+}
+
+cameraView.addEventListener("click", e => {
+  if (e.target.closest("button, input, label, select, .manual-sheet, .pill, .standby-note")) return;
+  const b = videoBox();
+  focusAt((e.clientX - b.left) / b.w, (e.clientY - b.top) / b.h);
+});
+focusResetBtn.addEventListener("click", () => { focusReset(); toast("Фокус: автоматически"); });
 
 manualBtn.addEventListener("click", () => { manual.open = !manual.open; manualUI(); });
 $("m-on").addEventListener("change", e => manualSetOn(e.target.checked));
@@ -984,6 +1104,7 @@ function openControl() {
     sendStatus();
     sendCaps();
     sendManual();
+    sendFocus();
     startStatusTimer();
     if (state.wantLive && !state.connected) makeCall(); else showStandby();
   });
@@ -1032,7 +1153,12 @@ function onCtrlData(data) {
       if (typeof data.on === "boolean") manualSetOn(data.on);
       if (typeof data.id === "string" && typeof data.value === "number" && isFinite(data.value)) manualRemote(data.id, data.value);
       break;
+    case "focus":
+      if (data.reset) focusReset();
+      else if (typeof data.x === "number" && typeof data.y === "number" && isFinite(data.x) && isFinite(data.y)) focusAt(data.x, data.y);
+      break;
     case "need-caps":
+      sendFocus();
       sendManual();
       sendCaps();
       sendStatus();
@@ -1538,6 +1664,8 @@ function stopCamera() {
   connectButton.disabled = false;
   zoomPanel.hidden = true;
   state.zoom = null;
+  focusPoint.set = false;
+  focusUI();
   networkInfo.textContent = "—";
   qualityInfo.textContent = "—";
   setStatus("ПОДКЛЮЧЕНИЕ", "warning");
