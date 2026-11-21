@@ -1,0 +1,57 @@
+{
+  "name": "glazok-studio",
+  "productName": "Glazok Studio",
+  "version": "1.0.0",
+  "description": "Пульт Glazok для Windows: телефоны как камеры в OBS и vMix",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis"
+  },
+  "dependencies": {
+    "koffi": "^2.9.0"
+  },
+  "devDependencies": {
+    "electron": "^39.0.0",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "app.glazok.studio",
+    "productName": "Glazok Studio",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "vcam.js",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../vcam/build/Release/GlazokVCam.dll",
+        "to": "vcam/GlazokVCam.dll"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "artifactName": "GlazokStudio-Setup-${version}.exe",
+      "include": "build/installer.nsh",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Glazok Studio",
+      "runAfterFinish": true
+    }
+  },
+  "allowScripts": {
+    "electron@39.8.10": true,
+    "koffi@2.16.4": true,
+    "electron-winstaller@5.4.0": true
+  }
+}

@@ -54,6 +54,10 @@
   .dev-btn:active { transform: scale(.98); }
   .dev-btn.stop { background: rgba(248, 113, 113, .14); color: #fecaca; border: 1px solid rgba(248, 113, 113, .45); }
   .dev-btn.switch { background: var(--grad); color: #0b0c14; }
+  .device-info .st.feed { color: #93c5fd; font-weight: 700; }
+  .slot-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; font-size: 12px; color: var(--muted); }
+  .slot-row select { min-height: 28px; padding: 2px 8px; border-radius: 8px; background: rgba(255, 255, 255, .06); color: var(--text); border: 1px solid var(--line); font: inherit; cursor: pointer; }
+  .slot-row option { background: #14161d; color: var(--text); }
   .device-empty { color: var(--muted); font-size: 12.5px; line-height: 1.55; padding: 4px 2px; }
 
   /* Сцена */
@@ -158,6 +162,7 @@
     <div class="stage">
       <div id="video-box" class="video-container">
         <video id="video" autoplay playsinline muted></video>
+        <div id="slot-outputs" hidden></div>
         <div id="focus-ring" class="focus-ring"></div>
         <div id="video-overlay" class="video-overlay">
           <div class="overlay-icon"><svg class="icon"><use href="#i-phone"/></svg></div>
@@ -311,7 +316,7 @@ const setKey = $("set-key");
 const setEndpoint = $("set-endpoint");
 const setResult = $("set-result");
 const devCount = $("dev-count");
-const APP_VERSION = "v17";
+const APP_VERSION = "v18";
 const quality = $("quality");
 const fps = $("fps");
 const routeEl = $("route");
@@ -329,7 +334,7 @@ const toastEl = $("toast");
 
 let peer = null;
 let peerOpen = false;
-let cameraCall = null;       // единственный входящий видеозвонок
+let cameraCall = null;       // видеозвонок телефона в эфире (Program)
 let room = null;
 let activeStream = null;
 let reconnectTimer = null;
@@ -350,6 +355,16 @@ const indexByCid = new Map();         // cid -> порядковый номер 
 const viewerCalls = new Map();        // viewerId -> MediaConnection
 const viewerConns = new Map();        // viewerId -> DataConnection
 const viewers = new Set();
+const feeds = new Map();              // cid -> { call, stream } — все принятые видеозвонки (эфир и камеры Cam 1–4)
+
+/* Glazok Studio (приложение для Windows): телефону можно назначить свою виртуальную камеру Cam 1–4 для OBS/vMix.
+   Такой телефон передаёт видео всё время, а не только в эфире. В обычном браузере этого нет. */
+const STUDIO = !!(window.glazokStudio && window.glazokStudio.slots);
+const SLOT_COUNT = STUDIO ? Math.min(8, Number(window.glazokStudio.slots) || 4) : 0;
+const SLOTS_KEY = "glazok_slots";
+let slotByCid = {};
+try { slotByCid = JSON.parse(localStorage.getItem(SLOTS_KEY) || "{}") || {}; } catch {}
+function camSlot(cam) { return STUDIO && cam ? (Number(slotByCid[cam.cid]) || 0) : 0; }
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const escapeHtml = text => String(text).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -396,10 +411,13 @@ function batteryText(cam) {
 
 function camState(cam) {
   if (liveCid === cam.cid) return activeStream ? "live" : "starting";
+  if (camSlot(cam)) return feeds.get(cam.cid) && feeds.get(cam.cid).stream ? "feed" : "feed-starting";
   return "waiting";
 }
 
 function renderDevices() {
+  const focused = document.activeElement;
+  if (focused && focused.tagName === "SELECT" && devicesList.contains(focused)) return;   // не закрываем открытый список
   devCount.textContent = cams.size ? String(cams.size) : "";
   if (cams.size === 0) {
     devicesList.innerHTML = '<div class="device-empty">Пока никого нет.<br>Подключённые телефоны ждут команды «Запустить эфир» и видео не передают.</div>';
@@ -409,9 +427,19 @@ function renderDevices() {
   cams.forEach(cam => {
     const st = camState(cam);
     const icon = cam.charging ? "⚡" : "🔋";
+    const slot = camSlot(cam);
     const statusText = st === "live" ? '<span class="st live">В эфире</span>'
       : st === "starting" ? '<span class="st">Запуск…</span>'
+      : st === "feed" ? `<span class="st feed">Cam ${slot}: передаёт</span>`
+      : st === "feed-starting" ? `<span class="st">Cam ${slot}: запуск…</span>`
       : '<span class="st">Ожидание</span>';
+    let slotHtml = "";
+    if (STUDIO) {
+      slotHtml = '<div class="slot-row"><span>Камера в OBS/vMix</span><select data-act="slot" aria-label="Виртуальная камера">'
+        + `<option value="0"${slot ? "" : " selected"}>нет</option>`;
+      for (let n = 1; n <= SLOT_COUNT; n++) slotHtml += `<option value="${n}"${slot === n ? " selected" : ""}>Glazok Cam ${n}</option>`;
+      slotHtml += "</select></div>";
+    }
     const batteryTip = cam.hasBattery === false ? ' title="Браузер этого телефона не сообщает заряд (iPhone/Safari, Firefox)"' : "";
 
     let action, label, cls = "";
@@ -426,6 +454,7 @@ function renderDevices() {
           <button class="icon-btn" data-act="rename" title="Переименовать" aria-label="Переименовать" type="button"><svg class="icon"><use href="#i-edit"/></svg></button>
         </div>
         <div class="device-info"${batteryTip}><span class="bat">${icon} ${batteryText(cam)}</span>${statusText}</div>
+        ${slotHtml}
         <button class="dev-btn ${cls}" data-act="${action}" type="button">${label}</button>
       </div>`;
   });
@@ -433,6 +462,7 @@ function renderDevices() {
 }
 
 devicesList.addEventListener("click", event => {
+  if (event.target.closest("select")) return;
   const item = event.target.closest(".device-item");
   if (!item) return;
   const cid = item.dataset.cid;
@@ -443,6 +473,76 @@ devicesList.addEventListener("click", event => {
   selectedCid = cid;     // просто выбор: эфир не запускается и не переключается
   refreshAll();
 });
+
+devicesList.addEventListener("change", event => {
+  const sel = event.target.closest('select[data-act="slot"]');
+  if (!sel) return;
+  const item = sel.closest(".device-item");
+  sel.blur();
+  if (item) setSlot(item.dataset.cid, Number(sel.value) || 0);
+});
+
+/* ---------- Виртуальные камеры Cam 1–4 (Glazok Studio) ---------- */
+
+function saveSlots() { try { localStorage.setItem(SLOTS_KEY, JSON.stringify(slotByCid)); } catch {} }
+
+/* Одна камера Cam N — один телефон: назначение отбирает её у прежнего. */
+function setSlot(cid, slot) {
+  Object.keys(slotByCid).forEach(other => {
+    if (slot && other !== cid && Number(slotByCid[other]) === slot) {
+      delete slotByCid[other];
+      releaseFeed(cams.get(other));
+    }
+  });
+  if (slot) slotByCid[cid] = slot; else delete slotByCid[cid];
+  saveSlots();
+  const cam = cams.get(cid);
+  if (slot) ensureFeed(cam); else releaseFeed(cam);
+  renderSlotOutputs();
+  refreshAll();
+}
+
+/* Телефон с камерой Cam N передаёт видео всегда. Clean Output получает видео только с телефона в эфире,
+   поэтому перед go-live забираем у телефона адреса зрителей. */
+function ensureFeed(cam) {
+  if (!cam || !camSlot(cam) || cam.cid === liveCid || feeds.has(cam.cid)) return;
+  viewers.forEach(viewerId => sendTo(cam, { type: "viewer-remove", viewerId }));
+  sendTo(cam, { type: "go-live" });
+}
+
+function releaseFeed(cam) {
+  if (!cam || cam.cid === liveCid) return;
+  sendTo(cam, { type: "go-idle" });
+  closeFeed(cam.cid);
+}
+
+function closeFeed(cid) {
+  const feed = feeds.get(cid);
+  if (!feed) return;
+  feeds.delete(cid);
+  if (cameraCall === feed.call) cameraCall = null;
+  try { feed.call.close(); } catch {}
+  renderSlotOutputs();
+}
+
+/* Скрытые <video data-glazok-slot="N">: из них Glazok Studio берёт кадры для камер Cam 1–4. */
+function renderSlotOutputs() {
+  if (!STUDIO) return;
+  const box = $("slot-outputs");
+  for (let n = 1; n <= SLOT_COUNT; n++) {
+    let el = box.querySelector(`video[data-glazok-slot="${n}"]`);
+    if (!el) {
+      el = document.createElement("video");
+      el.muted = true;
+      el.dataset.glazokSlot = String(n);
+      box.appendChild(el);
+    }
+    const cid = Object.keys(slotByCid).find(k => Number(slotByCid[k]) === n);
+    const feed = cid ? feeds.get(cid) : null;
+    const stream = feed && feed.stream ? feed.stream : null;
+    if (el.srcObject !== stream) el.srcObject = stream;
+  }
+}
 
 function renameCam(cid) {
   const cam = cams.get(cid);
@@ -629,7 +729,10 @@ function startLive(cid) {
   selectedCid = cid;
   applyCaps();                       // зум: берём возможности именно этой камеры
   feedViewers(cam);                  // Clean Output получает видео прямо с этого телефона
-  sendTo(cam, { type: "go-live" });
+  const feed = feeds.get(cid);
+  if (feed && feed.stream) attachProgram(cid);      // телефон уже передаёт (камера Cam N) — переключение мгновенное
+  else if (feed) cameraCall = feed.call;            // звонок уже идёт, ждём видео
+  else sendTo(cam, { type: "go-live" });
 
   clearTimeout(startTimer);
   startTimer = setTimeout(() => {
@@ -641,10 +744,17 @@ function startLive(cid) {
 function stopLive(silent) {
   clearTimeout(graceTimer);
   clearTimeout(startTimer);
-  const cam = cams.get(liveCid);
+  const cid = liveCid;
+  const cam = cams.get(cid);
   liveCid = null;
-  if (cam) sendTo(cam, { type: "go-idle" });
   teardownMedia();
+  if (cam && camSlot(cam)) {
+    // у телефона своя камера Cam N — он продолжает передавать, только без зрителей Clean Output
+    viewers.forEach(viewerId => sendTo(cam, { type: "viewer-remove", viewerId }));
+  } else {
+    if (cam) sendTo(cam, { type: "go-idle" });
+    if (cid) closeFeed(cid);
+  }
   applyCaps();
   if (!silent) refreshAll();
 }
@@ -654,8 +764,9 @@ function closeViewerCalls() {
   viewerCalls.clear();
 }
 
+/* Убирает видео эфира с экрана. Сам звонок закрывает closeFeed: у камеры Cam N он продолжает работать. */
 function teardownMedia() {
-  if (cameraCall) { const c = cameraCall; cameraCall = null; try { c.close(); } catch {} }
+  cameraCall = null;
   activeStream = null;
   video.srcObject = null;
   stopStats();
@@ -909,6 +1020,7 @@ function registerCamera(conn, md) {
     sendTo(cam, { type: "need-caps" });
     // телефон, который уже был в эфире, вернулся после обрыва — продолжаем эфир
     if (liveCid === cid) { clearTimeout(graceTimer); feedViewers(cam); sendTo(cam, { type: "go-live" }); }
+    else ensureFeed(cam);            // у телефона своя камера Cam N — пусть передаёт
   });
 
   refreshAll();
@@ -919,6 +1031,7 @@ function removeCam(cid, conn) {
   const cam = cams.get(cid);
   if (!cam || (conn && cam.conn !== conn)) return;   // закрылось старое соединение — запись не трогаем
   cams.delete(cid);
+  closeFeed(cid);
   if (selectedCid === cid) selectedCid = liveCid && cams.has(liveCid) ? liveCid : (cams.keys().next().value || null);
   if (liveCid === cid) {
     teardownMedia();
@@ -934,6 +1047,8 @@ setInterval(() => {
   const now = Date.now();
   Array.from(cams.values()).forEach(cam => {
     if (cam.cid === liveCid && activeStream) return;     // видео идёт — камера жива
+    const feed = feeds.get(cam.cid);
+    if (feed && feed.stream) return;
     const silent = now - cam.lastSeen;
     if (silent > 30000 || (!cam.conn.open && silent > 10000)) removeCam(cam.cid);
   });
@@ -972,11 +1087,11 @@ $("approve-no").addEventListener("click", () => {
 
 /* ---------- Входящее видео ---------- */
 
-/* Принимаем видео только от телефона, которому мы сами дали «go-live». Остальные отклоняем. */
+/* Принимаем видео только от телефона, которому мы сами дали «go-live» (эфир или камера Cam N). Остальные отклоняем. */
 function handleIncoming(incoming) {
   const cid = incoming.metadata && incoming.metadata.cid;
   const cam = cid ? cams.get(cid) : null;
-  if (!cam || cid !== liveCid) {
+  if (!cam || (cid !== liveCid && !camSlot(cam))) {
     try { incoming.close(); } catch {}
     if (cam) sendTo(cam, { type: "go-idle" });    // чтобы телефон не пытался дозвониться снова
     return;
@@ -985,30 +1100,31 @@ function handleIncoming(incoming) {
 }
 
 function acceptCall(incoming, cid) {
-  if (cameraCall && cameraCall !== incoming) {
-    const old = cameraCall;
-    cameraCall = null;
-    try { old.close(); } catch {}
+  const old = feeds.get(cid);
+  if (old && old.call !== incoming) {
+    feeds.delete(cid);
+    if (cameraCall === old.call) cameraCall = null;
+    try { old.call.close(); } catch {}
   }
-  cameraCall = incoming;
+  const feed = { call: incoming, stream: null };
+  feeds.set(cid, feed);
+  if (cid === liveCid) cameraCall = incoming;
   incoming.answer(undefined, { sdpTransform: GLAZOK.sdpHighBitrate(35000, 4000, 800) });
 
   incoming.on("stream", stream => {
-    if (cameraCall !== incoming || liveCid !== cid) return;
-    clearTimeout(graceTimer);
+    if (feeds.get(cid) !== feed) return;
+    feed.stream = stream;
     GLAZOK.tuneReceivers(incoming.peerConnection);
-    activeStream = stream;
-    video.srcObject = stream;
-    video.play().catch(() => {});
-    startStats(incoming);
-    updateVideoInfo();
-    zoomRange.disabled = false;
-    feedViewers(cam0());              // старые телефоны без прямой отдачи: пересылаем через монитор
-    refreshAll();
+    renderSlotOutputs();
+    if (liveCid === cid) attachProgram(cid);
+    else refreshAll();
   });
 
   incoming.on("close", () => {
-    if (cameraCall !== incoming) return;
+    if (feeds.get(cid) !== feed) return;
+    feeds.delete(cid);
+    renderSlotOutputs();
+    if (cameraCall !== incoming) { refreshAll(); return; }
     cameraCall = null;
     activeStream = null;
     video.srcObject = null;
@@ -1028,6 +1144,22 @@ function acceptCall(incoming, cid) {
     overlay.classList.remove("hidden");
     setOverlay("Ошибка видеосоединения", "Попробуйте остановить и снова запустить эфир");
   });
+}
+
+/* Показывает в эфире видео телефона cid (звонок уже принят). */
+function attachProgram(cid) {
+  const feed = feeds.get(cid);
+  if (!feed || !feed.stream || liveCid !== cid) return;
+  clearTimeout(graceTimer);
+  cameraCall = feed.call;
+  activeStream = feed.stream;
+  video.srcObject = feed.stream;
+  video.play().catch(() => {});
+  startStats(feed.call);
+  updateVideoInfo();
+  zoomRange.disabled = false;
+  feedViewers(cam0());              // старые телефоны без прямой отдачи: пересылаем через монитор
+  refreshAll();
 }
 
 /* ---------- Clean Output (зрители) ---------- */
@@ -1460,6 +1592,7 @@ window.addEventListener("beforeunload", () => {
 
 applyCaps();
 refreshAll();
+renderSlotOutputs();
 try { renderGrade(false); } catch (e) { console.warn("grade:", e); }
 GLAZOK.initIce().then(() => {
   createRoom();

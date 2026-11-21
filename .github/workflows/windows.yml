@@ -1,0 +1,42 @@
+# Сборка Glazok Studio для Windows: драйвер виртуальной камеры (C++) + приложение (Electron) → установщик .exe.
+# Готовый установщик — Actions → артефакт «Glazok-Studio-Windows» (см. windows/README.md).
+name: Windows app
+
+on:
+  push:
+    paths:
+      - "windows/**"
+      - ".github/workflows/windows.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build virtual camera
+        run: |
+          cmake -S windows/vcam -B windows/vcam/build -A x64
+          cmake --build windows/vcam/build --config Release
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        working-directory: windows/app
+        run: npm ci --no-fund --no-audit
+
+      - name: Build installer
+        working-directory: windows/app
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npx electron-builder --win nsis --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Glazok-Studio-Windows
+          path: windows/app/dist/GlazokStudio-Setup-*.exe
+          if-no-files-found: error
